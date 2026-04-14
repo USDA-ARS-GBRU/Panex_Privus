@@ -52,6 +52,8 @@ If your samples are in separate VCF files, you can merge them first using `bcfto
 
 ## Requirements
 
+### Python package
+
 | Requirement | Version |
 |-------------|---------|
 | Python | 3.10 or higher |
@@ -65,6 +67,43 @@ python --version
 ```
 
 If the version shown is below 3.10, consider installing [Miniforge](https://github.com/conda-forge/miniforge) (a lightweight conda distribution) and creating a fresh environment.
+
+### External command-line tools (required for input preparation)
+
+Panex Privus reads compressed, indexed VCF files. Preparing those files requires three standard bioinformatics tools that are **not** installed by `pip install .` and must be installed separately:
+
+| Tool | What it does | Install via |
+|------|-------------|-------------|
+| **bgzip** | Block-compresses a VCF into the `.vcf.gz` format that tabix can index | Ships with `htslib` / `samtools` |
+| **tabix** | Creates the `.tbi` position index that lets Panex Privus jump directly to any genomic region | Ships with `htslib` / `samtools` |
+| **bcftools** | Swiss-army knife for VCF manipulation — used to list sample names, merge per-sample VCFs, filter records, etc. | Separate `bcftools` package |
+
+The easiest way to get all three is through conda/bioconda:
+
+```bash
+# If you are using a conda environment (recommended)
+conda install -c bioconda bcftools htslib
+
+# Or install both in one shot with the samtools bundle
+conda install -c bioconda samtools bcftools htslib
+```
+
+On Ubuntu/Debian Linux:
+```bash
+sudo apt-get install bcftools tabix
+```
+
+On macOS with Homebrew:
+```bash
+brew install bcftools htslib
+```
+
+Verify the tools are on your PATH:
+```bash
+bgzip  --version | head -1
+tabix  --version | head -1
+bcftools --version | head -1
+```
 
 ---
 
