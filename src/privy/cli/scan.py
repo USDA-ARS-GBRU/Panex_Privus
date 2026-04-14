@@ -210,11 +210,9 @@ def scan(
 ) -> None:
     """Discover target-private alleles and candidate private regions.
 
-    VCF is the primary discovery backend in v1.  Missingness is reported
+    VCF and GFA are primary discovery backends.  Missingness is reported
     via strictness_class and never silently folded into pass/fail logic.
     """
-    from privy.backends.vcf_scan import run_vcf_scan
-
     state = get_state()
     effective_outdir = outdir or state.outdir
 
@@ -274,12 +272,19 @@ def scan(
         raise typer.Exit(code=1) from exc
 
     # ------------------------------------------------------------------ input
-    if vcf is None and xmfa is None:
-        typer.echo("[error] At least one primary input is required: --vcf or --xmfa", err=True)
+    if vcf is None and gfa is None and xmfa is None:
+        typer.echo(
+            "[error] At least one primary input is required: --vcf, --gfa, or --xmfa",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
     if vcf is not None and not vcf.exists():
         typer.echo(f"[error] VCF file not found: {vcf}", err=True)
+        raise typer.Exit(code=1)
+
+    if gfa is not None and not gfa.exists():
+        typer.echo(f"[error] GFA file not found: {gfa}", err=True)
         raise typer.Exit(code=1)
 
     # --------------------------------------------------------------- outdir
@@ -293,26 +298,52 @@ def scan(
     )
 
     try:
-        run_vcf_scan(
-            vcf=vcf,
-            cohort=cohort,
-            cfg=cfg,
-            outdir=effective_outdir,
-            mode=mode,
-            bam=bam,
-            bam_manifest=bam_manifest,
-            gfa=gfa,
-            xmfa=xmfa,
-            region=region,
-            contig=contig,
-            write_hits=write_hits,
-            write_regions=write_regions,
-            write_evidence=write_evidence,
-            write_sample_support=write_sample_support,
-            write_qc=write_qc,
-            write_run_json=write_run_json,
-            threads=state.threads,
-        )
+        if vcf is not None:
+            # VCF-first: use the VCF backend; GFA/XMFA/BAM are optional layers
+            from privy.backends.vcf_scan import run_vcf_scan  # noqa: PLC0415
+
+            run_vcf_scan(
+                vcf=vcf,
+                cohort=cohort,
+                cfg=cfg,
+                outdir=effective_outdir,
+                mode=mode,
+                bam=bam,
+                bam_manifest=bam_manifest,
+                gfa=gfa,
+                xmfa=xmfa,
+                region=region,
+                contig=contig,
+                write_hits=write_hits,
+                write_regions=write_regions,
+                write_evidence=write_evidence,
+                write_sample_support=write_sample_support,
+                write_qc=write_qc,
+                write_run_json=write_run_json,
+                threads=state.threads,
+            )
+        elif gfa is not None:
+            # GFA-only primary scan
+            from privy.backends.gfa_scan import run_gfa_scan  # noqa: PLC0415
+
+            run_gfa_scan(
+                gfa=gfa,
+                cohort=cohort,
+                cfg=cfg,
+                outdir=effective_outdir,
+                mode=mode,
+                region=region,
+                contig=contig,
+                write_hits=write_hits,
+                write_regions=write_regions,
+                write_evidence=write_evidence,
+                write_sample_support=write_sample_support,
+                write_qc=write_qc,
+                write_run_json=write_run_json,
+                threads=state.threads,
+            )
+        else:
+            raise NotImplementedError("XMFA-only scan is not yet implemented.")
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(f"[error] {exc}", err=True)
         raise typer.Exit(code=1) from exc

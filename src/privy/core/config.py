@@ -112,12 +112,27 @@ class BamConfig(BaseModel):
 
 
 class GfaConfig(BaseModel):
-    """Parameters for GFA graph-context layer."""
+    """Parameters for GFA graph-context and standalone GFA scan."""
 
     enabled: bool = False
     junction_window_bp: int = Field(default=1000, ge=0)
     report_path_membership: bool = True
     report_graph_complexity: bool = True
+    min_segment_length: int = Field(
+        default=1, ge=1,
+        description=(
+            "Minimum segment length (bp) to evaluate.  Shorter segments are "
+            "skipped.  Increase to filter out very short bubbles."
+        ),
+    )
+    path_name_format: str = Field(
+        default="pangenome",
+        description=(
+            "Convention for extracting sample names from P-line path names. "
+            "'pangenome' = SAMPLE#HAP#CONTIG (minigraph-cactus / PGGB); "
+            "'plain' = the full path name is the sample name."
+        ),
+    )
 
 
 class XmfaConfig(BaseModel):

@@ -1,0 +1,56 @@
+H	VN:Z:1.1
+# ---------------------------------------------------------------------------
+# small_cohort.gfa  —  Panex Privus test fixture
+#
+# Five samples: T1, T2 (targets)  |  O1, O2, O3 (off-targets)
+# Contig: chr1
+#
+# Segment layout (0-based coordinates on chr1):
+#
+#   0       8        18       26            60       67      80       88
+#   |--s1---|                  |----s3-------|        |       |--s5---|
+#            \--s2_target--\                \-s4_tgt-/
+#            \-s2_offt-----/                \-s4_offt/
+#
+# Bubble 1: chr1:8-18  (s2_target vs s2_offt)
+#   T1, T2 traverse s2_target → strict_complete (ts=2, os=0)
+#   O1, O2, O3 traverse s2_offt → contradicted for s2_offt
+#
+# Bubble 2: chr1:60-67  (s4_target vs s4_offt)
+#   T1 traverses s4_target; T2 is MISSING (no walk covers 60-67)
+#   O1, O2, O3 traverse s4_offt → strict_target_missing (ts=1/2, tm=1)
+#
+# Backbone segments (s1, s3, s5) are traversed by all samples → contradicted.
+# ---------------------------------------------------------------------------
+# Segments — all carry SN/SO/LN tags for coordinate indexing
+S	s1	ACGTACGT	LN:i:8	SN:Z:chr1	SO:i:0
+S	s2_target	AAAAAAAAAA	LN:i:10	SN:Z:chr1	SO:i:8
+S	s2_offt	CCCCCCCCCC	LN:i:10	SN:Z:chr1	SO:i:8
+S	s3	TTTTTTTT	LN:i:8	SN:Z:chr1	SO:i:18
+S	s4_target	GGGGGGG	LN:i:7	SN:Z:chr1	SO:i:60
+S	s4_offt	TTTTTTT	LN:i:7	SN:Z:chr1	SO:i:60
+S	s5	ACGTACGT	LN:i:8	SN:Z:chr1	SO:i:80
+# Links
+L	s1	+	s2_target	+	0M
+L	s1	+	s2_offt	+	0M
+L	s2_target	+	s3	+	0M
+L	s2_offt	+	s3	+	0M
+L	s3	+	s4_target	+	0M
+L	s3	+	s4_offt	+	0M
+L	s4_target	+	s5	+	0M
+L	s4_offt	+	s5	+	0M
+# ---------------------------------------------------------------------------
+# W-lines — GFA1.1 walks with explicit reference coordinates (0-based)
+#
+# Bubble 1 walks: chr1:0-26 (covers s1+s2_*+s3)
+W	T1	1	chr1	0	26	>s1>s2_target>s3
+W	T2	1	chr1	0	26	>s1>s2_target>s3
+W	O1	1	chr1	0	26	>s1>s2_offt>s3
+W	O2	1	chr1	0	26	>s1>s2_offt>s3
+W	O3	1	chr1	0	26	>s1>s2_offt>s3
+# Bubble 2 walks: chr1:57-88 (covers s4_*+s5)
+# T2 has NO walk here — T2 is "missing" at this locus
+W	T1	1	chr1	57	88	>s4_target>s5
+W	O1	1	chr1	57	88	>s4_offt>s5
+W	O2	1	chr1	57	88	>s4_offt>s5
+W	O3	1	chr1	57	88	>s4_offt>s5

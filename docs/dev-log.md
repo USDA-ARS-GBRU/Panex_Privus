@@ -416,3 +416,111 @@ The full test suite now contains 185 tests, all passing.
 The touched files also pass Ruff cleanly.  Broader Ruff cleanup remains as
 follow-on work outside this maintenance pass, but the most critical user path
 (`privy scan`) is now both runtime-tested and statically coherent.
+
+---
+
+## Phase 3 — GFA standalone scan (2026-04-14)
+
+### Design goal
+
+GFA (Graphical Fragment Assembly) is a first-class primary input, not an annotation
+layer.  When a user runs `privy scan --gfa`, the scanner discovers target-private graph
+segments and writes the same six output files as the VCF backend.  The outputs are
+directly comparable via `privy compare`.
+
+### Discovery model
+
+A graph segment is "target-private" when:
+- Target-sample paths/walks traverse it, and
+- Off-target paths/walks do not traverse it (or traverse a different bubble arm).
+
+The StrictnessClass framework applies unchanged:
+- `strict_complete` — all targets traverse; all off-targets are present at the locus
+  but traverse an alternative segment
+- `strict_target_missing` — off-target exclusion holds; one or more targets have no
+  walk/path coverage at the locus at all
+- `strict_offtarget_missing` — target support holds; one or more off-targets have no
+  coverage
+- `strict_both_missing` — pattern consistent with private status but missingness in both
+- `contradicted` — off-targets also traverse this segment above the threshold
+
+The key insight: **missing vs. absent** requires separate detection.
+- *Absent* (informative): sample has coverage at the locus but traverses a different
+  segment.  Counted as "called, does not support."
+- *Missing* (uninformative): sample has no walk or path covering the locus at all.
+  Requires coordinate information to detect.
+
+### Coordinate requirement
+
+Panex Privus can only place a segment on the output coordinate grid if it carries
+`SN:Z:`, `SO:i:`, and `LN:i:` optional tags (minigraph/PGGB standard output).
+Segments without these tags are silently skipped.  W-line coordinates are used
+for missingness detection: if a sample has a W-line whose `seq_start`/`seq_end`
+interval overlaps the locus, they are "present"; otherwise "missing."
+
+### Missingness detection logic (implemented)
+
+`get_samples_present_at_locus(graph, contig, start, end)`:
+1. Check all W-lines: if `walk.seq_id == contig and walk.seq_start < end and walk.seq_end > start` → present
+2. Check P-lines: if any traversed segment overlaps `[start, end)` via the position index → present
+
+`extract_cohort_segment_counts()` then classifies each cohort sample as:
+- **support** — traverses the segment
+- **absent** (present at locus, not counted as missing) — present but on a different arm
+- **missing** — not present at the locus at all
+
+### Files created
+
+**`src/privy/io/gfa.py`** — full GFA1/1.1 parser replacing the Phase 4 stub:
+- Typed dataclasses: `GfaSegment`, `GfaLink`, `GfaPath`, `GfaWalk`, `GfaWalkStep`, `GfaGraph`
+- `parse_gfa(path)` — reads entire file, builds all indices
+- Four inverted indices built on parse: `segment_to_paths`, `segment_to_walks`,
+  `sample_to_paths`, `sample_to_walks`
+- Position index: `_contig_segments[contig]` = sorted `(start, end, seg_name)` tuples
+- Public query functions: `query_segments_at_locus()`, `get_samples_traversing_segment()`,
+  `get_samples_present_at_locus()`, `extract_cohort_segment_counts()`
+- Path-name conventions: `SAMPLE#HAP#CONTIG` (pangenome tools) and plain names
+
+**`src/privy/backends/gfa_scan.py`** — new standalone scan backend:
+- `GfaHitRecord` — mirrors `HitRecord` but carries `segment_name` and `sample_traversal`
+  (traverses/absent/missing map) instead of VCF fields
+- `run_gfa_scan()` — same 7-step pipeline as `run_vcf_scan()`:
+  parse → validate → filter → scan segments → score → merge → write
+- `_scan_segments()` — iterates coordinate-indexed segments; applies `min_segment_length`
+  filter; calls `extract_cohort_segment_counts()` → `build_allele_pattern()` → `classify_strictness()`
+- All six output writers; `variant_type = "graph_region"`, locus IDs `GPX########`
+
+**`src/privy/core/config.py`** — `GfaConfig` extended:
+- `min_segment_length: int = 1` — filter very short bubble arms
+- `path_name_format: str = "pangenome"` — documents convention in use
+
+**`src/privy/cli/scan.py`** — routing updated:
+- `if vcf is not None` → `run_vcf_scan()` (unchanged)
+- `elif gfa is not None` → `run_gfa_scan()` (new branch)
+- `else` → `NotImplementedError` (XMFA not yet implemented)
+- Error message updated: "At least one primary input is required: --vcf, --gfa, or --xmfa"
+
+**`tests/data/small_cohort.gfa`** — GFA1.1 W-line fixture:
+- 5 samples: T1, T2 (targets), O1, O2, O3 (off-targets)
+- 7 segments with SN/SO/LN tags on chr1
+- 2 bubbles: chr1:8-18 (`strict_complete`) and chr1:60-67 (`strict_target_missing`;
+  T2 has no walk covering this region)
+- 3 backbone segments (all samples traverse → `contradicted`, never hit)
+
+**`tests/unit/test_gfa_io.py`** — 53 tests across 9 classes:
+`TestParsing`, `TestParsePLine`, `TestInvertedIndices`, `TestGetGfaSamples`,
+`TestQuerySegmentsAtLocus`, `TestGetSamplesTraversingSegment`,
+`TestGetSamplesPresentAtLocus`, `TestExtractCohortSegmentCounts`, `TestParseErrors`
+
+**`tests/integration/test_gfa_scan.py`** — 37 tests across 8 classes:
+`TestOutputFiles`, `TestHitsTsv`, `TestRegionsTsv`, `TestQcMetrics`,
+`TestSampleSupportTsv`, `TestMinSegmentLength`, `TestContigFilter`, `TestErrorHandling`
+
+### Phase 3 result
+
+Total test suite: **275 tests, all passing.**
+
+The GFA and VCF backends are architecturally symmetric: same StrictnessClass logic,
+same scoring pipeline, same output schema.  A biologist can run `privy scan --vcf` and
+`privy scan --gfa` independently and compare the two result sets with `privy compare`
+once that backend is implemented.

@@ -34,7 +34,7 @@ Imagine you are studying soybean breeding lines. You have five varieties that al
 
 Those variants are called *target-private alleles*. They may or may not *cause* the trait, but they are candidates worth investigating.
 
-Panex Privus automates finding these variants from a standard multi-sample VCF file. It handles:
+Panex Privus automates finding these variants from a VCF file or a pangenome graph (GFA). It handles:
 
 - **Missingness explicitly** — some samples may have no genotype call at a position due to low coverage or quality filtering. Panex Privus never silently pretends missing data is an absence. Every result is labeled with a *strictness class* that tells you exactly what data was available.
 - **Region merging** — nearby candidate variants are merged into genomic windows for downstream analysis.
@@ -42,11 +42,25 @@ Panex Privus automates finding these variants from a standard multi-sample VCF f
 
 ### What do I need to use this?
 
-- A **multi-sample VCF file** containing genotype calls for all your target and off-target samples in a single file.
-- The VCF must be **compressed with bgzip** and **indexed with tabix** (standard practice in bioinformatics).
-- Sample names in the VCF header that you can pass to `privy scan`.
+Privy accepts one primary input format per run. Provide whichever you have:
 
-If your samples are in separate VCF files, you can merge them first using `bcftools merge`.
+- **VCF** — a multi-sample VCF file with genotype calls for all your samples.
+  Must be compressed with bgzip and indexed with tabix.
+  If your samples are in separate VCF files, merge them first with `bcftools merge`.
+  **Recommended upstream tool**: [minigraph-cactus](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md)
+  can build a pangenome from assemblies and output a genotype VCF in a single workflow.
+- **GFA** — a pangenome graph (GFA1 or GFA1.1) where each sample has at least one
+  named path or walk. GFA files do not need an index; they are read in full.
+  **Recommended upstream tool**: minigraph-cactus produces GFA output directly
+  (`cactus-pangenome`). PGGB is another option.
+
+Panex Privus is designed to work directly downstream of minigraph-cactus: the same run
+that builds your pangenome can produce both the GFA and the genotype VCF, giving you two
+independent lines of evidence that privy can analyse separately and compare.
+
+If you provide both `--vcf` and `--gfa` in the same run, VCF is used as the primary
+discovery source. Run each independently to get comparable output directories, then use
+`privy compare` to reconcile the two result sets.
 
 ---
 
@@ -68,9 +82,40 @@ python --version
 
 If the version shown is below 3.10, consider installing [Miniforge](https://github.com/conda-forge/miniforge) (a lightweight conda distribution) and creating a fresh environment.
 
-### External command-line tools (required for input preparation)
+### Upstream pangenome tool — minigraph-cactus
+
+[minigraph-cactus](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md)
+(`cactus-pangenome`) is the primary upstream tool for generating Panex Privus inputs.
+Given a set of genome assemblies, it builds a pangenome graph and optionally calls
+variants against a linear reference — producing both a GFA and a VCF in one workflow.
+
+```bash
+# Example: build a pangenome and output both GFA and VCF
+cactus-pangenome ./js seqFile.txt \
+    --outDir pangenome/ --outName my_pangenome \
+    --reference RefSample \
+    --vcf --giraffe --gfa
+```
+
+This gives you `pangenome/my_pangenome.gfa` and `pangenome/my_pangenome.vcf.gz` —
+exactly the files Panex Privus expects.
+
+Follow the [minigraph-cactus installation guide](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md#installation)
+or install via conda:
+
+```bash
+conda install -c bioconda -c conda-forge cactus
+```
+
+---
+
+### External command-line tools (required for VCF input preparation)
 
 Panex Privus reads compressed, indexed VCF files. Preparing those files requires three standard bioinformatics tools that are **not** installed by `pip install .` and must be installed separately:
+
+> **GFA users**: plain GFA text files do not need bgzip or tabix. If minigraph-cactus
+> already produced a `.vcf.gz` with a `.tbi` index, you are ready to go. Skip this
+> section if you are starting from a `.gfa` file only.
 
 | Tool | What it does | Install via |
 |------|-------------|-------------|
@@ -149,11 +194,20 @@ You should see version information and a list of subcommands.
 
 ## Your First Scan
 
-This walkthrough takes you from a VCF file to a ranked list of candidate private alleles.
+This walkthrough takes you from an input file to a ranked list of candidate private regions.
+Two paths are shown: **VCF** (variant-level) and **GFA** (graph-level).
 
-### Step 1: Make sure your VCF is indexed
+Both inputs are most commonly produced by **minigraph-cactus** (`cactus-pangenome`).
+A typical run produces `my_pangenome.gfa` and `my_pangenome.vcf.gz` in the same output
+directory, giving you both paths immediately.
 
-Panex Privus requires a bgzip-compressed, tabix-indexed VCF. If your file is a plain `.vcf`, run:
+### VCF scan walkthrough
+
+#### Step 1: Make sure your VCF is indexed
+
+Panex Privus requires a bgzip-compressed, tabix-indexed VCF. If minigraph-cactus
+already produced a `.vcf.gz` with a `.tbi` alongside it, skip to Step 2.
+Otherwise, if your file is a plain `.vcf`, run:
 
 ```bash
 bgzip -c your_variants.vcf > your_variants.vcf.gz
@@ -166,7 +220,7 @@ If you already have a `.vcf.gz` file but no `.tbi` file alongside it:
 tabix -p vcf your_variants.vcf.gz
 ```
 
-### Step 2: List the sample names in your VCF
+#### Step 2: List the sample names in your VCF
 
 ```bash
 bcftools query -l your_variants.vcf.gz
@@ -174,7 +228,7 @@ bcftools query -l your_variants.vcf.gz
 
 You will see one sample name per line. These are the names you will pass to `--targets` and `--off-targets`.
 
-### Step 3: Run the scan
+#### Step 3: Run the scan
 
 Suppose your VCF contains five target samples (`Benning`, `Harosoy`, `Clark`, `Williams`, `Essex`) and six off-target reference samples (`Jack`, `Lee`, `Minsoy`, `Richland`, `Dunfield`, `CNS`):
 
@@ -197,13 +251,83 @@ This command will:
 
 For a typical plant genome (hundreds of millions of variants, tens of samples) this will finish in minutes.
 
-### Step 4: Explore your results
+#### Step 4: Explore your results
 
 ```bash
 head -5 results/hits.tsv
 ```
 
 The first rows are your highest-confidence candidates (rank 1 = best score).
+
+---
+
+### GFA scan walkthrough
+
+If you have a pangenome graph from minigraph-cactus (`cactus-pangenome`), you can
+run the discovery scan directly on the `.gfa` output file. No bgzip or tabix is needed.
+
+The typical minigraph-cactus workflow produces a GFA where each sample's haplotype
+appears as a W-line (walk) with the naming convention `SAMPLE#haplotype#contig` — for
+example `Benning#1#chr1`. Panex Privus parses this automatically and uses the part
+before the first `#` as the sample name.
+
+#### Step 1: Check the sample names in your GFA
+
+W-lines from minigraph-cactus follow the convention `SAMPLE#haplotype#contig`.
+Panex Privus extracts the sample name automatically. For GFA1 P-lines, path names
+are parsed the same way; plain names (no `#`) are also supported.
+
+To preview the sample names Panex Privus will find, open the file and look at the
+`W` or `P` lines:
+
+```bash
+grep "^W" your_graph.gfa | awk '{print $2}' | sort -u
+grep "^P" your_graph.gfa | awk '{print $2}' | cut -d'#' -f1 | sort -u
+```
+
+#### Step 2: Run the scan
+
+```bash
+privy scan \
+  --gfa your_graph.gfa \
+  --targets Benning Harosoy Clark Williams Essex \
+  --off-targets Jack Lee Minsoy Richland Dunfield CNS \
+  --outdir results_gfa/
+```
+
+This command will:
+
+1. Parse the entire GFA into memory and build traversal indices
+2. For each graph segment that has reference-coordinate tags (SN/SO/LN), determine
+   which samples traverse it and which have coverage at that position but traverse
+   a different segment
+3. Classify each segment using the same StrictnessClass framework as the VCF scan
+4. Merge nearby passing segments into candidate regions
+5. Score, rank, and write six output files to `results_gfa/`
+
+#### Step 3: Explore your results
+
+```bash
+head -5 results_gfa/hits.tsv
+```
+
+GFA hits look the same as VCF hits: same columns, same strictness classes, same scoring.
+The `variant_type` column will show `graph_region` and the `allele_key` column will
+contain `contig:pos:SEG:segment_name` instead of `contig:pos:REF:ALT`.
+
+#### Note on coordinate tags
+
+Panex Privus can only place a segment on the output coordinate grid if that segment
+carries `SN:Z:`, `SO:i:`, and `LN:i:` optional tags. **minigraph-cactus always writes
+these tags** — if you built your GFA with `cactus-pangenome`, this will work
+automatically. If your GFA came from a different tool and `hits.tsv` is empty, check
+whether your segments have coordinate tags:
+
+```bash
+grep "^S" your_graph.gfa | head -3
+```
+
+You should see tags like `SN:Z:chr1  SO:i:1000  LN:i:500` after the sequence field.
 
 ---
 
@@ -228,8 +352,8 @@ After running `privy scan`, your output directory contains:
 | `contig` | text | Chromosome or scaffold name |
 | `start` | integer | Start position (0-based, half-open — same convention as BED files) |
 | `end` | integer | End position (0-based, half-open) |
-| `allele_key` | text | Human-readable variant description: `contig:pos:REF:ALT` (1-based VCF position) |
-| `variant_type` | text | `snp`, `indel`, or `sv` (structural variant) |
+| `allele_key` | text | VCF: `contig:pos:REF:ALT` (1-based). GFA: `contig:pos:SEG:segment_name` |
+| `variant_type` | text | VCF: `snp`, `indel`, or `sv`. GFA: `graph_region` |
 | `target_support_n` | integer | Number of target samples carrying this allele |
 | `target_total_n` | integer | Total number of target samples |
 | `offtarget_support_n` | integer | Number of off-target samples carrying this allele (should be 0) |
@@ -321,26 +445,32 @@ privy [--config PATH] [--outdir PATH] [--threads N] [--log-level LEVEL] [--quiet
 
 ### privy scan
 
-The primary discovery engine. Finds target-private alleles in a VCF.
+The primary discovery engine. Accepts a VCF **or** a GFA as the input — provide
+whichever you have. When both are given, VCF is used as the primary source.
 
 ```bash
+# VCF scan
 privy scan --vcf PATH --targets SAMPLE [SAMPLE ...] --off-targets SAMPLE [SAMPLE ...] [OPTIONS]
+
+# GFA scan
+privy scan --gfa PATH --targets SAMPLE [SAMPLE ...] --off-targets SAMPLE [SAMPLE ...] [OPTIONS]
 ```
 
 Key options:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--vcf PATH` | required | Indexed multisample VCF (.vcf.gz + .tbi) |
+| `--vcf PATH` | — | Indexed multisample VCF (.vcf.gz + .tbi) |
+| `--gfa PATH` | — | Pangenome graph file (GFA1 or GFA1.1, plain text) |
 | `--targets TEXT` | required | Target sample names (repeat for each sample) |
 | `--off-targets TEXT` | required | Off-target sample names (repeat for each sample) |
 | `--outdir PATH` | `.` | Output directory |
 | `--min-target-support FLOAT` | `1.0` | Minimum fraction of called targets that must carry the allele |
 | `--max-off-target-support FLOAT` | `0.0` | Maximum fraction of called off-targets allowed to carry the allele |
 | `--merge-distance INT` | `0` | Merge loci within this many bp into regions (0 = no merging) |
-| `--pass-only / --no-pass-only` | `true` | Require `FILTER=PASS` in the VCF |
-| `--min-qual FLOAT` | none | Minimum VCF QUAL score |
-| `--allow-multiallelic` | `true` | Evaluate multiallelic records (one alt allele at a time) |
+| `--pass-only / --no-pass-only` | `true` | (VCF only) Require `FILTER=PASS` |
+| `--min-qual FLOAT` | none | (VCF only) Minimum VCF QUAL score |
+| `--allow-multiallelic` | `true` | (VCF only) Evaluate multiallelic records |
 | `--region TEXT` | none | Restrict scan to a region (format: `chr1:1000-2000`) |
 | `--contig TEXT` | none | Restrict scan to a single contig |
 
@@ -365,17 +495,23 @@ Panex Privus is under active development. Version 0.1.0-dev.
   - Region merging (`--merge-distance`)
   - Hit scoring and ranking
   - All six output files
-- 183 unit and integration tests passing
+- **`privy scan` with GFA input** — fully operational
+  - GFA1 and GFA1.1 (W-line walks) parsing
+  - Private-segment discovery using the same StrictnessClass framework
+  - Coordinate-based missingness detection (samples absent from a locus vs. traversing
+    an alternative bubble arm)
+  - Same six output files — directly comparable with VCF output via `privy compare`
+- 275 unit and integration tests passing
 - YAML configuration with three-tier priority
 
 ### Roadmap
 
 | Version | Focus |
 |---------|-------|
-| v0.1 (current) | VCF scan, strictness classification, scoring, all outputs |
-| v0.2 | `privy report` — ranked summaries and QC reports |
-| v0.3 | BAM support layer — read-level evidence at discovered loci |
-| v0.4 | GFA support layer — graph-context annotation |
+| v0.1 | VCF scan, strictness classification, scoring, all outputs |
+| v0.2 (current) | GFA scan — standalone pangenome graph discovery |
+| v0.3 | `privy report` — ranked summaries and QC reports |
+| v0.4 | BAM support layer — read-level evidence at discovered loci |
 | v0.5 | XMFA support, `privy compare` — cross-evidence reconciliation |
 | v1.0 | Polished docs, example datasets, manuscript-ready outputs, GitHub release |
 
@@ -409,6 +545,37 @@ Check `qc.tsv` to see how many records were evaluated vs. skipped. Common causes
 - **All records fail target support threshold**: if `--min-target-support 1.0`, all called targets must carry the allele. Try lowering to `0.8`
 - **All alleles contradicted**: off-target samples carry the same alleles. Check whether your cohort definition is correct
 
+### GFA scan produces no hits
+
+Check that your GFA segments have coordinate tags. Open the GFA and look at a few S-lines:
+
+```bash
+grep "^S" your_graph.gfa | head -3
+```
+
+Each segment needs `SN:Z:chr1  SO:i:1000  LN:i:500`-style tags. Segments without
+these tags cannot be placed on the coordinate grid and are skipped.
+
+If your graph uses W-lines (GFA1.1), presence/absence at a locus is detected from the
+walk coordinates. Make sure your sample names in W-lines match the names you pass to
+`--targets` and `--off-targets` exactly (they are case-sensitive).
+
+### "No target samples from the cohort definition were found in the GFA"
+
+Check how sample names are encoded in your GFA. For W-lines:
+
+```bash
+grep "^W" your_graph.gfa | awk '{print $2}' | sort -u
+```
+
+For P-lines (the sample name is the part before the first `#`):
+
+```bash
+grep "^P" your_graph.gfa | awk '{print $2}' | cut -d'#' -f1 | sort -u
+```
+
+Pass those exact names to `--targets` and `--off-targets`.
+
 ### pysam installation errors
 
 Install `pysam` via bioconda before running `pip install .`:
@@ -426,10 +593,10 @@ Contributions are welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 Areas where help is especially welcome:
 
-- Additional test fixtures and regression cases
+- Additional test fixtures and regression cases (especially real-world GFA files)
 - Documentation improvements and worked examples
-- BAM support layer (Phase 3)
-- Report and plot commands
+- BAM support layer (Phase 4)
+- Report and plot commands (`privy report`, `privy plot`)
 
 Please open an issue before making large architectural changes.
 
