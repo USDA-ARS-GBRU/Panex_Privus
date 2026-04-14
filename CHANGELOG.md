@@ -79,6 +79,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Fixed CLI/backend drift in `privy scan` by aligning the `write_run_json`
   parameter name between `src/privy/cli/scan.py` and
   `src/privy/backends/vcf_scan.py`
+- Fixed several `privy scan` flags that were accepted by the CLI but not
+  previously applied to the resolved configuration
 
 **Phase 3 — GFA standalone scan (2026-04-14)**
 
@@ -106,6 +108,17 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   and two bubbles covering `strict_complete` and `strict_target_missing`
 - `tests/unit/test_gfa_io.py` — 53 unit tests across 9 test classes
 - `tests/integration/test_gfa_scan.py` — 37 end-to-end scan tests
+
+**Maintenance pass — scan CLI truthfulness and GFA ergonomics (2026-04-14)**
+
+- `src/privy/cli/scan.py` now applies only explicitly provided CLI options to
+  the resolved config, preserving the intended priority order of defaults →
+  config file → command-line flags
+- Implemented `--cohort-file` loading for both YAML and TSV cohort definitions
+- Added `--min-segment-length` to the `privy scan` CLI and wired it to
+  `cfg.gfa.min_segment_length`
+- Added command-level tests for GFA scans, boolean override behaviour, and
+  YAML/TSV cohort-file loading
 
 ### Not yet implemented
 

@@ -518,9 +518,112 @@ interval overlaps the locus, they are "present"; otherwise "missing."
 
 ### Phase 3 result
 
-Total test suite: **275 tests, all passing.**
+Total test suite: **280 tests, all passing.**
 
 The GFA and VCF backends are architecturally symmetric: same StrictnessClass logic,
 same scoring pipeline, same output schema.  A biologist can run `privy scan --vcf` and
 `privy scan --gfa` independently and compare the two result sets with `privy compare`
 once that backend is implemented.
+
+---
+
+## 2026-04-14 — Maintenance Pass: Scan CLI Truthfulness and GFA Ergonomics
+
+### Goals
+
+Refine the user-facing `privy scan` command after the standalone GFA backend
+landed, without changing the architecture:
+- make CLI flags truthfully affect the resolved config
+- expose primary-GFA controls more clearly
+- turn placeholder CLI affordances into real functionality
+- add command-level tests for the new GFA workflow
+
+This was a refinement pass, not a redesign.
+
+### Weak points identified before changes
+
+**1. Several `privy scan` options were accepted but not applied**
+
+The command surface had grown enough that many flags were parsed by Typer and
+shown in `--help`, but only a subset were actually copied into the resolved
+`PrivyConfig`.  This is especially risky in a scientific CLI because a user
+can reasonably assume that a flag appearing in help output also changes the
+run recorded in `run.json`.
+
+**2. GFA was now a primary backend, but the CLI still read partly like a support layer**
+
+The GFA backend itself was functional, but the `--gfa` help text and key scan
+options did not yet fully reflect that users can run `privy scan --gfa ...`
+as a first-class primary analysis path.
+
+**3. `--cohort-file` existed but had no real behaviour**
+
+The flag appeared in the command interface and architecture docs, but it was
+not used when building the effective cohort.  A dormant flag is worse than no
+flag, because it creates false confidence in reproducibility.
+
+### What was changed
+
+**`src/privy/cli/scan.py` — explicit CLI override application**
+
+The scan command now centralises config resolution through helper functions:
+- `_apply_cli_overrides()`
+- `_provided_updates()`
+- `_was_provided()`
+
+These use Click parameter-source inspection so only values explicitly supplied
+on the command line override the YAML/default config.  This preserves the
+intended priority model:
+
+package defaults → config file → explicit CLI flags
+
+This is more correct than blindly copying every Typer option value into the
+config, because boolean defaults such as `--pass-only` or
+`--report-graph-complexity` should not silently overwrite YAML settings unless
+the user actually passed them.
+
+**`src/privy/cli/scan.py` — real cohort-file support**
+
+`--cohort-file` is now implemented for both:
+- YAML (`targets`, `off_targets`, optional `ignored_samples`)
+- TSV (`sample_id`/`sample`, `cohort_role`/`role`)
+
+CLI cohort flags still take precedence over the cohort file, and the cohort
+file takes precedence over the config file.  This keeps behaviour predictable
+and matches the documented configuration philosophy of the project.
+
+**`src/privy/cli/scan.py` — primary-GFA ergonomics**
+
+The scan command now exposes:
+- clearer `--gfa` help text ("primary backend when used without `--vcf`")
+- `--min-segment-length` wired through to `cfg.gfa.min_segment_length`
+
+This makes the standalone GFA workflow more self-sufficient from the command
+line and reduces the need to edit YAML for a common graph-specific filter.
+
+**`src/privy/backends/gfa_scan.py` — small structural cleanup**
+
+Removed a dead `skipped_no_coords` counter and an unused `GfaSegment` import.
+These were minor, but they made the backend look less deliberate than it is.
+
+### Tests added in this pass
+
+`tests/integration/test_scan_cli.py` now covers:
+- successful `privy scan --gfa ...`
+- boolean scan-option override reflected in `run.json`
+- `--min-segment-length` affecting the GFA scan output
+- cohort loading from YAML via `--cohort-file`
+- cohort loading from TSV via `--cohort-file`
+
+This matters because the scan CLI is now the place where multiple primary
+backends, config layers, and cohort-definition pathways meet.  Backend tests
+alone are not sufficient protection for that boundary.
+
+### Maintenance result
+
+The full suite now contains **280 tests, all passing**.
+
+`mypy src` remains clean across all source files.  The touched scan/GFA files
+also pass Ruff cleanly.  Broader Ruff modernization work still remains in
+untouched compare/report/plot modules, but the main discovery command now
+better matches what it claims to do in its help text and recorded config.

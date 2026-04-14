@@ -339,7 +339,7 @@ After running `privy scan`, your output directory contains:
 |------|-----------------|
 | `hits.tsv` | One row per candidate private allele, sorted by confidence score (rank 1 = highest). Start here. |
 | `regions.tsv` | Nearby hits merged into genomic intervals. Useful for downstream analysis. |
-| `evidence.tsv` | One evidence record per hit, showing the source of each finding (VCF in Phase 1). |
+| `evidence.tsv` | One evidence record per hit, showing the source of each finding (currently VCF or GFA, depending on the backend you ran). |
 | `sample_support.tsv` | Per-sample genotype at every hit locus. Tells you exactly which samples carried the allele and which were missing. |
 | `qc.tsv` | Run-level quality control: how many records were evaluated, skipped, and passed. Review this to understand how your filters affected the analysis. |
 | `run.json` | Complete record of every parameter used in this run. Keep this file to reproduce your results later. |
@@ -425,6 +425,45 @@ Any CLI flag you provide overrides the corresponding config value. Config values
 
 A fully annotated example config is in [`configs/privy.yaml`](configs/privy.yaml).
 
+### Optional cohort file
+
+If you prefer, you can store the cohort definition in a separate file and pass
+it with `--cohort-file`.
+
+YAML example:
+
+```yaml
+targets: [Benning, Harosoy, Clark, Williams, Essex]
+off_targets: [Jack, Lee, Minsoy, Richland, Dunfield, CNS]
+ignored_samples: [LowCoverageControl]
+```
+
+Run with:
+
+```bash
+privy scan --gfa your_graph.gfa --cohort-file cohort.yaml --outdir results_gfa/
+```
+
+TSV example:
+
+```tsv
+sample_id	cohort_role
+Benning	target
+Harosoy	target
+Jack	off_target
+Lee	off_target
+LowCoverageControl	ignored
+```
+
+Run with:
+
+```bash
+privy scan --vcf your_variants.vcf.gz --cohort-file cohort.tsv --outdir results/
+```
+
+If you also pass `--targets`, `--off-targets`, or `--ignore-samples` on the
+command line, those explicit CLI flags take precedence over the cohort file.
+
 ---
 
 ## Command Reference
@@ -462,6 +501,7 @@ Key options:
 |--------|---------|-------------|
 | `--vcf PATH` | — | Indexed multisample VCF (.vcf.gz + .tbi) |
 | `--gfa PATH` | — | Pangenome graph file (GFA1 or GFA1.1, plain text) |
+| `--cohort-file PATH` | none | YAML or TSV cohort definition file |
 | `--targets TEXT` | required | Target sample names (repeat for each sample) |
 | `--off-targets TEXT` | required | Off-target sample names (repeat for each sample) |
 | `--outdir PATH` | `.` | Output directory |
@@ -471,6 +511,7 @@ Key options:
 | `--pass-only / --no-pass-only` | `true` | (VCF only) Require `FILTER=PASS` |
 | `--min-qual FLOAT` | none | (VCF only) Minimum VCF QUAL score |
 | `--allow-multiallelic` | `true` | (VCF only) Evaluate multiallelic records |
+| `--min-segment-length INT` | `1` | (GFA only) Skip segments shorter than this many bp |
 | `--region TEXT` | none | Restrict scan to a region (format: `chr1:1000-2000`) |
 | `--contig TEXT` | none | Restrict scan to a single contig |
 
@@ -501,7 +542,7 @@ Panex Privus is under active development. Version 0.1.0-dev.
   - Coordinate-based missingness detection (samples absent from a locus vs. traversing
     an alternative bubble arm)
   - Same six output files — directly comparable with VCF output via `privy compare`
-- 275 unit and integration tests passing
+- 280 unit and integration tests passing
 - YAML configuration with three-tier priority
 
 ### Roadmap
@@ -595,7 +636,7 @@ Areas where help is especially welcome:
 
 - Additional test fixtures and regression cases (especially real-world GFA files)
 - Documentation improvements and worked examples
-- BAM support layer (Phase 4)
+- BAM support layer
 - Report and plot commands (`privy report`, `privy plot`)
 
 Please open an issue before making large architectural changes.

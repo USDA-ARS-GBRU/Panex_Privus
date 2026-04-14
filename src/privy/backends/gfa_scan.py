@@ -52,7 +52,6 @@ from privy.core.scoring import (
 )
 from privy.io.gfa import (
     GfaGraph,
-    GfaSegment,
     extract_cohort_segment_counts,
     parse_gfa,
 )
@@ -294,7 +293,6 @@ def _scan_segments(
     """Evaluate every coordinate-tagged segment and return passing hits."""
     hits: list[GfaHitRecord] = []
     locus_n = 0
-    skipped_no_coords = 0
     skipped_too_short = 0
     min_len = cfg.gfa.min_segment_length
 
@@ -395,8 +393,6 @@ def _scan_segments(
 
     stats.n_contigs_scanned = len(contigs_visited)
 
-    if skipped_no_coords:
-        log.debug("Skipped %d segments with no coordinate tags", skipped_no_coords)
     if skipped_too_short:
         log.debug(
             "Skipped %d segments shorter than min_segment_length=%d bp",
