@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "panex-privus"
+version = "0.1.0.dev0"
+description = "Comparative genomics toolkit for discovering target-private genomic signal"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Panex Privus Contributors" },
+]
+keywords = [
+    "bioinformatics",
+    "comparative genomics",
+    "pangenome",
+    "VCF",
+    "private alleles",
+    "plant genomics",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "typer[all]>=0.9",
+    "pydantic>=2.0",
+    "pysam>=0.22",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1",
+    "mypy>=1.5",
+    "types-PyYAML",
+]
+
+[project.scripts]
+privy = "privy.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/USDA-ARS-GBRU/Panex_Privus"
+Documentation = "https://github.com/USDA-ARS-GBRU/Panex_Privus/tree/main/docs"
+"Bug Tracker" = "https://github.com/USDA-ARS-GBRU/Panex_Privus/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/privy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+src = ["src"]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B"]
+ignore = ["B008"]  # do not perform function calls in default arguments (typer pattern)
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true

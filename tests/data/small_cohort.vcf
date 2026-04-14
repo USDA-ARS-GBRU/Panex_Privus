@@ -1,0 +1,15 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=FAIL,Description="Filter failed">
+##contig=<ID=chr1,length=10000>
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	T1	T2	O1	O2	O3
+chr1	100	.	A	T	50	PASS	.	GT	0/1	0/1	0/0	0/0	0/0
+chr1	200	.	A	T	50	PASS	.	GT	0/1	./.	0/0	0/0	0/0
+chr1	300	.	A	T	50	PASS	.	GT	0/1	0/1	0/0	0/0	./.
+chr1	400	.	A	T	50	PASS	.	GT	0/1	./.	0/0	0/0	./.
+chr1	500	.	A	T	50	PASS	.	GT	0/1	0/1	0/1	0/0	0/0
+chr1	600	.	A	T	50	FAIL	.	GT	0/1	0/1	0/0	0/0	0/0
+chr1	700	.	A	T	5	PASS	.	GT	0/1	0/1	0/0	0/0	0/0
+chr1	800	.	A	T,G	50	PASS	.	GT	0/1	0/1	0/0	0/0	0/0
+chr1	900	.	AGG	A	50	PASS	.	GT	0/1	0/1	0/0	0/0	0/0

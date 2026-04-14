@@ -1,0 +1,60 @@
+# privy.yaml — full example configuration for Panex Privus
+# All fields shown with their defaults and valid alternatives.
+# CLI flags override these values.
+
+project_name: soybean_privy_scan
+mode: private_allele  # private_allele | private_genotype | private_sv_state
+
+cohorts:
+  targets:
+    - Benning
+    - Harosoy
+    - Clark
+  off_targets:
+    - Jack
+    - Lee
+    - Minsoy
+  ignored_samples: []
+
+scan:
+  min_target_support: 1.0      # all called targets must carry the allele
+  max_off_target_support: 0.0  # no off-target may carry the allele
+  merge_distance: 1000         # merge loci within 1 kb into candidate regions
+  strictness_report: true      # always report strictness_class in outputs
+  relaxed_target_missing: null # set to e.g. 0.2 to allow up to 20% target missingness
+  relaxed_offtarget_missing: null
+  chunk_size: 100000           # process VCF in 100 kb chunks
+  same_variant_class_only: false
+  pass_only: true              # require FILTER=PASS
+  min_qual: 30                 # minimum VCF QUAL
+  allow_multiallelic: true     # evaluate multiallelic records
+
+bam:
+  enabled: false
+  min_depth: 8
+  allele_fraction_min: 0.2
+  min_alt_count: 2
+  summarize_softclips: false
+  summarize_splitreads: false
+
+gfa:
+  enabled: false
+  junction_window_bp: 1000
+  report_path_membership: true
+  report_graph_complexity: true
+
+xmfa:
+  enabled: false
+  gap_aware: true
+  window_bp: 500
+
+compare:
+  overlap_mode: reciprocal     # any | reciprocal | contained
+  min_reciprocal_overlap: 0.5
+  breakpoint_tolerance_bp: 200
+  require_state_compatibility: false
+
+scoring:
+  discovery_weight: 1.0
+  support_weight: 0.7
+  penalty_weight: 0.8

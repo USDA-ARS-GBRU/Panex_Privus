@@ -1,0 +1,90 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.Python
+
+# Package build
+*.whl
+sdist/
+var/
+wheels/
+MANIFEST
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Bioinformatics outputs (do not commit large data files)
+*.bam
+*.bam.bai
+*.cram
+*.cram.crai
+*.vcf.gz
+*.vcf.gz.tbi
+*.vcf.gz.csi
+*.bcf
+*.bcf.csi
+*.bed.gz
+*.bed.gz.tbi
+*.fa
+*.fasta
+*.fasta.fai
+*.fa.fai
+*.xmfa
+*.gfa.gz
+*.sam
+
+# Logs
+*.log
+logs/
+
+# Project outputs (results from running privy — do not commit)
+results/
+output/
+out/
+
+# Config with private paths (commit privy.yaml templates, not runs)
+run.json
+
+# Claude Code internal state
+.claude/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db

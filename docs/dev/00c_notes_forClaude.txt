@@ -1,0 +1,1094 @@
+
+⸻
+
+Panex Privus
+
+Master software design plan for GitHub package
+
+Official name: Panex Privus
+
+CLI: privy
+
+Mission
+
+Panex Privus is a comparative genomics toolkit for discovering target-group-private genomic signal: alleles, intervals, and regions shared within a target cohort and absent from off-target genomes, with cross-evidence support from VCF, BAM, GFA, and XMFA.
+
+Its primary job is not generic variant processing. Its job is:
+
+Find genomic signal private to the focal cohort, quantify how strong it is, and show whether multiple evidence layers agree.
+
+⸻
+
+1. Product definition
+
+Primary use case
+
+Given:
+	•	a target group of genomes
+	•	an off-target group of genomes
+	•	a primary evidence source, usually VCF
+	•	optional supporting evidence from BAM, GFA, and XMFA
+
+Panex Privus should:
+	1.	identify candidate private alleles and private regions
+	2.	merge them into interpretable interval-level findings
+	3.	score their support and uncertainty
+	4.	compare evidence across modalities
+	5.	generate publication-ready summaries and plots
+
+Core commands
+
+The package will ship with four primary commands:
+	•	privy scan
+	•	privy compare
+	•	privy report
+	•	privy plot
+
+This is the correct surface area for v1.
+
+⸻
+
+2. Command philosophy
+
+privy scan
+
+Primary discovery engine.
+
+Purpose: detect target-private allele or interval signal, primarily from VCF, with optional BAM/GFA/XMFA support overlays.
+
+This is the main workhorse.
+
+privy compare
+
+Cross-evidence reconciliation engine.
+
+Purpose: compare loci or regions across VCF, BAM, GFA, and XMFA evidence and classify loci as supported, contradicted, source-specific, or uninformative.
+
+This is the intellectual differentiator of the package.
+
+privy report
+
+Interpretation and ranking engine.
+
+Purpose: convert raw scan and compare outputs into ranked summaries, QC tables, and human-readable reports.
+
+privy plot
+
+Focused evidence visualization.
+
+Purpose: explain and diagnose loci with compact, publication-grade figures. Not a genome browser replacement.
+
+⸻
+
+3. Core biological logic
+
+Primary discovery model
+
+The central VCF-mode biological rule is:
+
+A locus is interesting when a private allele is present in the target group and absent from the off-target group.
+
+This should be the default and the conceptual center of privy scan.
+
+Supported strictness categories
+
+Missingness should not be buried inside filtering logic. It should be surfaced explicitly as a reported category.
+
+Each locus should carry a column like strictness_class, with values such as:
+	•	strict_complete
+All targets support the private allele; all off-targets are confidently absent; no missing calls among required samples.
+	•	strict_target_missing
+Off-target exclusion holds, but one or more target samples are missing or uninformative.
+	•	strict_offtarget_missing
+Target support holds, but one or more off-target samples are missing or uninformative.
+	•	strict_both_missing
+Pattern is otherwise consistent, but missingness exists in both target and off-target cohorts.
+	•	relaxed_threshold
+Passes user-defined support thresholds but not strict-complete logic.
+	•	contradicted
+Private-allele model fails because at least one off-target supports the allele or target consistency breaks below threshold.
+
+This is the right design because it separates:
+	•	biological signal
+	•	technical missingness
+	•	user policy
+
+That makes the software auditable.
+
+⸻
+
+4. Supported evidence types and their roles
+
+4.1 VCF: primary discovery backend
+
+VCF is the main engine in v1.
+
+Supported VCF use cases
+	•	multisample VCF
+	•	multiple bgzip/tabix indexed VCFs
+	•	SNPs
+	•	indels
+	•	symbolic and interval-based SV representation where possible
+	•	phased and unphased genotypes
+	•	filtered subsets by QUAL/FILTER/INFO/FORMAT
+
+VCF discovery responsibilities
+	•	identify target-private alleles
+	•	evaluate target support and off-target exclusion
+	•	group nearby discriminant variants into candidate regions
+	•	attach missingness class
+	•	produce locus-level and region-level outputs
+
+VCF matching modes for v1
+
+v1 should support a clear and limited set:
+	•	private_allele — default
+	•	private_genotype — optional stricter exact genotype logic
+	•	private_sv_state — for symbolic/length-aware SV handling
+
+Do not overcomplicate v1 with haplotype inference beyond what is directly available.
+
+⸻
+
+4.2 BAM: support backend
+
+BAM is support evidence, not a discovery caller.
+
+BAM responsibilities in v1
+
+At candidate loci or intervals, BAM should provide:
+	•	read depth
+	•	allele counts at known variant positions
+	•	allele fraction
+	•	reference vs alt support
+	•	optional soft-clip / split-read summary near SV-like intervals
+	•	coverage sufficiency flags for targets and off-targets
+
+BAM interpretation
+
+BAM should help answer:
+	•	is the private allele truly supported in targets?
+	•	is off-target absence real or just no coverage?
+	•	is there read-level evidence near candidate structural intervals?
+
+BAM non-goals in v1
+	•	full de novo variant calling
+	•	general-purpose SV discovery
+	•	assembly-aware remapping logic
+
+That keeps v1 honest and robust.
+
+⸻
+
+4.3 GFA: graph-context backend
+
+GFA should be treated as a structural context layer, not the master coordinate system.
+
+GFA responsibilities in v1
+	•	annotate whether loci fall near graph branches, bubbles, or junctions
+	•	report path membership where available
+	•	summarize local graph complexity near candidate loci
+	•	identify candidate graph evidence supporting structural uniqueness
+
+GFA support model for v1
+
+Use your chosen recommendation:
+	•	junction/branch context
+	•	path membership
+	•	local graph annotation
+
+Not full graph-to-linear universal truth. That way lies chaos.
+
+⸻
+
+4.4 XMFA: optional alignment-evidence backend
+
+XMFA is useful, but secondary.
+
+XMFA responsibilities in v1
+	•	alignment-based corroboration of private intervals
+	•	support for conserved target-specific alignment states
+	•	interval aggregation across discriminant sites
+	•	gap-aware regional support
+
+XMFA role
+
+XMFA should be implemented as:
+	•	a secondary scan backend if practical
+	•	a support layer for compare
+
+But the package architecture should not revolve around XMFA.
+
+⸻
+
+5. Internal architecture principle
+
+The package must be format-aware but logic-centered.
+
+Do not let each file format define its own truth. The internal truth model must be:
+
+a locus or interval can have evidence for or against target-private status.
+
+Everything maps into that.
+
+⸻
+
+6. Unified domain model
+
+This is the heart of the package and the thing Claude Code needs to get right first.
+
+6.1 CohortDefinition
+
+Represents user-defined biological groups.
+
+Fields:
+	•	targets: list[str]
+	•	off_targets: list[str]
+	•	ignored_samples: list[str] | None
+	•	metadata: dict | None
+
+Responsibilities:
+	•	validate no overlap between target and off-target groups
+	•	provide sample lookup helpers
+	•	expose target/off-target counts and thresholds
+
+⸻
+
+6.2 Locus
+
+Represents a discrete candidate site or interval.
+
+Fields:
+	•	locus_id
+	•	contig
+	•	start
+	•	end
+	•	locus_type
+(snp, indel, sv, region, graph_region, alignment_region)
+	•	primary_source
+	•	source_ids
+	•	metadata
+
+Responsibilities:
+	•	normalize coordinates
+	•	support overlap and merge operations
+	•	carry provenance
+
+⸻
+
+6.3 AllelePattern
+
+Represents cohort-level allele pattern inferred from VCF.
+
+Fields:
+	•	allele_key
+	•	target_support_n
+	•	target_total_n
+	•	offtarget_support_n
+	•	offtarget_total_n
+	•	target_missing_n
+	•	offtarget_missing_n
+	•	strictness_class
+	•	pattern_pass
+	•	pattern_reason
+
+Responsibilities:
+	•	encode the exact target-private logic
+	•	make missingness visible
+	•	support ranking
+
+⸻
+
+6.4 EvidenceRecord
+
+Represents one normalized piece of evidence for a locus.
+
+Fields:
+	•	locus_id
+	•	source_type (vcf, bam, gfa, xmfa)
+	•	sample_id or group_id
+	•	evidence_class
+(support, absence, ambiguous, contradiction, uninformative)
+	•	metric_name
+	•	metric_value
+	•	qualifiers
+	•	provenance
+
+Responsibilities:
+	•	normalize heterogeneous source outputs into a common logic layer
+	•	preserve evidence traceability
+
+⸻
+
+6.5 ComparisonRecord
+
+Represents the outcome of cross-source comparison.
+
+Fields:
+	•	locus_id
+	•	source_a
+	•	source_b
+	•	match_class
+	•	coordinate_overlap
+	•	state_compatibility
+	•	support_summary
+	•	contradiction_summary
+	•	comparison_score
+
+match_class values
+	•	supported
+	•	partially_supported
+	•	contradicted
+	•	source_specific
+	•	uninformative
+	•	missing_data
+
+⸻
+
+6.6 ScoredHit
+
+Represents final ranked output.
+
+Fields:
+	•	locus_id
+	•	discovery_score
+	•	support_score
+	•	penalty_score
+	•	final_score
+	•	rank
+	•	strictness_class
+	•	summary_label
+
+⸻
+
+7. privy scan design
+
+Primary mode
+
+The main entry point should be VCF-first.
+
+Required behaviors
+
+privy scan must:
+	1.	ingest cohort definition
+	2.	parse VCF in indexed, chunkable fashion
+	3.	identify target-private allele patterns
+	4.	classify missingness strictness
+	5.	merge nearby passing loci into candidate regions
+	6.	optionally overlay BAM/GFA/XMFA evidence
+	7.	emit machine-friendly outputs plus run metadata
+
+Core scan workflow
+	1.	validate inputs
+	2.	load cohort and config
+	3.	iterate through VCF records by contig/chunk
+	4.	evaluate allele patterns
+	5.	classify pass/fail and strictness
+	6.	emit per-locus hits
+	7.	merge loci into regions
+	8.	query optional evidence layers around hits/regions
+	9.	score hits
+	10.	write outputs
+
+⸻
+
+7.1 VCF private allele logic
+
+For each record:
+	•	enumerate candidate alternate alleles
+	•	compute support in target samples
+	•	compute support in off-target samples
+	•	classify missingness separately for both groups
+	•	determine whether allele qualifies as target-private
+
+Default decision policy
+
+A private allele passes default discovery when:
+	•	target support meets threshold
+	•	off-target support is zero
+	•	required filters pass
+
+Missingness handling
+
+Missingness does not silently fail by default. It is reported as a strictness class and influences score.
+
+This is one of your package’s best design choices.
+
+⸻
+
+7.2 Region construction
+
+Single variants are not always the biological story. privy scan should support region building.
+
+Region merge strategy
+
+Merge nearby passing loci into regions using configurable parameters:
+	•	merge_distance
+	•	same_variant_class_only
+	•	same_allele_or_state_required
+	•	max_gap_with_no_signal
+
+Region-level outputs
+
+Each region should summarize:
+	•	number of constituent loci
+	•	variant density
+	•	target support consistency
+	•	off-target exclusion consistency
+	•	strictness composition
+	•	support from BAM/GFA/XMFA
+
+⸻
+
+7.3 Plant pangenome scale requirements
+
+This matters.
+
+The package must assume:
+	•	large contigs/chromosomes
+	•	high structural diversity
+	•	big multisample VCFs
+	•	multiple BAMs
+	•	possible graph complexity
+	•	memory pressure
+
+So privy scan must be designed for:
+	•	indexed streaming, not whole-file loading
+	•	contig or window chunking
+	•	lazy evidence queries
+	•	output-first processing
+	•	limited in-memory state
+
+That means no naïve “load everything into pandas” architecture in the core engine.
+
+⸻
+
+8. privy compare design
+
+This command is where Panex Privus becomes more than a filter.
+
+Purpose
+
+Compare loci or regions across evidence layers and quantify concordance.
+
+Default match logic
+
+You chose the right default:
+
+comparison = interval overlap + evidence compatibility
+
+This should be implemented with source-aware tolerances.
+
+Compatibility dimensions
+	•	coordinate overlap
+	•	allele/state compatibility
+	•	target support agreement
+	•	off-target exclusion agreement
+	•	evidence sufficiency
+	•	contradiction detection
+
+Examples
+	•	VCF locus overlaps BAM-supported allele site: supported
+	•	VCF SV region overlaps GFA branch context but BAM weak: partially_supported
+	•	VCF private allele also present in off-target BAM reads above threshold: contradicted
+	•	XMFA interval overlaps region but state ambiguous: uninformative
+	•	GFA-only branch with no VCF/BAM/XMFA counterpart: source_specific
+
+Comparison modes
+
+v1 should include:
+	•	vcf_vs_bam
+	•	vcf_vs_gfa
+	•	vcf_vs_xmfa
+	•	scan_vs_scan
+	•	multi_evidence
+
+Do not expose fifty knobs. Keep it crisp.
+
+⸻
+
+9. privy report design
+
+Purpose
+
+Convert raw outputs into a ranked interpretation package.
+
+Required outputs
+
+privy report should generate:
+	•	summary TSV
+	•	ranked hit table
+	•	strictness distribution table
+	•	per-source support summary
+	•	comparison summary table
+	•	QC summary
+	•	Markdown report
+	•	optional HTML report
+
+Core report sections
+	1.	run summary
+	2.	cohort definition
+	3.	filtering and QC
+	4.	top hits
+	5.	strictness class distribution
+	6.	source support distribution
+	7.	contradiction summary
+	8.	candidate regions
+	9.	caveats and limitations
+
+This should feel like something a scientist can hand to a collaborator.
+
+⸻
+
+10. privy plot design
+
+Purpose
+
+Produce focused diagnostic and publication-grade figures.
+
+v1 plot types
+	•	locus evidence panel
+	•	region evidence summary
+	•	genotype heatmap by sample
+	•	strictness class bar plot
+	•	support/contradiction stacked bars
+	•	region-level variant density
+	•	BAM depth / allele fraction panel
+	•	GFA context annotation strip
+	•	XMFA corroboration block strip when available
+
+Plot philosophy
+
+Do not attempt full exploratory GUI behavior.
+Make privy plot excellent at explaining a locus or region.
+
+⸻
+
+11. Scoring system
+
+The scoring system should be transparent and additive.
+
+11.1 Discovery score
+
+Derived from VCF cohort pattern.
+
+Suggested components:
+	•	target support fraction
+	•	off-target exclusion fraction
+	•	private-allele specificity
+	•	variant quality contribution
+	•	region density contribution if region-level
+
+11.2 Support score
+
+Derived from secondary evidence.
+
+Suggested components:
+	•	BAM depth adequacy
+	•	BAM allele support
+	•	BAM absence confidence in off-targets
+	•	GFA junction/branch relevance
+	•	path membership support
+	•	XMFA corroboration consistency
+
+11.3 Penalty score
+
+Subtract for:
+	•	target missingness
+	•	off-target missingness
+	•	contradictory evidence
+	•	low support in key targets
+	•	excessive graph complexity if it reduces interpretability
+	•	imprecise regional boundaries
+
+11.4 Final score
+
+A visible weighted sum:
+final_score = discovery + support - penalty
+
+Weights should live in config and be written into run.json.
+
+That way the method stays explainable and reproducible.
+
+⸻
+
+12. Package architecture
+
+This is the structure Claude Code should implement.
+
+src/privy/
+├── cli/
+│   ├── main.py
+│   ├── scan.py
+│   ├── compare.py
+│   ├── report.py
+│   └── plot.py
+├── core/
+│   ├── cohort.py
+│   ├── locus.py
+│   ├── patterns.py
+│   ├── evidence.py
+│   ├── scoring.py
+│   ├── intervals.py
+│   └── config.py
+├── io/
+│   ├── vcf.py
+│   ├── bam.py
+│   ├── gfa.py
+│   ├── xmfa.py
+│   ├── bed.py
+│   ├── tsv.py
+│   └── jsonio.py
+├── backends/
+│   ├── vcf_scan.py
+│   ├── bam_support.py
+│   ├── gfa_support.py
+│   └── xmfa_support.py
+├── compare/
+│   ├── engine.py
+│   ├── overlap.py
+│   ├── compatibility.py
+│   └── classifiers.py
+├── report/
+│   ├── summary.py
+│   ├── markdown.py
+│   └── html.py
+├── plot/
+│   ├── loci.py
+│   ├── regions.py
+│   ├── summaries.py
+│   └── themes.py
+├── utils/
+│   ├── logging.py
+│   ├── validation.py
+│   ├── parallel.py
+│   ├── metrics.py
+│   └── misc.py
+└── __init__.py
+
+This is modular without becoming performative.
+
+⸻
+
+13. CLI spec
+
+Top-level
+
+privy scan
+privy compare
+privy report
+privy plot
+
+Example scan
+
+privy scan \
+  --vcf cohort.vcf.gz \
+  --targets Benning Harosoy Clark \
+  --off-targets Jack Lee Minsoy \
+  --mode private_allele \
+  --min-target-support 1.0 \
+  --max-off-target-support 0.0 \
+  --merge-distance 1000 \
+  --bam targets/*.bam off_targets/*.bam \
+  --gfa graph.gfa.gz \
+  --xmfa alignment.xmfa \
+  --config privy.yaml \
+  --outdir results/
+
+Example compare
+
+privy compare \
+  --hits results/hits.tsv \
+  --vcf cohort.vcf.gz \
+  --bam bam_manifest.tsv \
+  --gfa graph.gfa.gz \
+  --xmfa alignment.xmfa \
+  --mode multi_evidence \
+  --outdir compare/
+
+Example report
+
+privy report \
+  --hits results/hits.tsv \
+  --regions results/regions.tsv \
+  --evidence results/evidence.tsv \
+  --compare compare/compare.tsv \
+  --qc results/qc.tsv \
+  --outdir report/
+
+Example plot
+
+privy plot \
+  --hits results/hits.tsv \
+  --locus-id PPX000123 \
+  --vcf cohort.vcf.gz \
+  --bam bam_manifest.tsv \
+  --gfa graph.gfa.gz \
+  --xmfa alignment.xmfa \
+  --outdir plots/
+
+
+⸻
+
+14. YAML config support
+
+Yes, absolutely.
+
+Example privy.yaml
+
+project_name: soybean_privy_scan
+mode: private_allele
+
+cohorts:
+  targets: [Benning, Harosoy, Clark]
+  off_targets: [Jack, Lee, Minsoy]
+
+scan:
+  min_target_support: 1.0
+  max_off_target_support: 0.0
+  merge_distance: 1000
+  strictness_report: true
+
+filters:
+  min_qual: 30
+  pass_only: true
+  allow_multiallelic: true
+
+bam:
+  enabled: true
+  min_depth: 8
+  allele_fraction_min: 0.2
+  summarize_softclips: true
+
+gfa:
+  enabled: true
+  junction_window_bp: 1000
+  report_path_membership: true
+
+xmfa:
+  enabled: false
+  gap_aware: true
+
+compare:
+  overlap_mode: reciprocal
+  min_reciprocal_overlap: 0.5
+  breakpoint_tolerance_bp: 200
+
+scoring:
+  discovery_weight: 1.0
+  support_weight: 0.7
+  penalty_weight: 0.8
+
+The config should override defaults, and CLI flags should override config.
+
+⸻
+
+15. Output schema
+
+Required outputs from scan
+	•	hits.tsv
+one row per passing locus
+	•	regions.tsv
+merged candidate regions
+	•	evidence.tsv
+one row per evidence record
+	•	sample_support.tsv
+per-sample locus support summary
+	•	qc.tsv
+	•	run.json
+
+Required columns in hits.tsv
+
+At minimum:
+	•	locus_id
+	•	contig
+	•	start
+	•	end
+	•	variant_type
+	•	allele_key
+	•	target_support_n
+	•	target_total_n
+	•	offtarget_support_n
+	•	offtarget_total_n
+	•	target_missing_n
+	•	offtarget_missing_n
+	•	strictness_class
+	•	discovery_score
+	•	support_score
+	•	penalty_score
+	•	final_score
+
+Required columns in regions.tsv
+	•	region_id
+	•	contig
+	•	start
+	•	end
+	•	n_loci
+	•	variant_types
+	•	dominant_strictness_class
+	•	target_consistency
+	•	offtarget_exclusion
+	•	final_score
+
+Required columns in evidence.tsv
+	•	locus_id
+	•	source_type
+	•	sample_id
+	•	evidence_class
+	•	metric_name
+	•	metric_value
+	•	details
+
+Required outputs from compare
+	•	compare.tsv
+	•	compare_summary.tsv
+	•	compare.json
+
+⸻
+
+16. Performance design for plant pangenome scale
+
+This cannot be an afterthought.
+
+Required performance choices
+	•	stream indexed VCF/BAM by contig or region
+	•	do not keep all records in memory
+	•	avoid large DataFrame-first architecture in the core path
+	•	support windowed querying of BAM/GFA/XMFA around candidate loci
+	•	use manifest-driven sample input for BAMs
+	•	parallelize by contig or chunk where safe
+	•	log chunk processing statistics
+
+Important implementation note
+
+The package should separate:
+	•	discovery pass
+	•	support annotation pass
+	•	comparison pass
+	•	reporting pass
+
+This is more scalable and more debuggable than monolithic everything-at-once logic.
+
+⸻
+
+17. Repository design for GitHub
+
+panex-privus/
+├── README.md
+├── LICENSE
+├── pyproject.toml
+├── CHANGELOG.md
+├── CITATION.cff
+├── CONTRIBUTING.md
+├── docs/
+│   ├── overview.md
+│   ├── installation.md
+│   ├── cli.md
+│   ├── config.md
+│   ├── formats.md
+│   ├── scoring.md
+│   ├── examples.md
+│   └── architecture.md
+├── src/
+│   └── privy/...
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   ├── regression/
+│   └── data/
+├── workflows/
+│   └── examples/
+├── .github/
+│   └── workflows/
+└── scripts/
+
+GitHub must-have qualities
+	•	clean install
+	•	minimal example
+	•	example config
+	•	clear output description
+	•	explanation of strictness classes
+	•	explanation of compare classes
+	•	strong README identity
+
+⸻
+
+18. Testing plan
+
+Unit tests
+	•	cohort validation
+	•	private allele detection
+	•	missingness classification
+	•	interval merging
+	•	overlap logic
+	•	compatibility logic
+	•	scoring functions
+
+Integration tests
+	•	small VCF target-private scan
+	•	VCF + BAM support annotation
+	•	VCF + GFA annotation
+	•	VCF + XMFA corroboration
+	•	compare across two and multiple sources
+
+Regression tests
+
+Use tiny curated fixtures with known expected outcomes for:
+	•	multiallelic records
+	•	symbolic SVs
+	•	missing targets
+	•	missing off-targets
+	•	contradictory off-target evidence
+	•	merged region behavior
+
+This matters more than flashy docs.
+
+⸻
+
+19. Recommended Python stack
+
+Use
+	•	typer for CLI
+	•	pydantic for config and typed models
+	•	pysam for VCF/BAM/tabix
+	•	numpy
+	•	pandas for report/output formatting
+	•	matplotlib for plots
+	•	networkx only if the GFA backend truly benefits
+
+Avoid in early versions
+	•	huge plotting dependency stacks
+	•	GUI frameworks
+	•	over-engineered workflow managers inside the package
+	•	pretending graph coordinates are simpler than they are
+
+⸻
+
+20. Development roadmap
+
+v0.1
+	•	package skeleton
+	•	CLI scaffold
+	•	YAML config
+	•	cohort model
+	•	VCF private-allele scan
+	•	strictness class reporting
+	•	hits/qc/run outputs
+	•	core unit tests
+
+v0.2
+	•	region merging
+	•	scoring model
+	•	report command
+	•	basic plots
+	•	sample support outputs
+
+v0.3
+	•	BAM support layer
+	•	allele counts, depth, allele fraction
+	•	optional split-read/soft-clip summaries
+	•	compare v1: VCF vs BAM
+
+v0.4
+	•	GFA support layer
+	•	branch/junction/path annotations
+	•	compare v2: VCF vs GFA
+
+v0.5
+	•	XMFA backend/support
+	•	compare v3: VCF vs XMFA and multi-evidence
+	•	report polish
+
+v1.0
+	•	full docs
+	•	example workflows
+	•	benchmark examples
+	•	release-ready GitHub package
+	•	citation and changelog
+	•	manuscript-quality example outputs
+
+⸻
+
+21. Instructions for Claude Code
+
+Here is the implementation directive you can pass forward.
+
+Claude Code implementation brief
+
+Build Panex Privus as a production-quality Python package with CLI name privy.
+The package must center on VCF-first discovery of target-private alleles absent from off-targets, with optional BAM, GFA, and XMFA support layers.
+
+Non-negotiable requirements
+	1.	The package must implement four top-level commands:
+	•	privy scan
+	•	privy compare
+	•	privy report
+	•	privy plot
+	2.	privy scan must be VCF-first and support:
+	•	multisample VCF
+	•	indexed VCF streaming
+	•	target/off-target cohort definitions
+	•	private-allele logic
+	•	missingness classification in an explicit output column strictness_class
+	•	region merging
+	•	output of hits, regions, evidence, qc, and run metadata
+	3.	Missingness must not be silently hidden in pass/fail logic. It must be surfaced as separate strictness classes.
+	4.	BAM support must provide read-level support metrics at known loci or intervals, including:
+	•	depth
+	•	allele counts
+	•	allele fraction
+	•	optional soft-clip/split-read summaries
+	5.	GFA support must focus on:
+	•	path membership
+	•	branch/junction context
+	•	local graph complexity annotations
+	6.	privy compare must compare evidence across sources using:
+	•	interval overlap
+	•	evidence compatibility
+	•	match classes: supported, partially_supported, contradicted, source_specific, uninformative, missing_data
+	7.	The codebase must use a modular architecture with separate layers for:
+	•	CLI
+	•	core domain models
+	•	IO
+	•	backends
+	•	compare
+	•	report
+	•	plot
+	8.	The package must support YAML config files, with CLI overrides.
+	9.	The architecture must be suitable for plant pangenome scale:
+	•	indexed streaming
+	•	chunked processing
+	•	no whole-file load assumptions
+	•	evidence queries localized around candidate loci
+	10.	The code should be typed, documented, and tested with unit and integration tests.
+
+Initial implementation order
+	1.	package scaffold
+	2.	config and cohort models
+	3.	VCF scan backend
+	4.	strictness classification
+	5.	hits/qc/run outputs
+	6.	region merging
+	7.	scoring
+	8.	report
+	9.	plot
+	10.	BAM support
+	11.	compare v1
+	12.	GFA support
+	13.	XMFA support
+	14.	compare multi-evidence
+
+Tone of implementation
+
+The code should feel:
+	•	rigorous
+	•	modular
+	•	explicit
+	•	auditable
+	•	reproducible
+	•	suited for publication and GitHub release
+
+No placeholder architecture that will need total rewriting later.
+
+⸻
+

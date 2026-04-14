@@ -1,0 +1,16 @@
+# privy_minimal.yaml — minimal configuration
+# Only the fields that differ from package defaults.
+
+project_name: my_privy_run
+
+cohorts:
+  targets:
+    - Sample_A
+    - Sample_B
+  off_targets:
+    - Sample_C
+    - Sample_D
+
+scan:
+  merge_distance: 500
+  min_qual: 20

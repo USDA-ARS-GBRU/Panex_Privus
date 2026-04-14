@@ -1,0 +1,113 @@
+"""Main CLI entry point for Panex Privus (``privy``).
+
+Registers all top-level subcommands and handles global options that apply
+across every subcommand (config path, output directory, thread count, etc.).
+
+Usage::
+
+    privy --help
+    privy scan --vcf cohort.vcf.gz --targets S1 S2 --off-targets S3 S4 --outdir results/
+    privy compare --hits results/hits.tsv --vcf cohort.vcf.gz --outdir compare/
+    privy report --hits results/hits.tsv --outdir report/
+    privy plot   --hits results/hits.tsv --top-n 10 --outdir plots/
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional
+
+import typer
+
+from privy import __version__
+from privy.cli import compare, plot, report, scan
+from privy.cli.context import get_state
+from privy.utils.logging import configure_logging
+
+app = typer.Typer(
+    name="privy",
+    help=(
+        "[bold]Panex Privus[/bold] — a comparative genomics toolkit for discovering\n"
+        "target-private alleles and regions shared within a focal cohort and absent\n"
+        "from off-target genomes.\n\n"
+        "Primary discovery is VCF-first. BAM, GFA, and XMFA are support layers.\n"
+        "Missingness is always reported explicitly via [italic]strictness_class[/italic]."
+    ),
+    add_completion=True,
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+
+app.add_typer(scan.app, name="scan")
+app.add_typer(compare.app, name="compare")
+app.add_typer(report.app, name="report")
+app.add_typer(plot.app, name="plot")
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"privy {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def global_options(
+    config: Optional[Path] = typer.Option(
+        None,
+        "--config",
+        metavar="PATH",
+        help="Path to YAML configuration file.",
+        show_default=False,
+    ),
+    project_name: Optional[str] = typer.Option(
+        None,
+        "--project-name",
+        metavar="TEXT",
+        help="Optional project name written into outputs.",
+        show_default=False,
+    ),
+    outdir: Path = typer.Option(
+        Path("."),
+        "--outdir",
+        metavar="PATH",
+        help="Default output directory (may be overridden per subcommand).",
+    ),
+    threads: int = typer.Option(
+        1,
+        "--threads",
+        metavar="INTEGER",
+        min=1,
+        help="Number of worker threads to use where supported.",
+    ),
+    log_level: str = typer.Option(
+        "info",
+        "--log-level",
+        metavar="TEXT",
+        help="Logging level: debug, info, warning, error.",
+    ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        help="Reduce console output.",
+    ),
+    version: Optional[bool] = typer.Option(  # noqa: UP007
+        None,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version and exit.",
+    ),
+) -> None:
+    """Panex Privus — target-private genomic signal discovery toolkit."""
+    state = get_state()
+    state.config_path = config
+    state.project_name = project_name
+    state.outdir = outdir
+    state.threads = threads
+    state.log_level = log_level
+    state.quiet = quiet
+    configure_logging(level=log_level, quiet=quiet)
+
+
+if __name__ == "__main__":
+    app()

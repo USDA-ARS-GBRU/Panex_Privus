@@ -1,0 +1,41 @@
+Panex Privus
+
+Reveal the part within the whole
+A framework for detecting target-group-exclusive genomic regions
+
+
+Panex feels like totality, breadth, all-across-the-pangenome.
+Privus feels like set apart, withheld, exclusive, hidden from the rest.
+privy as the command means both “private” and “in possession of special knowledge,” which is unusually perfect for your use case.
+
+privy scan --vcf variants.vcf --targets GenomeA GenomeD GenomeF
+
+privy scan    --xmfa soy_chrom15.xmfa --targets Benning Harosoy Clark
+privy plot    --input privy_hits.tsv --xmfa soy_chrom15.xmfa
+privy report  --input privy_hits.tsv --out summary.tsv
+privy extract --input privy_hits.tsv --fasta genomes.fasta
+
+
+
+A clean branding stack might look like this:
+	•	Panex Privus — official project name
+	•	privy — command-line interface
+	•	scan — primary discovery subcommand
+	•	plot — visualization / regional inspection
+	•	report — summary output
+	•	extract — sequence or interval extraction
+
+
+If you want it to sound even more like a serious methods paper, the one-line description could be:
+
+Panex Privus is a comparative genomics framework for identifying regions shared within a target cohort and absent from off-target genomes.
+
+Or slightly more elegant:
+
+Panex Privus identifies genomic regions conserved within a focal group and excluded from the genomic background.
+
+And if you want a motto, these are pretty good:
+	•	What the chosen share, the others do not.
+	•	Find the hidden common ground.
+	•	Signal within, exclusion without.
+	•	Shared by the few, absent from the rest.

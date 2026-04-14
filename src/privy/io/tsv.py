@@ -1,0 +1,143 @@
+"""TSV output writers for Panex Privus.
+
+All output files use tab-separated values with explicit column headers.
+Writers are context managers so handles are closed reliably even on error.
+
+Column schemas here are the canonical definitions for all TSV outputs.
+They must match the column specs in the architecture documentation and README.
+"""
+
+from __future__ import annotations
+
+import csv
+from pathlib import Path
+from typing import Any, Iterable
+
+
+# ---------------------------------------------------------------------------
+# Column schemas — canonical, matches docs/architecture.md and README.md
+# ---------------------------------------------------------------------------
+
+HITS_COLUMNS: list[str] = [
+    "locus_id",
+    "contig",
+    "start",
+    "end",
+    "variant_type",
+    "allele_key",
+    "target_support_n",
+    "target_total_n",
+    "offtarget_support_n",
+    "offtarget_total_n",
+    "target_missing_n",
+    "offtarget_missing_n",
+    "strictness_class",
+    "discovery_score",
+    "support_score",
+    "penalty_score",
+    "final_score",
+]
+
+REGIONS_COLUMNS: list[str] = [
+    "region_id",
+    "contig",
+    "start",
+    "end",
+    "n_loci",
+    "variant_types",
+    "dominant_strictness_class",
+    "target_consistency",
+    "offtarget_exclusion",
+    "final_score",
+]
+
+EVIDENCE_COLUMNS: list[str] = [
+    "locus_id",
+    "source_type",
+    "sample_id",
+    "evidence_class",
+    "metric_name",
+    "metric_value",
+    "details",
+]
+
+SAMPLE_SUPPORT_COLUMNS: list[str] = [
+    "locus_id",
+    "sample_id",
+    "cohort_role",
+    "genotype",
+    "allele_supported",
+    "depth",
+    "allele_fraction",
+    "evidence_class",
+]
+
+QC_COLUMNS: list[str] = [
+    "metric",
+    "value",
+    "description",
+]
+
+COMPARE_COLUMNS: list[str] = [
+    "locus_id",
+    "source_a",
+    "source_b",
+    "match_class",
+    "coordinate_overlap",
+    "state_compatibility",
+    "support_summary",
+    "contradiction_summary",
+    "comparison_score",
+]
+
+
+class TsvWriter:
+    """Context-manager TSV writer with explicit column validation.
+
+    Example::
+
+        with TsvWriter(outdir / "hits.tsv", HITS_COLUMNS) as w:
+            w.write_row({"locus_id": "PPX000001", "contig": "chr1", ...})
+    """
+
+    def __init__(self, path: Path, columns: list[str]) -> None:
+        self.path = path
+        self.columns = columns
+        self._fh: Any = None
+        self._writer: Any = None
+
+    def __enter__(self) -> "TsvWriter":
+        self._fh = open(self.path, "w", newline="", encoding="utf-8")
+        self._writer = csv.DictWriter(
+            self._fh,
+            fieldnames=self.columns,
+            delimiter="\t",
+            extrasaction="raise",
+            lineterminator="\n",
+        )
+        self._writer.writeheader()
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        if self._fh is not None:
+            self._fh.close()
+            self._fh = None
+            self._writer = None
+
+    def write_row(self, row: dict[str, Any]) -> None:
+        """Write a single row.  Keys must match the declared column list."""
+        if self._writer is None:
+            raise RuntimeError("TsvWriter is not open.  Use as a context manager.")
+        self._writer.writerow(row)
+
+    def write_rows(self, rows: Iterable[dict[str, Any]]) -> None:
+        """Write multiple rows."""
+        for row in rows:
+            self.write_row(row)
+
+
+def read_tsv(path: Path) -> list[dict[str, str]]:
+    """Read a tab-separated file and return a list of row dicts."""
+    with open(path, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        return list(reader)

@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use Panex Privus in published work, please cite it using the metadata below."
+type: software
+title: "Panex Privus"
+abstract: >-
+  Panex Privus is a comparative genomics toolkit for discovering target-private
+  genomic signal: alleles and regions shared within a focal cohort and absent from
+  off-target genomes. It provides VCF-first target-private allele discovery with
+  explicit missingness classification, interval merging, and transparent scoring.
+authors:
+  - name: "Panex Privus Contributors"
+version: "0.1.0-dev"
+date-released: "2026-04-14"
+url: "https://github.com/USDA-ARS-GBRU/Panex_Privus"
+repository-code: "https://github.com/USDA-ARS-GBRU/Panex_Privus"
+license: MIT
+keywords:
+  - comparative genomics
+  - pangenome
+  - private alleles
+  - VCF
+  - bioinformatics
+  - plant genomics
