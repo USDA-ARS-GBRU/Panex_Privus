@@ -54,6 +54,7 @@ from privy.io.tsv import (
     SAMPLE_SUPPORT_COLUMNS,
     TsvWriter,
 )
+from privy.core.evidence import EvidenceRecord
 from privy.io.vcf import (
     Genotype,
     classify_variant_type,
@@ -90,6 +91,9 @@ class HitRecord:
     pattern: AllelePattern
     # sample_id → GT tuple (pysam allele indices), captured for sample_support.tsv
     sample_genotypes: dict[str, Genotype]
+    # Raw alleles from VCF, needed by the BAM support layer for SNP pileup
+    ref_allele: str = ""
+    alt_allele: str = ""
     # Scores populated after the scan loop
     discovery_score: float = 0.0
     support_score: float = 0.0
@@ -259,8 +263,37 @@ def run_vcf_scan(
         stats.records_skipped_filter, stats.records_skipped_qual,
     )
 
+    # ── Optional BAM support layer ────────────────────────────────────────────
+    bam_result = None
+    if bam or bam_manifest:
+        from privy.backends.bam_support import (  # noqa: PLC0415
+            HitLocusInfo,
+            annotate_loci_with_bam,
+            resolve_bam_sample_pairs,
+        )
+        bam_sample_pairs = resolve_bam_sample_pairs(bam, bam_manifest, cohort)
+        if bam_sample_pairs and hit_records:
+            loci_info = [
+                HitLocusInfo(
+                    locus_id=hr.locus_id,
+                    contig=hr.locus.contig,
+                    start=hr.locus.start,
+                    end=hr.locus.end,
+                    variant_type=hr.variant_type,
+                    ref_allele=hr.ref_allele,
+                    alt_allele=hr.alt_allele,
+                )
+                for hr in hit_records
+            ]
+            bam_result = annotate_loci_with_bam(
+                loci_info, bam_sample_pairs, cohort, cfg.bam
+            )
+
     # ── Step 9: Score hits ───────────────────────────────────────────────────
-    _score_hit_records(hit_records, cfg)
+    _score_hit_records(
+        hit_records, cfg,
+        support_scores=bam_result.support_score_by_locus if bam_result else None,
+    )
 
     # ── Step 10: Merge to regions ─────────────────────────────────────────────
     hit_loci = [hr.locus for hr in hit_records]
@@ -287,10 +320,16 @@ def run_vcf_scan(
         _write_regions_tsv(region_loci, hit_by_id, outdir)
 
     if write_evidence:
-        _write_evidence_tsv(hit_records, outdir)
+        _write_evidence_tsv(
+            hit_records, outdir,
+            bam_records=bam_result.evidence_records if bam_result else None,
+        )
 
     if write_sample_support:
-        _write_sample_support_tsv(hit_records, cohort, outdir)
+        _write_sample_support_tsv(
+            hit_records, cohort, outdir,
+            bam_metrics=bam_result.bam_metrics if bam_result else None,
+        )
 
     if write_qc:
         _write_qc_tsv(stats, outdir)
@@ -430,6 +469,8 @@ def _scan_contig(
                 variant_qual=qual,
                 pattern=pattern,
                 sample_genotypes=sample_genotypes,
+                ref_allele=ref,
+                alt_allele=alt,
             ))
 
     return hits
@@ -439,7 +480,11 @@ def _scan_contig(
 # Scoring
 # ---------------------------------------------------------------------------
 
-def _score_hit_records(hit_records: list[HitRecord], cfg: PrivyConfig) -> None:
+def _score_hit_records(
+    hit_records: list[HitRecord],
+    cfg: PrivyConfig,
+    support_scores: dict[str, float] | None = None,
+) -> None:
     """Score all hits in-place using the configured scoring weights."""
     scored: list[ScoredHit] = []
 
@@ -450,7 +495,8 @@ def _score_hit_records(hit_records: list[HitRecord], cfg: PrivyConfig) -> None:
             discovery_weight=cfg.scoring.discovery_weight,
         )
         ps = compute_penalty_score(hr.pattern, penalty_weight=cfg.scoring.penalty_weight)
-        ss = 0.0  # BAM/GFA/XMFA support not yet implemented
+        raw_ss = support_scores.get(hr.locus_id, 0.0) if support_scores else 0.0
+        ss = round(raw_ss * cfg.scoring.support_weight, 6)
         fs = compute_final_score(ds, ss, ps)
 
         hr.discovery_score = ds
@@ -554,31 +600,45 @@ def _write_regions_tsv(
     log.info("Wrote %s (%d rows)", path, len(region_loci))
 
 
-def _write_evidence_tsv(hit_records: list[HitRecord], outdir: Path) -> None:
-    """Write ``evidence.tsv`` — one VCF evidence row per passing locus.
-
-    In Phase 2, only VCF-source evidence is written.  BAM/GFA/XMFA evidence
-    rows are added in later phases.
-    """
+def _write_evidence_tsv(
+    hit_records: list[HitRecord],
+    outdir: Path,
+    bam_records: list[EvidenceRecord] | None = None,
+) -> None:
+    """Write ``evidence.tsv`` — VCF evidence plus any BAM evidence records."""
     path = outdir / "evidence.tsv"
+    vcf_count = len(hit_records)
+    bam_count = len(bam_records) if bam_records else 0
     with TsvWriter(path, EVIDENCE_COLUMNS) as w:
         for hr in hit_records:
             w.write_row({
-                "locus_id":      hr.locus_id,
-                "source_type":   "vcf",
-                "sample_id":     "",
+                "locus_id":       hr.locus_id,
+                "source_type":    "vcf",
+                "sample_id":      "",
                 "evidence_class": "support" if hr.pattern.pattern_pass else "contradiction",
-                "metric_name":   "allele_pattern",
-                "metric_value":  hr.final_score,
-                "details":       hr.pattern.pattern_reason,
+                "metric_name":    "allele_pattern",
+                "metric_value":   hr.final_score,
+                "details":        hr.pattern.pattern_reason,
             })
-    log.info("Wrote %s (%d rows)", path, len(hit_records))
+        if bam_records:
+            for er in bam_records:
+                w.write_row({
+                    "locus_id":       er.locus_id,
+                    "source_type":    er.source_type.value,
+                    "sample_id":      er.sample_id or "",
+                    "evidence_class": er.evidence_class.value,
+                    "metric_name":    er.metric_name,
+                    "metric_value":   er.metric_value,
+                    "details":        er.provenance,
+                })
+    log.info("Wrote %s (%d VCF + %d BAM rows)", path, vcf_count, bam_count)
 
 
 def _write_sample_support_tsv(
     hit_records: list[HitRecord],
     cohort: CohortDefinition,
     outdir: Path,
+    bam_metrics: dict[tuple[str, str], dict[str, str]] | None = None,
 ) -> None:
     """Write ``sample_support.tsv`` — one row per sample per passing locus."""
     path = outdir / "sample_support.tsv"
@@ -591,15 +651,16 @@ def _write_sample_support_tsv(
                 gt_str = _format_gt(gt)
                 alt_supported = _gt_supports_alt(gt)
                 evidence_class = _gt_to_evidence_class(gt, alt_supported, cohort_role)
+                metrics = bam_metrics.get((hr.locus_id, sample), {}) if bam_metrics else {}
                 w.write_row({
-                    "locus_id":       hr.locus_id,
-                    "sample_id":      sample,
-                    "cohort_role":    cohort_role,
-                    "genotype":       gt_str,
+                    "locus_id":         hr.locus_id,
+                    "sample_id":        sample,
+                    "cohort_role":      cohort_role,
+                    "genotype":         gt_str,
                     "allele_supported": str(alt_supported).lower(),
-                    "depth":          "NA",
-                    "allele_fraction": "NA",
-                    "evidence_class": evidence_class,
+                    "depth":            metrics.get("depth", "NA"),
+                    "allele_fraction":  metrics.get("allele_fraction", "NA"),
+                    "evidence_class":   evidence_class,
                 })
     n_rows = len(hit_records) * len(hit_records[0].sample_genotypes) if hit_records else 0
     log.info("Wrote %s (~%d rows)", path, n_rows)

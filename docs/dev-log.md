@@ -774,3 +774,99 @@ privy report \
   --format both \
   --outdir report/
 ```
+
+---
+
+## 2026-04-20 — Phase 5: BAM Support Layer
+
+### Goals
+
+Phase 5 implements the first secondary evidence layer: read-level depth and
+allele confirmation from BAM files.  The goal is not to re-call variants but
+to ask a focused question at each VCF hit locus: *do the reads in the BAM
+support or contradict the private-allele call?*
+
+### What is new
+
+**`src/privy/core/config.py`**: Added `min_mapq: int = 20` and
+`min_baseq: int = 20` to `BamConfig`.  Both are now CLI-configurable via
+`--bam-min-mapq` / `--bam-min-baseq`.
+
+**`src/privy/io/bam.py`**: Full replacement of stub with five production
+functions:
+- `validate_bam_index()` — checks for `.bai` / `.csi`.
+- `get_bam_sample_name()` — reads the SM tag from the first `@RG` header line.
+- `load_bam_manifest()` — parses a `bam_path` / `sample_id` TSV; `#` comment
+  lines are skipped; missing required columns raise `ValueError`.
+- `query_position_depth()` — calls `AlignmentFile.count_coverage` with a
+  mapping-quality read callback; returns per-position depth as a `list[int]`.
+- `query_allele_counts_at_locus()` — SNP pileup via `AlignmentFile.pileup`
+  returning `(ref_count, alt_count, other_count)`.  For non-SNP alleles,
+  returns `(total_depth, 0, 0)` to signal depth-only mode without raising.
+
+**`src/privy/backends/bam_support.py`**: New module.
+
+- `HitLocusInfo` decouples the BAM layer from `vcf_scan`'s internal
+  `HitRecord` type.  It carries only the fields the BAM queries need:
+  `locus_id`, `contig`, `start`, `end`, `variant_type`, `ref_allele`,
+  `alt_allele`.
+- `BamAnnotationResult` bundles all outputs: evidence records, per-locus
+  support scores, and per-(locus, sample) `{depth, allele_fraction}` metrics.
+- `resolve_bam_sample_pairs()` handles manifest > explicit paths priority and
+  SM-tag fallback.
+- `annotate_loci_with_bam()` queries every (locus, BAM) pair.  UNINFORMATIVE
+  observations (low depth, indels) are excluded from the per-locus support-score
+  mean so that poorly covered samples do not penalise well-covered ones.
+- `_classify_bam_evidence()` maps depth/allele-fraction observations to
+  `EvidenceClass` values.  Classification is role-aware:
+  - **Target**: SUPPORT if alt confirmed; AMBIGUOUS if not.
+  - **Off-target**: ABSENCE if alt absent; CONTRADICTION if alt present.
+  - **Low depth** (below `min_depth`): UNINFORMATIVE regardless of role.
+  - **Indel locus**: UNINFORMATIVE regardless of depth (no allele counting).
+
+**`src/privy/backends/vcf_scan.py`**: BAM integration.
+
+- `HitRecord` gains `ref_allele` and `alt_allele` fields populated during the
+  scan loop, passing the actual allele strings (not the potentially-truncated
+  `allele_key`) to the BAM layer.
+- The BAM support block runs between scan accumulation and scoring.  It only
+  activates when `--bam` or `--bam-manifest` is provided; no BAM = no change.
+- `_score_hit_records()` accepts `support_scores: dict[str, float] | None`.
+  The raw BAM support score is multiplied by `cfg.scoring.support_weight`
+  (default 0.7) to give consistent weighting with future evidence layers.
+- `_write_evidence_tsv()` appends BAM `EvidenceRecord` rows after VCF rows.
+  The combined file now has rows from multiple source types.
+- `_write_sample_support_tsv()` reads from the BAM metrics dict and populates
+  the `depth` and `allele_fraction` columns (previously always `"NA"`).
+
+### Design decisions
+
+**UNINFORMATIVE values excluded from mean**: Computing `compute_support_score`
+on only the actionable (non-UNINFORMATIVE) observations ensures that a locus
+is not penalised simply because some samples have low coverage.  A locus with
+one confirmed SUPPORT and two UNINFORMATIVE samples scores the same as one with
+a single SUPPORT — the coverage gaps are preserved in the evidence file but do
+not dilute the score.
+
+**Depth-only for indels**: Pysam pileup counts single bases; indel allele
+counting at a single position is not reliable without realignment.  Rather than
+returning a wrong answer, `query_allele_counts_at_locus` returns
+`(total_depth, 0, 0)` and the support layer classifies this as UNINFORMATIVE.
+The depth information is still written to `sample_support.tsv`.
+
+**Raw support score × support_weight**: The `annotate_loci_with_bam` function
+returns raw support scores in [−1, 1].  The VCF scan applies `support_weight`
+at score-time so all secondary evidence layers share the same weight parameter.
+Future BAM/GFA/XMFA scores will be averaged before the weight is applied.
+
+**Fixtures avoid pysam.sort**: BAM test fixtures write reads in coordinate
+order directly, which means the file is already sorted.  Only `pysam.index()`
+is called, which uses htslib and does not require a `samtools` subprocess.
+
+### Result
+
+- 423 unit + integration tests, all passing.
+- Running `privy scan --vcf cohort.vcf.gz --bam T1.bam --bam O1.bam ...` now
+  populates `support_score` in `hits.tsv`, adds `source_type=bam` rows to
+  `evidence.tsv`, and fills the `depth` / `allele_fraction` columns in
+  `sample_support.tsv`.

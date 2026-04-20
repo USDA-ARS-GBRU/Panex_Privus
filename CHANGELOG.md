@@ -7,7 +7,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — v0.3.0-dev
+## [Unreleased] — v0.4.0-dev
 
 ### Added
 
@@ -146,9 +146,70 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `tests/integration/test_report.py` — 43 integration tests across 8 classes
   including CLI command-level tests
 
+**Phase 4 — privy report (2026-04-20)**
+
+- `src/privy/report/summary.py` — complete `run_report()` implementation:
+  - Reads `hits.tsv` (required) + optional `regions.tsv`, `evidence.tsv`,
+    `qc.tsv`, `run.json`
+  - Writes `summary.tsv`, `ranked_hits.tsv`, `strictness_summary.tsv`,
+    `support_summary.tsv` (when evidence provided), `contradiction_summary.tsv`
+  - Three-tier format selection: `markdown`, `html`, `both`
+- `src/privy/report/markdown.py` — `render_markdown_report()`:
+  - Run summary, filtering/QC, top-N hits, strictness distribution, regions,
+    source support, contradiction summary, caveats sections
+  - Pipe-table formatting with `|`-safe cell escaping
+- `src/privy/report/html.py` — `render_html_report()`:
+  - Converts `report.md` to `report.html` using the `Markdown` library
+    (`tables` + `fenced_code` extensions)
+  - Self-contained HTML with minimal inline CSS
+- `src/privy/io/tsv.py` — three new column schemas for report outputs
+- `pyproject.toml` — added `Markdown>=3.4` runtime dep,
+  `types-Markdown` dev dep; bumped version to `0.3.0.dev0`
+- `tests/unit/test_report_summary.py` — 35 unit tests across 8 classes
+- `tests/integration/test_report.py` — 43 integration tests across 8 classes
+
+**Phase 5 — BAM support layer (2026-04-20)**
+
+- `src/privy/core/config.py` — added `min_mapq` and `min_baseq` to
+  `BamConfig` (both default 20)
+- `src/privy/io/bam.py` — complete BAM I/O implementation:
+  - `validate_bam_index()` — checks for `.bai` / `.csi` index
+  - `get_bam_sample_name()` — reads SM tag from @RG header
+  - `load_bam_manifest()` — parses TSV with `bam_path`, `sample_id` columns;
+    skips `#` comment lines
+  - `query_position_depth()` — per-position depth via `count_coverage` with
+    mapping-quality filter and unmapped/secondary/supplementary exclusion
+  - `query_allele_counts_at_locus()` — SNP pileup returning
+    `(ref_count, alt_count, other_count)`; depth-only for indels
+- `src/privy/backends/bam_support.py` — complete annotation engine:
+  - `HitLocusInfo` — lightweight locus descriptor (decouples from VCF internals)
+  - `BamAnnotationResult` — bundles evidence records, per-locus support scores,
+    per-(locus, sample) depth/allele-fraction metrics
+  - `resolve_bam_sample_pairs()` — manifest > explicit paths; SM-tag fallback
+    to filename stem
+  - `annotate_loci_with_bam()` — per-(locus, sample) pileup and classification;
+    UNINFORMATIVE values excluded from support-score mean
+  - `_classify_bam_evidence()` — target: SUPPORT / AMBIGUOUS;
+    off-target: ABSENCE / CONTRADICTION; low depth: UNINFORMATIVE; indel: UNINFORMATIVE
+- `src/privy/backends/vcf_scan.py` — BAM integration:
+  - `HitRecord` gains `ref_allele` and `alt_allele` fields
+  - BAM support block runs between scan accumulation and scoring when
+    `--bam` or `--bam-manifest` is provided
+  - `_score_hit_records()` accepts optional `support_scores` dict
+  - `_write_evidence_tsv()` appends BAM `EvidenceRecord` rows after VCF rows
+  - `_write_sample_support_tsv()` populates `depth` and `allele_fraction`
+    columns from BAM metrics (previously always `"NA"`)
+- `src/privy/cli/scan.py` — added `--bam-min-mapq` and `--bam-min-baseq`
+  options, wired to `BamConfig.min_mapq` / `min_baseq` via `_apply_cli_overrides`
+- `tests/conftest.py` — four new BAM fixtures built with pysam (no samtools
+  required for fixture creation): `bam_target_t1`, `bam_offtarget_o1`,
+  `bam_offtarget_o1_with_alt`, `bam_low_depth_t2`
+- `tests/unit/test_bam_io.py` — 31 unit tests across 5 classes
+- `tests/integration/test_bam_support.py` — 34 integration tests across 6
+  classes including full VCF + BAM end-to-end tests
+
 ### Not yet implemented
 
 - `privy plot` — visualization
-- BAM support layer (Phase 5)
 - XMFA support layer (Phase 6)
 - `privy compare` (Phase 6)

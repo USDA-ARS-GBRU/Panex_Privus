@@ -107,6 +107,8 @@ class BamConfig(BaseModel):
     min_depth: int = Field(default=8, ge=0)
     allele_fraction_min: float = Field(default=0.2, ge=0.0, le=1.0)
     min_alt_count: int = Field(default=2, ge=0)
+    min_mapq: int = Field(default=20, ge=0)
+    min_baseq: int = Field(default=20, ge=0)
     summarize_softclips: bool = False
     summarize_splitreads: bool = False
 

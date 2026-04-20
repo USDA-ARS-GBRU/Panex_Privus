@@ -149,6 +149,14 @@ def scan(
         None, "--bam-min-alt-fraction", metavar="FLOAT", min=0.0, max=1.0,
         help="Minimum alternate allele fraction.",
     ),
+    bam_min_mapq: int | None = typer.Option(
+        None, "--bam-min-mapq", metavar="INTEGER", min=0,
+        help="Minimum mapping quality for BAM reads.",
+    ),
+    bam_min_baseq: int | None = typer.Option(
+        None, "--bam-min-baseq", metavar="INTEGER", min=0,
+        help="Minimum base quality for BAM pileup.",
+    ),
     summarize_softclips: bool = typer.Option(
         False, "--summarize-softclips/--no-summarize-softclips",
         help="Summarize soft-clipped reads near candidate loci.",
@@ -251,6 +259,8 @@ def scan(
         bam_min_depth=bam_min_depth,
         bam_min_alt_count=bam_min_alt_count,
         bam_min_alt_fraction=bam_min_alt_fraction,
+        bam_min_mapq=bam_min_mapq,
+        bam_min_baseq=bam_min_baseq,
         summarize_softclips=summarize_softclips,
         summarize_splitreads=summarize_splitreads,
         junction_window_bp=junction_window_bp,
@@ -419,6 +429,8 @@ def _apply_cli_overrides(
             "bam_min_depth",
             "bam_min_alt_count",
             "bam_min_alt_fraction",
+            "bam_min_mapq",
+            "bam_min_baseq",
             "summarize_softclips",
             "summarize_splitreads",
         ),
@@ -426,6 +438,8 @@ def _apply_cli_overrides(
             "bam_min_depth": "min_depth",
             "bam_min_alt_count": "min_alt_count",
             "bam_min_alt_fraction": "allele_fraction_min",
+            "bam_min_mapq": "min_mapq",
+            "bam_min_baseq": "min_baseq",
         },
     )
     if bam_updates:

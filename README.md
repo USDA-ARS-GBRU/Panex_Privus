@@ -609,7 +609,7 @@ These subcommands are under active development and will be available in upcoming
 
 ## Current Status
 
-Panex Privus is under active development. Version 0.3.0-dev.
+Panex Privus is under active development. Version 0.4.0-dev.
 
 ### What works now
 
@@ -626,6 +626,13 @@ Panex Privus is under active development. Version 0.3.0-dev.
   - Coordinate-based missingness detection (samples absent from a locus vs. traversing
     an alternative bubble arm)
   - Same six output files — directly comparable with VCF output via `privy compare`
+- **BAM support layer** — fully operational
+  - Pass `--bam sample.bam` (repeat for multiple) or `--bam-manifest manifest.tsv`
+  - Depth and allele-fraction queries at each discovered VCF hit locus
+  - Target samples: SUPPORT / AMBIGUOUS evidence; off-target: ABSENCE / CONTRADICTION
+  - Low-depth and indel loci reported as UNINFORMATIVE (never silently ignored)
+  - BAM evidence rows appended to `evidence.tsv`; `depth` and `allele_fraction` columns
+    populated in `sample_support.tsv`; `support_score` updated in `hits.tsv`
 - **`privy report`** — fully operational
   - Reads `hits.tsv` plus optional `regions.tsv`, `evidence.tsv`, `qc.tsv`, `run.json`
   - Writes `summary.tsv`, `ranked_hits.tsv`, `strictness_summary.tsv`,
@@ -634,7 +641,7 @@ Panex Privus is under active development. Version 0.3.0-dev.
   - Strictness class distribution table
   - QC section from scan metrics
   - Scientific caveats section
-- 358 unit and integration tests passing
+- 423 unit and integration tests passing
 - YAML configuration with three-tier priority
 
 ### Roadmap
@@ -643,8 +650,8 @@ Panex Privus is under active development. Version 0.3.0-dev.
 |---------|-------|
 | v0.1 | VCF scan, strictness classification, scoring, all outputs |
 | v0.2 | GFA scan — standalone pangenome graph discovery |
-| v0.3 (current) | `privy report` — ranked summaries and QC reports |
-| v0.4 | BAM support layer — read-level evidence at discovered loci |
+| v0.3 | `privy report` — ranked summaries and QC reports |
+| v0.4 (current) | BAM support layer — read-level evidence at discovered loci |
 | v0.5 | XMFA support, `privy compare` — cross-evidence reconciliation |
 | v1.0 | Polished docs, example datasets, manuscript-ready outputs, GitHub release |
 
