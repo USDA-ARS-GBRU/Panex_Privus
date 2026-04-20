@@ -627,3 +627,150 @@ The full suite now contains **280 tests, all passing**.
 also pass Ruff cleanly.  Broader Ruff modernization work still remains in
 untouched compare/report/plot modules, but the main discovery command now
 better matches what it claims to do in its help text and recorded config.
+
+---
+
+## 2026-04-20 — Phase 4: privy report (v0.3)
+
+### Design goal
+
+`privy report` converts raw scan outputs into a ranked, interpretable summary
+package that a researcher can hand directly to a collaborator.  It operates
+entirely on the TSV and JSON files already produced by `privy scan` — it does
+not re-open the VCF or GFA, and it makes no biological decisions.  Its job is
+interpretation and presentation, not discovery.
+
+### Inputs and outputs
+
+`privy report` reads:
+
+| Input | Required | Purpose |
+|-------|:--------:|---------|
+| `hits.tsv` | Yes | Primary data source — all loci and scores |
+| `regions.tsv` | No | Candidate region table |
+| `evidence.tsv` | No | Per-locus evidence for source support summary |
+| `qc.tsv` | No | Run-level metrics for the QC section |
+| `run.json` | No | Provenance and parameters for the summary |
+
+It writes:
+
+| Output | Contents |
+|--------|----------|
+| `summary.tsv` | Run-level key/value table |
+| `ranked_hits.tsv` | Top-N hits with explicit `rank` column |
+| `strictness_summary.tsv` | Count and % per strictness class |
+| `support_summary.tsv` | Evidence grouped by source × class (when evidence provided) |
+| `contradiction_summary.tsv` | Contradiction metrics from QC/compare |
+| `report.md` | Human-readable Markdown report |
+| `report.html` | HTML version (`--format html` or `--format both`) |
+
+### Architecture
+
+**`src/privy/report/summary.py`** — `run_report()` orchestrator.
+
+The function:
+1. Loads all available input TSVs with `read_tsv()`.
+2. Computes five structured summaries from the loaded data.
+3. Writes the summary TSVs.
+4. Assembles a `sections: dict[str, Any]` bundle.
+5. Calls `render_markdown_report(sections, title, outdir)`.
+6. Conditionally calls `render_html_report(md_path, outdir)`.
+
+The five summary computations are isolated pure functions:
+- `_rank_hits(rows, top_n)` — sort by `final_score` descending, take top N.
+- `_compute_strictness_summary(rows)` — Counter over `strictness_class` column,
+  with a canonical ordering (strict_complete first) and safe zero-filling.
+- `_compute_support_summary(evidence_rows)` — Counter over
+  `(source_type, evidence_class)` pairs from `evidence.tsv`.
+- `_compute_contradiction_summary(qc_rows, compare_rows)` — extracts
+  `alleles_contradicted` from `qc.tsv`; if `compare.tsv` is provided, also
+  counts `match_class == "contradicted"` rows.
+- `_compute_run_summary(hit_rows, region_rows, qc_rows, run_meta, cfg)` —
+  assembles the summary.tsv rows from all available sources.
+
+**`src/privy/report/markdown.py`** — `render_markdown_report()`.
+
+Builds the report as a list of string lines, then joins and writes.  Each
+section is a small private function (`_section_run_summary`, `_section_qc`,
+etc.) that appends Markdown to the list.  Sections that require optional data
+(QC, regions, support) are gated by checking `sections.get(key) is not None`.
+
+The `_md_table()` helper produces standard pipe tables with `|`-escaped cell
+values so allele keys (which contain `:` but not `|`) are safe.
+
+**`src/privy/report/html.py`** — `render_html_report()`.
+
+Reads `report.md`, converts using `markdown.markdown(text, extensions=["tables",
+"fenced_code"])`, wraps in a minimal self-contained HTML template with inline
+CSS, and writes `report.html`.  The `markdown` library is imported lazily
+inside the function body (not at module top) so that test files that don't
+trigger HTML rendering don't incur the import cost.
+
+### New column schemas in `io/tsv.py`
+
+Three column schemas were added:
+- `RANKED_HITS_COLUMNS = ["rank", *HITS_COLUMNS]` — adds an explicit rank
+  column to the existing hits schema.  Rank is 1-based and is assigned by the
+  report module, not by the scan.
+- `STRICTNESS_SUMMARY_COLUMNS = ["strictness_class", "n_loci", "pct_hits"]`
+- `SUPPORT_SUMMARY_COLUMNS = ["source_type", "evidence_class", "n_records",
+  "pct_of_source"]`
+
+`summary.tsv` and `contradiction_summary.tsv` reuse the existing `QC_COLUMNS`
+schema (`["metric", "value", "description"]`).
+
+### Dependency
+
+`Markdown>=3.4` was added to runtime deps.  It is pure Python, has no C
+extensions, and brings the `tables` and `fenced_code` built-in extensions
+needed for the HTML renderer.  `types-Markdown` was added to dev deps for
+mypy stub completeness.
+
+### Key design decisions
+
+**1. Report operates on TSV files, not in-memory scan objects.**
+
+The report command is a separate pass from the scan.  It reads `hits.tsv`
+from disk rather than receiving in-memory `HitRecord` objects.  This means:
+- The user can run `privy report` at any time after a scan, on any machine.
+- No coupling between the report and the scan implementation details.
+- The report can be re-run with different `--top-n` or `--format` without
+  repeating the full scan.
+
+**2. ranked_hits.tsv adds an explicit `rank` column.**
+
+`hits.tsv` from the scan is already sorted by `final_score`, but the rank is
+implicit.  `ranked_hits.tsv` makes it explicit (1, 2, 3...) so users can sort
+the file by other columns (e.g. coordinate) and still recover the original rank.
+
+**3. Sections are gated, not omitted by emptiness.**
+
+Sections like QC and regions only appear in the report if the corresponding
+input file was provided.  If `--qc` is not given, the Filtering and QC section
+is simply absent — not replaced with an "empty" table.  This gives the user
+explicit control and avoids misleading empty sections.
+
+**4. HTML conversion uses the `Markdown` library, not string templating.**
+
+The `Markdown` library converts pipe tables to `<table>` elements correctly.
+A hand-rolled HTML template from the same section data would be a second code
+path to maintain and diverge.  By deriving HTML from the Markdown source, we
+guarantee that both outputs contain the same content.
+
+### Phase 4 result
+
+**358 tests, all passing.**  The full `privy report` workflow is implemented
+and tested end-to-end from CLI through TSV loading, summary computation,
+TSV output writing, Markdown rendering, and HTML conversion.
+
+`privy report` is now a usable command.  A researcher can produce a shareable
+summary from a completed scan in one line:
+
+```bash
+privy report \
+  --hits results/hits.tsv \
+  --regions results/regions.tsv \
+  --qc results/qc.tsv \
+  --format both \
+  --outdir report/
+```

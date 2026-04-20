@@ -331,6 +331,47 @@ You should see tags like `SN:Z:chr1  SO:i:1000  LN:i:500` after the sequence fie
 
 ---
 
+### Running a report
+
+Once a scan is complete, generate a ranked summary and human-readable report:
+
+```bash
+privy report \
+  --hits results/hits.tsv \
+  --regions results/regions.tsv \
+  --qc results/qc.tsv \
+  --format both \
+  --outdir report/
+```
+
+This writes:
+
+| File | Contents |
+|------|----------|
+| `report/summary.tsv` | Run-level key/value summary |
+| `report/ranked_hits.tsv` | Top 20 hits with explicit rank column |
+| `report/strictness_summary.tsv` | Count and percentage per strictness class |
+| `report/report.md` | Human-readable Markdown report |
+| `report/report.html` | HTML version (requires `--format html` or `--format both`) |
+
+Open `report/report.html` in a browser for a formatted view with tables and
+navigation, or share `report/report.md` directly with collaborators.
+
+To include evidence-level source support (requires `evidence.tsv`):
+
+```bash
+privy report \
+  --hits results/hits.tsv \
+  --regions results/regions.tsv \
+  --evidence results/evidence.tsv \
+  --qc results/qc.tsv \
+  --format both \
+  --title "Soybean protein scan" \
+  --outdir report/
+```
+
+---
+
 ## Understanding the Output Files
 
 After running `privy scan`, your output directory contains:
@@ -517,7 +558,50 @@ Key options:
 
 Run `privy scan --help` for the full option list.
 
-### privy compare, privy report, privy plot
+### privy report
+
+Generate ranked summaries and a human-readable report from a previous scan.
+
+```bash
+privy report \
+  --hits results/hits.tsv \
+  --regions results/regions.tsv \
+  --qc results/qc.tsv \
+  --format both \
+  --top-n 50 \
+  --outdir report/
+```
+
+Key options:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--hits PATH` | required | `hits.tsv` from `privy scan` |
+| `--regions PATH` | none | `regions.tsv` from `privy scan` |
+| `--evidence PATH` | none | `evidence.tsv` from `privy scan` |
+| `--qc PATH` | none | `qc.tsv` from `privy scan` |
+| `--run-json PATH` | none | `run.json` from `privy scan` |
+| `--format TEXT` | `markdown` | `markdown`, `html`, or `both` |
+| `--top-n INTEGER` | `20` | Number of top loci to include |
+| `--title TEXT` | project name | Report title |
+| `--outdir PATH` | `.` | Output directory |
+| `--no-include-qc` | — | Omit the QC section |
+| `--no-include-strictness` | — | Omit the strictness distribution |
+| `--no-include-regions` | — | Omit the regions section |
+
+Output files written to `--outdir`:
+
+| File | Contents |
+|------|----------|
+| `summary.tsv` | Run-level key/value summary |
+| `ranked_hits.tsv` | Top-N hits with explicit rank column |
+| `strictness_summary.tsv` | Count and percentage per strictness class |
+| `support_summary.tsv` | Evidence breakdown by source type (if `--evidence` provided) |
+| `contradiction_summary.tsv` | Contradiction metrics from QC/compare |
+| `report.md` | Human-readable Markdown report |
+| `report.html` | HTML version (when `--format html` or `--format both`) |
+
+### privy compare, privy plot
 
 These subcommands are under active development and will be available in upcoming releases. See [Current Status](#current-status) for the roadmap.
 
@@ -525,7 +609,7 @@ These subcommands are under active development and will be available in upcoming
 
 ## Current Status
 
-Panex Privus is under active development. Version 0.1.0-dev.
+Panex Privus is under active development. Version 0.3.0-dev.
 
 ### What works now
 
@@ -542,7 +626,15 @@ Panex Privus is under active development. Version 0.1.0-dev.
   - Coordinate-based missingness detection (samples absent from a locus vs. traversing
     an alternative bubble arm)
   - Same six output files — directly comparable with VCF output via `privy compare`
-- 280 unit and integration tests passing
+- **`privy report`** — fully operational
+  - Reads `hits.tsv` plus optional `regions.tsv`, `evidence.tsv`, `qc.tsv`, `run.json`
+  - Writes `summary.tsv`, `ranked_hits.tsv`, `strictness_summary.tsv`,
+    `support_summary.tsv` (when evidence.tsv provided), `contradiction_summary.tsv`
+  - Renders `report.md` (default) and/or `report.html` (`--format html|both`)
+  - Strictness class distribution table
+  - QC section from scan metrics
+  - Scientific caveats section
+- 358 unit and integration tests passing
 - YAML configuration with three-tier priority
 
 ### Roadmap
@@ -550,8 +642,8 @@ Panex Privus is under active development. Version 0.1.0-dev.
 | Version | Focus |
 |---------|-------|
 | v0.1 | VCF scan, strictness classification, scoring, all outputs |
-| v0.2 (current) | GFA scan — standalone pangenome graph discovery |
-| v0.3 | `privy report` — ranked summaries and QC reports |
+| v0.2 | GFA scan — standalone pangenome graph discovery |
+| v0.3 (current) | `privy report` — ranked summaries and QC reports |
 | v0.4 | BAM support layer — read-level evidence at discovered loci |
 | v0.5 | XMFA support, `privy compare` — cross-evidence reconciliation |
 | v1.0 | Polished docs, example datasets, manuscript-ready outputs, GitHub release |

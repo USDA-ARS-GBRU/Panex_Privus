@@ -90,6 +90,22 @@ COMPARE_COLUMNS: list[str] = [
     "comparison_score",
 ]
 
+# Report output column schemas
+RANKED_HITS_COLUMNS: list[str] = ["rank", *HITS_COLUMNS]
+
+STRICTNESS_SUMMARY_COLUMNS: list[str] = [
+    "strictness_class",
+    "n_loci",
+    "pct_hits",
+]
+
+SUPPORT_SUMMARY_COLUMNS: list[str] = [
+    "source_type",
+    "evidence_class",
+    "n_records",
+    "pct_of_source",
+]
+
 
 class TsvWriter:
     """Context-manager TSV writer with explicit column validation.

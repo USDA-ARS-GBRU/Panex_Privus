@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "panex-privus"
-version = "0.1.0.dev0"
+version = "0.3.0.dev0"
 description = "Comparative genomics toolkit for discovering target-private genomic signal"
 readme = "README.md"
 license = { text = "MIT" }
@@ -42,6 +42,7 @@ dependencies = [
     "matplotlib>=3.7",
     "pyyaml>=6.0",
     "rich>=13.0",
+    "Markdown>=3.4",
 ]
 
 [project.optional-dependencies]
@@ -51,6 +52,7 @@ dev = [
     "ruff>=0.1",
     "mypy>=1.5",
     "types-PyYAML",
+    "types-Markdown",
 ]
 
 [project.scripts]

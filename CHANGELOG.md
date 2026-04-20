@@ -7,7 +7,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — v0.1.0-dev
+## [Unreleased] — v0.3.0-dev
 
 ### Added
 
@@ -120,10 +120,35 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Added command-level tests for GFA scans, boolean override behaviour, and
   YAML/TSV cohort-file loading
 
+**Phase 4 — privy report (2026-04-20)**
+
+- `src/privy/report/summary.py` — complete `run_report()` implementation:
+  - Reads `hits.tsv` (required) + optional `regions.tsv`, `evidence.tsv`,
+    `qc.tsv`, `run.json`
+  - Writes `summary.tsv`, `ranked_hits.tsv`, `strictness_summary.tsv`,
+    `support_summary.tsv` (when evidence provided), `contradiction_summary.tsv`
+  - Three-tier format selection: `markdown`, `html`, `both`
+- `src/privy/report/markdown.py` — `render_markdown_report()`:
+  - Run summary, filtering/QC, top-N hits, strictness distribution, regions,
+    source support, contradiction summary, caveats sections
+  - Pipe-table formatting with `|`-safe cell escaping
+- `src/privy/report/html.py` — `render_html_report()`:
+  - Converts `report.md` to `report.html` using the `Markdown` library
+    (`tables` + `fenced_code` extensions)
+  - Self-contained HTML with minimal inline CSS
+- `src/privy/io/tsv.py` — three new column schemas for report outputs:
+  - `RANKED_HITS_COLUMNS` — `["rank", *HITS_COLUMNS]`
+  - `STRICTNESS_SUMMARY_COLUMNS`
+  - `SUPPORT_SUMMARY_COLUMNS`
+- `pyproject.toml` — added `Markdown>=3.4` runtime dep,
+  `types-Markdown` dev dep; bumped version to `0.3.0.dev0`
+- `tests/unit/test_report_summary.py` — 35 unit tests across 8 classes
+- `tests/integration/test_report.py` — 43 integration tests across 8 classes
+  including CLI command-level tests
+
 ### Not yet implemented
 
-- `privy report` — report generation
 - `privy plot` — visualization
-- BAM support layer (Phase 4)
-- XMFA support layer (Phase 5)
-- `privy compare` (Phase 5)
+- BAM support layer (Phase 5)
+- XMFA support layer (Phase 6)
+- `privy compare` (Phase 6)
