@@ -7,7 +7,7 @@ Usage::
 
     privy --help
     privy scan --vcf cohort.vcf.gz --targets S1 S2 --off-targets S3 S4 --outdir results/
-    privy compare --hits results/hits.tsv --vcf cohort.vcf.gz --outdir compare/
+    privy compare --hits-a vcf_results/hits.tsv --hits-b gfa_results/hits.tsv --outdir compare/
     privy report --hits results/hits.tsv --outdir report/
     privy plot   --hits results/hits.tsv --top-n 10 --outdir plots/
 """
@@ -30,7 +30,7 @@ app = typer.Typer(
         "[bold]Panex Privus[/bold] — a comparative genomics toolkit for discovering\n"
         "target-private alleles and regions shared within a focal cohort and absent\n"
         "from off-target genomes.\n\n"
-        "Primary discovery is VCF-first. BAM, GFA, and XMFA are support layers.\n"
+        "Primary discovery runs via VCF or GFA. BAM provides a read-depth support layer.\n"
         "Missingness is always reported explicitly via [italic]strictness_class[/italic]."
     ),
     add_completion=True,

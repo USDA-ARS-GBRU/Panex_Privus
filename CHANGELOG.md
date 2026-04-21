@@ -7,7 +7,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — v0.4.0-dev
+## [Unreleased] — v0.5.0-dev
 
 ### Added
 
@@ -208,7 +208,39 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `tests/integration/test_bam_support.py` — 34 integration tests across 6
   classes including full VCF + BAM end-to-end tests
 
+**Phase 6 — privy compare (2026-04-21)**
+
+- `src/privy/backends/compare.py` — complete comparison engine:
+  - `HitsRow` — typed dataclass for hits.tsv rows
+  - `load_hits_tsv()` — parse hits.tsv with full type coercion and error messages
+  - `infer_source_label()` — auto-infers "vcf" / "gfa" from locus_id prefix (PPX / GPX)
+  - `reciprocal_overlap_rows()` — intersection / union overlap for HitsRow pairs
+  - `is_state_compatible()` — strictness-class compatibility check; respects
+    `require_state_compatibility` for strict_* vs relaxed_threshold discrimination
+  - `classify_match()` — SUPPORTED / PARTIALLY_SUPPORTED / CONTRADICTED /
+    SOURCE_SPECIFIC with clear precedence rules
+  - `compute_comparison_score()` — overlap-scaled numeric score in [0, 1]
+  - `find_best_match()` — contig-indexed search with reciprocal-overlap primary and
+    breakpoint-tolerance fallback
+  - `run_compare()` — full pipeline: load → index → match → classify → write outputs
+  - Writes `compare.tsv` (18 columns), `compare_summary.tsv`, `compare.json`
+- `src/privy/cli/compare.py` — complete rewrite:
+  - Focused on scan-vs-scan (two hits.tsv files via `--hits-a`/`--hits-b`)
+  - Removed XMFA option and multi-mode switching (XMFA support dropped)
+  - Fixed import: `from privy.backends.compare import run_compare`
+  - `--source-a`/`--source-b` explicit label overrides
+  - `--min-reciprocal-overlap`, `--breakpoint-tolerance-bp`,
+    `--require-state-compatibility` wired to `CompareConfig`
+- `src/privy/io/tsv.py` — `COMPARE_COLUMNS` expanded to 18 columns (adds
+  `compare_id`, `locus_id_a`, `locus_id_b`, `contig`, `start_a/b`, `end_a/b`,
+  `strictness_a/b`); `COMPARE_SUMMARY_COLUMNS` added
+- `src/privy/cli/main.py` — removed XMFA mention from global help text;
+  updated compare example usage
+- `tests/unit/test_compare_engine.py` — 47 unit tests across 7 classes
+- `tests/integration/test_compare.py` — 24 integration tests across 8 classes
+  including full CLI command-level tests
+- `pyproject.toml` — bumped version to `0.5.0.dev0`
+
 ### Not yet implemented
 
-- `privy plot` — visualization
-- `privy compare` — cross-evidence reconciliation between VCF and GFA result sets
+- `privy plot` — visualization (planned v0.6)

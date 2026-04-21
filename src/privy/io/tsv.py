@@ -79,15 +79,32 @@ QC_COLUMNS: list[str] = [
 ]
 
 COMPARE_COLUMNS: list[str] = [
-    "locus_id",
+    "compare_id",
+    "locus_id_a",
+    "locus_id_b",
     "source_a",
     "source_b",
+    "contig",
+    "start_a",
+    "end_a",
+    "start_b",
+    "end_b",
     "match_class",
     "coordinate_overlap",
     "state_compatibility",
+    "strictness_a",
+    "strictness_b",
     "support_summary",
     "contradiction_summary",
     "comparison_score",
+]
+
+COMPARE_SUMMARY_COLUMNS: list[str] = [
+    "match_class",
+    "n_loci",
+    "pct_total",
+    "mean_overlap",
+    "mean_score",
 ]
 
 # Report output column schemas

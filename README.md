@@ -710,15 +710,77 @@ Output files written to `--outdir`:
 | `report.md` | Human-readable Markdown report |
 | `report.html` | HTML version (when `--format html` or `--format both`) |
 
-### privy compare, privy plot
+### privy compare
 
-These subcommands are under active development and will be available in upcoming releases. See [Current Status](#current-status) for the roadmap.
+`privy compare` reconciles two `privy scan` result sets — typically a VCF scan and a GFA
+scan run on the same cohort — by matching loci on coordinate overlap and classifying each
+pair according to how well the two evidence sources agree.
+
+**Typical workflow:**
+
+```bash
+# Step 1: run VCF scan
+privy scan --vcf cohort.vcf.gz \
+    --targets S1 S2 --off-targets S3 S4 \
+    --outdir results/vcf/
+
+# Step 2: run GFA scan
+privy scan --gfa pangenome.gfa \
+    --targets S1 S2 --off-targets S3 S4 \
+    --outdir results/gfa/
+
+# Step 3: compare the two result sets
+privy compare \
+    --hits-a results/vcf/hits.tsv \
+    --hits-b results/gfa/hits.tsv \
+    --outdir results/compare/
+```
+
+**Match classes:**
+
+| Class | Meaning |
+|-------|---------|
+| `supported` | Both sources agree; locus is target-private in both |
+| `partially_supported` | Overlap present but strictness classes differ (one strict, one relaxed) |
+| `contradicted` | One source reports a contradicted locus |
+| `source_specific` | Locus found in only one source — not necessarily a failure |
+| `uninformative` | Match found but evidence is too weak to classify |
+| `missing_data` | One or both sources lack data at this position |
+
+**Key options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--hits-a PATH` | required | hits.tsv from the first scan run (source A) |
+| `--hits-b PATH` | required | hits.tsv from the second scan run (source B) |
+| `--source-a TEXT` | auto | Display label for source A (inferred from locus_id prefix) |
+| `--source-b TEXT` | auto | Display label for source B |
+| `--min-reciprocal-overlap FLOAT` | `0.5` | Minimum reciprocal overlap for a coordinate match |
+| `--breakpoint-tolerance-bp INT` | `200` | Gap tolerance for near-miss breakpoint matching |
+| `--require-state-compatibility` | off | Also require strictness-class compatibility |
+
+**Outputs:**
+
+| File | Contents |
+|------|----------|
+| `compare.tsv` | One row per locus pair: coordinates, match class, overlap, scores |
+| `compare_summary.tsv` | Match-class breakdown with counts, percentages, mean scores |
+| `compare.json` | Run metadata and resolved configuration |
+
+> **Source-specific loci are expected.** GFA operates at the segment/bubble level while VCF
+> operates at single-nucleotide variants — not every VCF hit will have a GFA counterpart
+> and vice versa. `source_specific` rows are informative, not errors.
+
+### privy plot
+
+`privy plot` is planned for v0.6. It will provide visualization of hits, regions, and
+cross-source comparison results. See [Current Status](#current-status) for the roadmap.
 
 ---
 
 ## Current Status
 
-Panex Privus is under active development. Version 0.4.0-dev.
+Panex Privus is under active development. Version 0.5.0-dev.
 
 ### What works now
 
@@ -750,7 +812,14 @@ Panex Privus is under active development. Version 0.4.0-dev.
   - Strictness class distribution table
   - QC section from scan metrics
   - Scientific caveats section
-- 423 unit and integration tests passing
+- **`privy compare`** — fully operational
+  - Reconciles two `hits.tsv` files (VCF scan vs. GFA scan, or any two scans)
+  - Coordinate-overlap matching with reciprocal-overlap and breakpoint-tolerance controls
+  - Six match classes: supported / partially_supported / contradicted / source_specific /
+    uninformative / missing_data
+  - Writes `compare.tsv` (per-locus-pair), `compare_summary.tsv`, `compare.json`
+  - Source labels auto-inferred from locus_id prefix (PPX → vcf, GPX → gfa)
+- 500+ unit and integration tests passing
 - YAML configuration with three-tier priority
 
 ### Roadmap
@@ -760,8 +829,9 @@ Panex Privus is under active development. Version 0.4.0-dev.
 | v0.1 | VCF scan, strictness classification, scoring, all outputs |
 | v0.2 | GFA scan — standalone pangenome graph discovery |
 | v0.3 | `privy report` — ranked summaries and QC reports |
-| v0.4 (current) | BAM support layer — read-level evidence at discovered loci |
-| v0.5 | `privy compare` — cross-evidence reconciliation between VCF and GFA result sets |
+| v0.4 | BAM support layer — read-level evidence at discovered loci |
+| v0.5 (current) | `privy compare` — cross-evidence reconciliation between VCF and GFA result sets |
+| v0.6 | `privy plot` — visualization of hits, regions, and comparison results |
 | v1.0 | Polished docs, example datasets, manuscript-ready outputs, GitHub release |
 
 ---
@@ -842,10 +912,10 @@ Contributions are welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 Areas where help is especially welcome:
 
-- Additional test fixtures and regression cases (especially real-world GFA files)
+- Additional test fixtures and regression cases (especially real-world GFA and BAM files)
 - Documentation improvements and worked examples
-- `privy compare` implementation — cross-source reconciliation between VCF and GFA
-- `privy plot` — visualization of hits and regions
+- `privy plot` (v0.6) — visualization of hits, regions, and comparison results
+- Edge-case handling for unusually structured GFA path-name conventions
 
 Please open an issue before making large architectural changes.
 
