@@ -211,5 +211,4 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ### Not yet implemented
 
 - `privy plot` — visualization
-- XMFA support layer (Phase 6)
-- `privy compare` (Phase 6)
+- `privy compare` — cross-evidence reconciliation between VCF and GFA result sets

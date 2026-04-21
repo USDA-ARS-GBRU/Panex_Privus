@@ -47,41 +47,37 @@ optional **support layers** that add read-level validation on top.
 
 #### Primary discovery inputs — choose one
 
-Provide a VCF or a GFA. Both are supported as standalone discovery backends,
-producing identical output file schemas so results are directly comparable.
+VCF and GFA are two independent, standalone discovery backends. They answer the
+same biological question from different representations of the data. Each backend
+runs on its own; neither is a "support layer" for the other.
 
-| Input | When to use | Requirement |
-|-------|-------------|-------------|
-| **VCF** | You have genotype calls for all samples in a multi-sample VCF | bgzip-compressed (`.vcf.gz`) + tabix index (`.tbi`) |
-| **GFA** | You have a pangenome graph where each sample has named paths or walks | Plain text file; no index needed |
+| Input | Role | Requirement |
+|-------|------|-------------|
+| **VCF** | Primary discovery — genotype-call-based allele detection | bgzip-compressed (`.vcf.gz`) + tabix index (`.tbi`) |
+| **GFA** | Primary discovery — graph-traversal-based segment detection | Plain text file; no index needed |
 
-The two backends answer the same biological question (which alleles/segments are
-private to your target group?) from different representations of the same data.
-Run both independently and compare results with `privy compare` for the strongest
-possible evidence.
+Providing both in the same run does **not** combine them: when `--vcf` is given,
+the VCF backend runs and the `--gfa` argument is ignored. To get independent
+evidence from both representations, run them as separate `privy scan` calls and
+compare the two result directories with `privy compare`.
 
 **Recommended upstream tool**: [minigraph-cactus](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md)
 (`cactus-pangenome`) produces both a `.gfa` and a genotype `.vcf.gz` in a single
 workflow — exactly the files Panex Privus expects.
 
-> If you provide both `--vcf` and `--gfa` in the same `privy scan` call, VCF is
-> used as the primary source. Running them separately is recommended so you get
-> an independent evidence file for each backend.
-
 #### Support layers — optional
 
-Support layers do not discover new loci. They query additional data sources at the
-loci already found by the primary backend and add read-level validation evidence.
+Support layers do not discover new loci. They query additional data at loci already
+found by the primary backend and add evidence for or against each candidate.
+The only current support layer is BAM.
 
 | Layer | Flag | What it adds |
 |-------|------|-------------|
-| **BAM** | `--bam FILE` (repeat per BAM) or `--bam-manifest TSV` | Depth and allele-fraction at each hit locus. Confirms that reads in each sample actually support (or contradict) the VCF call. |
+| **BAM** | `--bam FILE` (repeat per BAM) or `--bam-manifest TSV` | Per-sample read depth and allele fraction at each VCF hit locus, classified as SUPPORT / ABSENCE / CONTRADICTION / AMBIGUOUS / UNINFORMATIVE |
 
 When BAM files are provided, `privy scan` queries every hit locus via pysam pileup,
-classifies each observation as SUPPORT, ABSENCE, CONTRADICTION, AMBIGUOUS, or
-UNINFORMATIVE, and updates `support_score` in `hits.tsv`. The `evidence.tsv` file
-gains BAM-source rows and `sample_support.tsv` gains populated `depth` and
-`allele_fraction` columns.
+and updates `support_score` in `hits.tsv`, appends BAM-source rows to `evidence.tsv`,
+and populates `depth` and `allele_fraction` in `sample_support.tsv`.
 
 BAM files must be sorted by coordinate and indexed (`samtools index your.bam`).
 
@@ -765,7 +761,7 @@ Panex Privus is under active development. Version 0.4.0-dev.
 | v0.2 | GFA scan — standalone pangenome graph discovery |
 | v0.3 | `privy report` — ranked summaries and QC reports |
 | v0.4 (current) | BAM support layer — read-level evidence at discovered loci |
-| v0.5 | XMFA support, `privy compare` — cross-evidence reconciliation |
+| v0.5 | `privy compare` — cross-evidence reconciliation between VCF and GFA result sets |
 | v1.0 | Polished docs, example datasets, manuscript-ready outputs, GitHub release |
 
 ---
@@ -848,8 +844,8 @@ Areas where help is especially welcome:
 
 - Additional test fixtures and regression cases (especially real-world GFA files)
 - Documentation improvements and worked examples
-- BAM support layer
-- Report and plot commands (`privy report`, `privy plot`)
+- `privy compare` implementation — cross-source reconciliation between VCF and GFA
+- `privy plot` — visualization of hits and regions
 
 Please open an issue before making large architectural changes.
 
