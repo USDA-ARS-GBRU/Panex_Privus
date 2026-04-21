@@ -42,25 +42,48 @@ Panex Privus automates finding these variants from a VCF file or a pangenome gra
 
 ### What do I need to use this?
 
-Privy accepts one primary input format per run. Provide whichever you have:
+Privy uses a two-tier input model: a **primary discovery input** (required) and
+optional **support layers** that add read-level validation on top.
 
-- **VCF** — a multi-sample VCF file with genotype calls for all your samples.
-  Must be compressed with bgzip and indexed with tabix.
-  If your samples are in separate VCF files, merge them first with `bcftools merge`.
-  **Recommended upstream tool**: [minigraph-cactus](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md)
-  can build a pangenome from assemblies and output a genotype VCF in a single workflow.
-- **GFA** — a pangenome graph (GFA1 or GFA1.1) where each sample has at least one
-  named path or walk. GFA files do not need an index; they are read in full.
-  **Recommended upstream tool**: minigraph-cactus produces GFA output directly
-  (`cactus-pangenome`). PGGB is another option.
+#### Primary discovery inputs — choose one
 
-Panex Privus is designed to work directly downstream of minigraph-cactus: the same run
-that builds your pangenome can produce both the GFA and the genotype VCF, giving you two
-independent lines of evidence that privy can analyse separately and compare.
+Provide a VCF or a GFA. Both are supported as standalone discovery backends,
+producing identical output file schemas so results are directly comparable.
 
-If you provide both `--vcf` and `--gfa` in the same run, VCF is used as the primary
-discovery source. Run each independently to get comparable output directories, then use
-`privy compare` to reconcile the two result sets.
+| Input | When to use | Requirement |
+|-------|-------------|-------------|
+| **VCF** | You have genotype calls for all samples in a multi-sample VCF | bgzip-compressed (`.vcf.gz`) + tabix index (`.tbi`) |
+| **GFA** | You have a pangenome graph where each sample has named paths or walks | Plain text file; no index needed |
+
+The two backends answer the same biological question (which alleles/segments are
+private to your target group?) from different representations of the same data.
+Run both independently and compare results with `privy compare` for the strongest
+possible evidence.
+
+**Recommended upstream tool**: [minigraph-cactus](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md)
+(`cactus-pangenome`) produces both a `.gfa` and a genotype `.vcf.gz` in a single
+workflow — exactly the files Panex Privus expects.
+
+> If you provide both `--vcf` and `--gfa` in the same `privy scan` call, VCF is
+> used as the primary source. Running them separately is recommended so you get
+> an independent evidence file for each backend.
+
+#### Support layers — optional
+
+Support layers do not discover new loci. They query additional data sources at the
+loci already found by the primary backend and add read-level validation evidence.
+
+| Layer | Flag | What it adds |
+|-------|------|-------------|
+| **BAM** | `--bam FILE` (repeat per BAM) or `--bam-manifest TSV` | Depth and allele-fraction at each hit locus. Confirms that reads in each sample actually support (or contradict) the VCF call. |
+
+When BAM files are provided, `privy scan` queries every hit locus via pysam pileup,
+classifies each observation as SUPPORT, ABSENCE, CONTRADICTION, AMBIGUOUS, or
+UNINFORMATIVE, and updates `support_score` in `hits.tsv`. The `evidence.tsv` file
+gains BAM-source rows and `sample_support.tsv` gains populated `depth` and
+`allele_fraction` columns.
+
+BAM files must be sorted by coordinate and indexed (`samtools index your.bam`).
 
 ---
 
@@ -122,6 +145,7 @@ Panex Privus reads compressed, indexed VCF files. Preparing those files requires
 | **bgzip** | Block-compresses a VCF into the `.vcf.gz` format that tabix can index | Ships with `htslib` / `samtools` |
 | **tabix** | Creates the `.tbi` position index that lets Panex Privus jump directly to any genomic region | Ships with `htslib` / `samtools` |
 | **bcftools** | Swiss-army knife for VCF manipulation — used to list sample names, merge per-sample VCFs, filter records, etc. | Separate `bcftools` package |
+| **samtools** | Sorts and indexes BAM files before the BAM support layer can query them (`samtools sort`, `samtools index`) | `samtools` package; ships alongside `htslib` |
 
 The easiest way to get all three is through conda/bioconda:
 
@@ -331,6 +355,80 @@ You should see tags like `SN:Z:chr1  SO:i:1000  LN:i:500` after the sequence fie
 
 ---
 
+### Adding BAM evidence to a VCF scan
+
+BAM files provide a second, independent line of evidence: instead of trusting that
+genotype calls in the VCF are correct, `privy scan` goes back to the raw reads and
+asks *"Do we actually see the private allele in the reads?"*
+
+#### Step 1: Make sure your BAMs are sorted and indexed
+
+```bash
+samtools sort -o T1.sorted.bam T1.bam
+samtools index T1.sorted.bam
+# Repeat for each sample BAM
+```
+
+If your BAMs are already coordinate-sorted (e.g., output from a standard aligner
+pipeline), skip the sort step and just run `samtools index`.
+
+#### Step 2: Add --bam flags to your scan
+
+```bash
+privy scan \
+  --vcf your_variants.vcf.gz \
+  --bam T1.sorted.bam \
+  --bam T2.sorted.bam \
+  --bam O1.sorted.bam \
+  --bam O2.sorted.bam \
+  --cohort-file cohort.yaml \
+  --outdir results_with_bam/
+```
+
+For many samples, a manifest file is easier:
+
+```bash
+# manifest.tsv
+# bam_path             sample_id
+T1.sorted.bam          Benning
+T2.sorted.bam          Harosoy
+O1.sorted.bam          Jack
+O2.sorted.bam          Lee
+```
+
+```bash
+privy scan \
+  --vcf your_variants.vcf.gz \
+  --bam-manifest manifest.tsv \
+  --cohort-file cohort.yaml \
+  --outdir results_with_bam/
+```
+
+#### What changes in the outputs
+
+- **`hits.tsv`**: `support_score` is now non-zero for loci where BAM reads confirm or
+  contradict the VCF call.  `final_score` reflects this update.
+- **`evidence.tsv`**: Gains one row per (locus, sample) pair for every BAM query, with
+  `source_type=bam` and an `evidence_class` of `support`, `absence`, `contradiction`,
+  `ambiguous`, or `uninformative`.
+- **`sample_support.tsv`**: The `depth` and `allele_fraction` columns are now populated
+  for BAM-covered samples (previously `NA`).
+
+#### Evidence classes for BAM observations
+
+| Class | When assigned |
+|-------|--------------|
+| `support` | Target sample: alt allele confirmed (depth ≥ min_depth, alt fraction ≥ threshold) |
+| `ambiguous` | Target sample: adequate depth but alt allele not confirmed by BAM |
+| `absence` | Off-target sample: alt allele absent with adequate depth |
+| `contradiction` | Off-target sample: alt allele present — the private-allele model is undermined |
+| `uninformative` | Any sample: depth below threshold, or locus is an indel (no per-allele counting) |
+
+UNINFORMATIVE observations are excluded from the `support_score` mean so that
+low-coverage samples do not penalise well-supported loci.
+
+---
+
 ### Running a report
 
 Once a scan is complete, generate a ranked summary and human-readable report:
@@ -378,10 +476,10 @@ After running `privy scan`, your output directory contains:
 
 | File | What it contains |
 |------|-----------------|
-| `hits.tsv` | One row per candidate private allele, sorted by confidence score (rank 1 = highest). Start here. |
+| `hits.tsv` | One row per candidate private allele, sorted by confidence score (rank 1 = highest). Start here. `support_score` is non-zero when BAM evidence was collected. |
 | `regions.tsv` | Nearby hits merged into genomic intervals. Useful for downstream analysis. |
-| `evidence.tsv` | One evidence record per hit, showing the source of each finding (currently VCF or GFA, depending on the backend you ran). |
-| `sample_support.tsv` | Per-sample genotype at every hit locus. Tells you exactly which samples carried the allele and which were missing. |
+| `evidence.tsv` | One evidence record per hit per source type. With VCF only: one row per locus. With BAM added: one VCF row plus one row per (locus, sample) BAM observation, each with an `evidence_class`. |
+| `sample_support.tsv` | Per-sample genotype at every hit locus. The `depth` and `allele_fraction` columns are populated when a BAM was provided for that sample; otherwise `NA`. |
 | `qc.tsv` | Run-level quality control: how many records were evaluated, skipped, and passed. Review this to understand how your filters affected the analysis. |
 | `run.json` | Complete record of every parameter used in this run. Keep this file to reproduce your results later. |
 
@@ -402,7 +500,10 @@ After running `privy scan`, your output directory contains:
 | `target_missing_n` | integer | Target samples with no genotype call at this position |
 | `offtarget_missing_n` | integer | Off-target samples with no genotype call at this position |
 | `strictness_class` | text | Confidence classification (see next section) |
-| `final_score` | float | Composite confidence score. Higher is better. |
+| `discovery_score` | float | Score derived from the VCF/GFA cohort pattern alone |
+| `support_score` | float | Score from secondary evidence (BAM); 0.0 when no BAM was provided |
+| `penalty_score` | float | Deduction for missingness or contradiction |
+| `final_score` | float | `discovery_score + support_score − penalty_score`. Higher is better. |
 
 > **Coordinate note**: `start` and `end` use 0-based half-open coordinates (the BED/pysam convention). To convert to the 1-based position shown in your VCF, add 1 to `start`. For a SNP at VCF POS 12345, `start=12344`, `end=12345`.
 
@@ -536,7 +637,7 @@ privy scan --vcf PATH --targets SAMPLE [SAMPLE ...] --off-targets SAMPLE [SAMPLE
 privy scan --gfa PATH --targets SAMPLE [SAMPLE ...] --off-targets SAMPLE [SAMPLE ...] [OPTIONS]
 ```
 
-Key options:
+**Primary input options:**
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -549,12 +650,24 @@ Key options:
 | `--min-target-support FLOAT` | `1.0` | Minimum fraction of called targets that must carry the allele |
 | `--max-off-target-support FLOAT` | `0.0` | Maximum fraction of called off-targets allowed to carry the allele |
 | `--merge-distance INT` | `0` | Merge loci within this many bp into regions (0 = no merging) |
-| `--pass-only / --no-pass-only` | `true` | (VCF only) Require `FILTER=PASS` |
-| `--min-qual FLOAT` | none | (VCF only) Minimum VCF QUAL score |
-| `--allow-multiallelic` | `true` | (VCF only) Evaluate multiallelic records |
-| `--min-segment-length INT` | `1` | (GFA only) Skip segments shorter than this many bp |
+| `--pass-only / --no-pass-only` | `true` | (VCF) Require `FILTER=PASS` |
+| `--min-qual FLOAT` | none | (VCF) Minimum VCF QUAL score |
+| `--allow-multiallelic` | `true` | (VCF) Evaluate multiallelic records |
+| `--min-segment-length INT` | `1` | (GFA) Skip segments shorter than this many bp |
 | `--region TEXT` | none | Restrict scan to a region (format: `chr1:1000-2000`) |
 | `--contig TEXT` | none | Restrict scan to a single contig |
+
+**BAM support layer options** (all optional; BAM support activates when `--bam` or `--bam-manifest` is provided):
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--bam PATH` | none | Sorted, indexed BAM file. Repeat flag for multiple files. |
+| `--bam-manifest PATH` | none | TSV with `bam_path` and `sample_id` columns; alternative to repeating `--bam` |
+| `--bam-min-depth INT` | `8` | Minimum read depth to call evidence at a locus (below → UNINFORMATIVE) |
+| `--bam-min-alt-count INT` | `2` | Minimum alt-supporting reads to call SUPPORT or CONTRADICTION |
+| `--bam-min-alt-fraction FLOAT` | `0.2` | Minimum alt allele fraction to call SUPPORT or CONTRADICTION |
+| `--bam-min-mapq INT` | `20` | Minimum mapping quality for BAM reads |
+| `--bam-min-baseq INT` | `20` | Minimum base quality at the pileup position (SNPs only) |
 
 Run `privy scan --help` for the full option list.
 
