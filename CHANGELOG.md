@@ -7,7 +7,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — v0.6.0-dev
+## [Unreleased] — v0.7.0-dev
 
 ### Added
 
@@ -265,8 +265,41 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - 535 total tests passing
 - `pyproject.toml` — bumped version to `0.6.0.dev0`
 
+**Phase 8 — privy annotate (2026-04-21)**
+
+- `src/privy/io/gff.py` — GFF3 parser and interval index:
+  - `GffRecord` dataclass with 0-based half-open coordinates (converted from GFF3 1-based)
+  - `AnnotationIndex` — in-memory index with sorted gene and sub-feature lists
+  - `parse_gff3()` — streaming iterator for plain and .gz GFF3 files; optional
+    `feature_types` filter; `Name=` / `ID=` attribute extraction for gene IDs
+  - `build_annotation_index()` — builds sorted interval lists for `gene`, `CDS`,
+    `exon`, `five_prime_UTR`, `three_prime_UTR`; `mRNA` excluded as structural only
+  - `query_genes()` and `query_sub_feature()` — bisect-based O(log n) interval queries
+  - `load_contig_alias()` — TSV-based contig-name mapping for cross-reference
+    compatibility (e.g. Gm01 → chr1)
+- `src/privy/backends/annotate.py` — annotation classification engine:
+  - `classify_locus()` — five-level hierarchy: CDS → UTR → exonic → intronic → intergenic
+  - `run_annotate()` — full pipeline: load hits → build GFF3 index → classify each locus
+    → write `annotated_hits.tsv`, `annotation_summary.tsv`, `annotate.json`
+  - `--contig-alias` + `--hits-to-gff`/`--gff-to-hits` for bidirectional name mapping
+- `src/privy/cli/annotate.py` — `privy annotate` subcommand:
+  - `--hits` (required), `--gff` (required), `--contig-alias` (optional)
+  - `--hits-to-gff/--gff-to-hits` direction flag
+  - Registered in `src/privy/cli/main.py`
+- `src/privy/io/tsv.py` — two new column schemas:
+  - `ANNOTATED_HITS_COLUMNS` — all hits columns + `annotation_class`, `gene_id`,
+    `gene_strand`, `gene_start`, `gene_end`
+  - `ANNOTATION_SUMMARY_COLUMNS` — `annotation_class`, `n_loci`, `pct_total`
+- `tests/data/small_cohort.gff3` — synthetic GFF3 matching `small_cohort.vcf`
+  coordinates: GeneA (chr1:51-350) with CDS at pos 100/300, five_prime_UTR at pos 200;
+  GeneB (chr1:451-550) with exon only at 451-470 (pos 500 → intronic)
+- `tests/unit/test_gff_io.py` — 29 unit tests across 4 classes
+- `tests/integration/test_annotate.py` — 24 integration tests across 3 classes
+- 588 total tests passing
+- `pyproject.toml` — bumped version to `0.7.0.dev0`
+
 ### Not yet implemented
 
-- `privy annotate` — GFF3/BED feature intersection (v0.7)
 - `privy export` — BED/VCF/GFF3 output layer (v0.8)
 - Multi-cohort batch mode (v0.9)
+- Polished docs, example datasets, manuscript-ready outputs (v1.0)

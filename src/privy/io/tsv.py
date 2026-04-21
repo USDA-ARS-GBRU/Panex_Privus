@@ -107,6 +107,21 @@ COMPARE_SUMMARY_COLUMNS: list[str] = [
     "mean_score",
 ]
 
+ANNOTATED_HITS_COLUMNS: list[str] = [
+    *HITS_COLUMNS,
+    "annotation_class",
+    "gene_id",
+    "gene_strand",
+    "gene_start",
+    "gene_end",
+]
+
+ANNOTATION_SUMMARY_COLUMNS: list[str] = [
+    "annotation_class",
+    "n_loci",
+    "pct_total",
+]
+
 # Report output column schemas
 RANKED_HITS_COLUMNS: list[str] = ["rank", *HITS_COLUMNS]
 

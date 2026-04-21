@@ -817,11 +817,74 @@ privy plot --hits results/hits.tsv --plot-type strictness_bar \
 | `--output-format TEXT` | `png` | `png`, `svg`, or `pdf` |
 | `--dpi INT` | `150` | Figure DPI (raster formats) |
 
+### privy annotate
+
+`privy annotate` intersects private loci discovered by `privy scan` with a GFF3
+gene annotation file.  Each hit is classified using a five-level feature hierarchy:
+*CDS → UTR → exonic → intronic → intergenic*.  This tells you whether each
+target-private locus falls inside a coding sequence, a UTR, an intron, or between
+genes — information that is essential for prioritising candidates in breeding or
+functional-genomics workflows.
+
+**Basic usage:**
+
+```bash
+# Annotate hits with a GFF3 file
+privy annotate \
+    --hits results/hits.tsv \
+    --gff annotation/Gmax_880_Wm82.a6.v1.gene_exons.gff3.gz \
+    --outdir annotated/
+
+# Contig names differ between hits.tsv (chr1) and GFF3 (Gm01) — use an alias file
+privy annotate \
+    --hits results/hits.tsv \
+    --gff annotation/Gmax_880_Wm82.a6.v1.gene_exons.gff3.gz \
+    --contig-alias configs/gm_to_chr.tsv \
+    --hits-to-gff \
+    --outdir annotated/
+```
+
+**Feature classification hierarchy:**
+
+| Class | Meaning |
+|-------|---------|
+| `CDS` | Locus overlaps a coding sequence interval |
+| `UTR` | Locus overlaps a five_prime_UTR or three_prime_UTR |
+| `exonic` | Locus overlaps an exon but not a CDS or UTR |
+| `intronic` | Locus is within the gene body but does not overlap any exon |
+| `intergenic` | Locus does not overlap any annotated gene |
+
+**Key options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--hits PATH` | required | hits.tsv from `privy scan` |
+| `--gff PATH` | required | GFF3 annotation file (plain or .gz) |
+| `--contig-alias PATH` | optional | Two-column TSV mapping contig names |
+| `--hits-to-gff` | off | Alias direction: hits → GFF3 (default: GFF3 → hits) |
+| `--outdir PATH` | `.` | Output directory |
+
+**Outputs:**
+
+| File | Contents |
+|------|----------|
+| `annotated_hits.tsv` | All `hits.tsv` columns + `annotation_class`, `gene_id`, `gene_strand`, `gene_start`, `gene_end` |
+| `annotation_summary.tsv` | Per-class locus counts and percentages |
+| `annotate.json` | Run metadata |
+
+**Contig name mapping:**
+
+Reference assemblies often use different contig naming conventions between the VCF/GFA
+output and the GFF3 annotation.  For example, soybean Wm82.a6.v1 uses `Gm01`–`Gm20` in
+the GFF3 but your VCF may use `chr1`–`chr20`.  Provide a two-column TSV alias file
+(source name, tab, target name) and use `--hits-to-gff` when the hits file uses the
+non-GFF3 names, or `--gff-to-hits` (default) when the GFF3 uses the non-hits names.
+
 ---
 
 ## Current Status
 
-Panex Privus is under active development. Version 0.6.0-dev.
+Panex Privus is under active development. Version 0.7.0-dev.
 
 ### What works now
 
@@ -866,7 +929,14 @@ Panex Privus is under active development. Version 0.6.0-dev.
   - `--plot-type all` (default) generates every applicable figure for the given inputs
   - Outputs PNG, SVG, or PDF; publication-ready styling with the Panex Privus colour palette
   - Strictness class and match class colours are consistent across all figure types
-- 535+ unit and integration tests passing
+- **`privy annotate`** — fully operational
+  - Intersects private loci from `hits.tsv` with a GFF3 gene annotation
+  - Five-level feature hierarchy: CDS → UTR → exonic → intronic → intergenic
+  - Bisect-based O(log n) interval queries; handles plain and gzip-compressed GFF3
+  - `--contig-alias` flag for cross-reference contig name mapping (e.g. Gm01 → chr1)
+  - Writes `annotated_hits.tsv` (all hits columns + 5 annotation columns),
+    `annotation_summary.tsv`, and `annotate.json`
+- 588 unit and integration tests passing
 - YAML configuration with three-tier priority
 
 ### Roadmap
@@ -878,8 +948,8 @@ Panex Privus is under active development. Version 0.6.0-dev.
 | v0.3 | `privy report` — ranked summaries and QC reports |
 | v0.4 | BAM support layer — read-level evidence at discovered loci |
 | v0.5 | `privy compare` — cross-evidence reconciliation between VCF and GFA result sets |
-| v0.6 (current) | `privy plot` — diagnostic figures: locus panel, strictness bar, score distribution, compare summary |
-| v0.7 | `privy annotate` — intersect private loci with GFF3/BED gene annotations; classify hits as genic, intronic, intergenic |
+| v0.6 | `privy plot` — diagnostic figures: locus panel, strictness bar, score distribution, compare summary |
+| v0.7 (current) | `privy annotate` — intersect private loci with GFF3 gene annotations; classify hits as CDS / UTR / exonic / intronic / intergenic |
 | v0.8 | `privy export` — write hits and regions to BED, annotated VCF, and GFF3 for IGV and downstream tools |
 | v0.9 | Multi-cohort batch mode — run multiple cohort definitions in a single pass; output a cross-cohort private-allele presence/absence matrix |
 | v1.0 | Polished docs, example datasets, manuscript-ready outputs, GitHub release |
@@ -964,7 +1034,6 @@ Areas where help is especially welcome:
 
 - Additional test fixtures and regression cases (especially real-world GFA and BAM files)
 - Documentation improvements and worked examples
-- `privy annotate` (v0.7) — intersect private loci with GFF3/BED gene annotations
 - `privy export` (v0.8) — write hits/regions to BED, VCF, and GFF3 for downstream tools
 - Multi-cohort batch mode (v0.9) — cross-cohort presence/absence matrix
 - Edge-case handling for unusually structured GFA path-name conventions

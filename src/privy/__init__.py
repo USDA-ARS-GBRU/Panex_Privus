@@ -9,10 +9,11 @@ Primary use case:
     BAM, GFA, and XMFA.
 
 Commands:
-    privy scan     — Discover target-private alleles and regions (VCF-first)
-    privy compare  — Compare loci or regions across evidence sources
-    privy report   — Generate ranked summaries and human-readable reports
-    privy plot     — Create focused locus and region visualizations
+    privy scan      — Discover target-private alleles and regions (VCF-first)
+    privy compare   — Compare loci or regions across evidence sources
+    privy report    — Generate ranked summaries and human-readable reports
+    privy plot      — Create focused locus and region visualizations
+    privy annotate  — Intersect private loci with GFF3 gene annotations
 """
 
 from importlib.metadata import PackageNotFoundError, version

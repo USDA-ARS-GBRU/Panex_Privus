@@ -1,0 +1,19 @@
+##gff-version 3
+##sequence-region chr1 1 10000
+# Synthetic GFF3 matching tests/data/small_cohort.vcf
+# GeneA: chr1:51-350  covers VCF positions 100 (CDS), 200 (UTR), 300 (CDS)
+# GeneB: chr1:451-550 covers VCF position 500 (intronic — exon only at 451-470)
+# VCF positions 400, 700, 800, 900 are intergenic
+chr1	test	gene	51	350	.	+	.	ID=GeneA;Name=GeneA
+chr1	test	mRNA	51	350	.	+	.	ID=GeneA.mRNA1;Parent=GeneA
+chr1	test	exon	91	110	.	+	.	Parent=GeneA.mRNA1
+chr1	test	CDS	91	110	.	+	0	Parent=GeneA.mRNA1
+chr1	test	five_prime_UTR	191	210	.	+	.	Parent=GeneA.mRNA1
+chr1	test	exon	191	210	.	+	.	Parent=GeneA.mRNA1
+chr1	test	exon	291	310	.	+	.	Parent=GeneA.mRNA1
+chr1	test	CDS	291	310	.	+	0	Parent=GeneA.mRNA1
+chr1	test	three_prime_UTR	341	350	.	+	.	Parent=GeneA.mRNA1
+chr1	test	gene	451	550	.	-	.	ID=GeneB;Name=GeneB
+chr1	test	mRNA	451	550	.	-	.	ID=GeneB.mRNA1;Parent=GeneB
+chr1	test	exon	451	470	.	-	.	Parent=GeneB.mRNA1
+chr1	test	CDS	451	470	.	-	0	Parent=GeneB.mRNA1

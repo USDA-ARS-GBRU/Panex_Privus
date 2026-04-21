@@ -7,9 +7,10 @@ Usage::
 
     privy --help
     privy scan --vcf cohort.vcf.gz --targets S1 S2 --off-targets S3 S4 --outdir results/
-    privy compare --hits-a vcf_results/hits.tsv --hits-b gfa_results/hits.tsv --outdir compare/
-    privy report --hits results/hits.tsv --outdir report/
-    privy plot   --hits results/hits.tsv --top-n 10 --outdir plots/
+    privy compare   --hits-a vcf_results/hits.tsv --hits-b gfa_results/hits.tsv --outdir compare/
+    privy report    --hits results/hits.tsv --outdir report/
+    privy plot      --hits results/hits.tsv --top-n 10 --outdir plots/
+    privy annotate  --hits results/hits.tsv --gff annotation.gff3.gz --outdir annotated/
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from typing import Optional
 import typer
 
 from privy import __version__
-from privy.cli import compare, plot, report, scan
+from privy.cli import annotate, compare, plot, report, scan
 from privy.cli.context import get_state
 from privy.utils.logging import configure_logging
 
@@ -42,6 +43,7 @@ app.add_typer(scan.app, name="scan")
 app.add_typer(compare.app, name="compare")
 app.add_typer(report.app, name="report")
 app.add_typer(plot.app, name="plot")
+app.add_typer(annotate.app, name="annotate")
 
 
 def _version_callback(value: bool) -> None:

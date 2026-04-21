@@ -83,6 +83,9 @@ run.json
 # Claude Code internal state
 .claude/
 
+# Temporary local data (large files, not for version control)
+temp_data/
+
 # macOS
 .DS_Store
 .AppleDouble
