@@ -1,7 +1,8 @@
-"""``privy plot`` — focused evidence visualization engine.
+"""``privy plot`` — focused evidence visualization.
 
-Generates publication-quality plots for loci, regions, and summary diagnostics.
-Designed to explain and diagnose findings — not to be a genome browser.
+Generates publication-quality diagnostic figures from privy scan and
+compare outputs.  Designed to explain findings, not to replace a genome
+browser.
 """
 
 from __future__ import annotations
@@ -20,10 +21,12 @@ log = logging.getLogger("privy.cli.plot")
 app = typer.Typer(
     name="plot",
     help=(
-        "Generate focused plots for loci, regions, and summary diagnostics.\n\n"
-        "[bold]Plot types:[/bold] locus_panel | region_summary | "
-        "genotype_heatmap | strictness_bar | support_bar | depth_panel\n\n"
-        "Focused explanatory plots, not a genome browser."
+        "Generate focused diagnostic plots from privy scan and compare outputs.\n\n"
+        "[bold]Plot types:[/bold] "
+        "locus_panel | strictness_bar | score_distribution | "
+        "support_bar | compare_summary | all\n\n"
+        "Pass [bold]--plot-type all[/bold] (default) to generate every applicable "
+        "figure for the given inputs."
     ),
     rich_markup_mode="rich",
     no_args_is_help=True,
@@ -32,99 +35,65 @@ app = typer.Typer(
 
 @app.callback(invoke_without_command=True)
 def plot(
-    # --------------------------------------------------------------- inputs
-    hits: Optional[Path] = typer.Option(
-        None, "--hits", metavar="PATH",
-        help="hits.tsv from privy scan.",
+    # ---------------------------------------------------------------- inputs
+    hits: Path = typer.Option(
+        ..., "--hits", metavar="PATH",
+        help="hits.tsv from privy scan (required).",
     ),
     regions: Optional[Path] = typer.Option(
         None, "--regions", metavar="PATH",
-        help="regions.tsv from privy scan.",
+        help="regions.tsv from privy scan (optional).",
     ),
     evidence: Optional[Path] = typer.Option(
         None, "--evidence", metavar="PATH",
-        help="evidence.tsv from privy scan.",
+        help="evidence.tsv from privy scan (enables support_bar plot).",
     ),
-    vcf: Optional[Path] = typer.Option(
-        None, "--vcf", metavar="PATH",
-        help="Indexed VCF for genotype visualization.",
+    compare: Optional[Path] = typer.Option(
+        None, "--compare", metavar="PATH",
+        help="compare.tsv from privy compare (enables compare_summary plot).",
     ),
-    bam: Optional[List[Path]] = typer.Option(
-        None, "--bam", metavar="PATH",
-        help="BAM files for depth panels. Repeat flag for multiple files.",
-    ),
-    bam_manifest: Optional[Path] = typer.Option(
-        None, "--bam-manifest", metavar="PATH",
-        help="BAM manifest TSV.",
-    ),
-    gfa: Optional[Path] = typer.Option(
-        None, "--gfa", metavar="PATH",
-        help="GFA graph file for context strips.",
-    ),
-    xmfa: Optional[Path] = typer.Option(
-        None, "--xmfa", metavar="PATH",
-        help="XMFA alignment file for corroboration strips.",
-    ),
-    # ------------------------------------------------------------- selection
-    locus_id: Optional[str] = typer.Option(
-        None, "--locus-id", metavar="TEXT",
-        help="Plot a specific locus by ID.",
-    ),
-    region_id: Optional[str] = typer.Option(
-        None, "--region-id", metavar="TEXT",
-        help="Plot a specific region by ID.",
-    ),
-    top_n: Optional[int] = typer.Option(
-        None, "--top-n", metavar="INTEGER", min=1,
-        help="Plot top N loci or regions by final_score.",
-    ),
-    contig: Optional[str] = typer.Option(
-        None, "--contig", metavar="TEXT",
-        help="Restrict plots to a contig.",
-    ),
-    region: Optional[str] = typer.Option(
-        None, "--region", metavar="TEXT",
-        help="Restrict plots to contig:start-end.",
-    ),
-    # ----------------------------------------------------------- plot types
+    # ----------------------------------------------------------- plot type
     plot_type: str = typer.Option(
-        "locus_panel", "--plot-type", metavar="TEXT",
+        "all", "--plot-type", metavar="TEXT",
         help=(
-            "Plot type: locus_panel | region_summary | genotype_heatmap | "
-            "strictness_bar | support_bar | depth_panel."
+            "Which plot to generate: "
+            "locus_panel | strictness_bar | score_distribution | "
+            "support_bar | compare_summary | all."
         ),
     ),
-    # --------------------------------------------------------- plot options
+    # ------------------------------------------------------------- selection
+    top_n: Optional[int] = typer.Option(
+        None, "--top-n", metavar="INTEGER", min=1,
+        help="Number of top loci to show in locus_panel [default: 30].",
+    ),
+    show_labels: bool = typer.Option(
+        True, "--show-labels/--no-show-labels",
+        help="Annotate x-axis with locus IDs in locus_panel (only when top_n ≤ 20).",
+    ),
+    # --------------------------------------------------------- figure options
     width: float = typer.Option(
-        12.0, "--width", metavar="FLOAT",
+        10.0, "--width", metavar="FLOAT",
         help="Figure width in inches.",
     ),
     height: float = typer.Option(
-        6.0, "--height", metavar="FLOAT",
+        5.0, "--height", metavar="FLOAT",
         help="Figure height in inches.",
     ),
     dpi: int = typer.Option(
         150, "--dpi", metavar="INTEGER", min=72,
-        help="Figure DPI.",
+        help="Figure DPI (raster formats).",
     ),
     output_format: str = typer.Option(
         "png", "--output-format", metavar="TEXT",
-        help="Output format: png | pdf | svg.",
+        help="Output format: png | svg | pdf.",
     ),
-    show_labels: bool = typer.Option(
-        True, "--show-labels/--no-show-labels",
-        help="Show sample or locus labels where applicable.",
-    ),
+    # --------------------------------------------------------------- outputs
     outdir: Optional[Path] = typer.Option(
         None, "--outdir", metavar="PATH",
-        help="Output directory. Overrides global --outdir.",
+        help="Output directory (overrides global --outdir).",
     ),
 ) -> None:
-    """Generate focused plots for loci, regions, and summary diagnostics.
-
-    Designed for diagnostics and publication-ready figure generation.
-    Not a genome browser — each plot type explains a specific finding.
-    """
+    """Generate focused diagnostic plots from privy scan and compare outputs."""
     from privy.plot.loci import run_plot  # noqa: PLC0415
 
     state = get_state()
@@ -134,35 +103,32 @@ def plot(
     if state.config_path is not None:
         cfg = load_config(state.config_path)
     else:
-        from privy.core.config import default_config
+        from privy.core.config import default_config  # noqa: PLC0415
         cfg = default_config()
 
-    if hits is None:
-        typer.echo("[error] --hits is required.", err=True)
-        raise typer.Exit(code=1)
-
     if not hits.exists():
-        typer.echo(f"[error] hits.tsv not found: {hits}", err=True)
+        typer.echo(f"[error] --hits not found: {hits}", err=True)
         raise typer.Exit(code=1)
 
     effective_outdir.mkdir(parents=True, exist_ok=True)
-    log.info("Starting plot | type=%s", plot_type)
+    log.info("Starting plot | type=%s outdir=%s", plot_type, effective_outdir)
 
-    run_plot(
+    generated = run_plot(
         hits=hits,
         regions=regions,
         evidence=evidence,
-        vcf=vcf,
-        bam=bam,
-        bam_manifest=bam_manifest,
-        gfa=gfa,
-        xmfa=xmfa,
+        vcf=None,
+        bam=None,
+        bam_manifest=None,
+        gfa=None,
+        xmfa=None,
+        compare=compare,
         cfg=cfg,
-        locus_id=locus_id,
-        region_id=region_id,
+        locus_id=None,
+        region_id=None,
         top_n=top_n,
-        contig=contig,
-        region=region,
+        contig=None,
+        region=None,
         plot_type=plot_type,
         width=width,
         height=height,
@@ -171,3 +137,7 @@ def plot(
         show_labels=show_labels,
         outdir=effective_outdir,
     )
+
+    if not state.quiet:
+        for path in generated:
+            typer.echo(f"  {path}")

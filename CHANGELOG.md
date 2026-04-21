@@ -7,7 +7,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — v0.5.0-dev
+## [Unreleased] — v0.6.0-dev
 
 ### Added
 
@@ -241,6 +241,32 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   including full CLI command-level tests
 - `pyproject.toml` — bumped version to `0.5.0.dev0`
 
+**Phase 7 — privy plot (2026-04-21)**
+
+- `src/privy/plot/themes.py` — expanded colour palette and rcParams:
+  - `MATCH_COLOURS` for compare plot (matches all six MatchClass values)
+  - `STRICTNESS_ORDER` and `MATCH_ORDER` for consistent plot-axis ordering
+  - Publication-ready rcParams (grid, legend, spines, DPI)
+- `src/privy/plot/summaries.py` — four diagnostic plot functions:
+  - `plot_strictness_bar()` — horizontal bar chart of strictness class distribution
+  - `plot_score_distribution()` — stacked histogram of `final_score` by strictness class
+  - `plot_support_bar()` — stacked bar of evidence class counts by source type
+  - `plot_compare_summary()` — horizontal bar of match class counts from compare.tsv
+- `src/privy/plot/loci.py` — locus panel and main dispatcher:
+  - `plot_locus_panel()` — ranked lollipop of top-N hits, coloured by strictness class
+  - `run_plot()` — dispatches to all applicable plot functions based on `plot_type`;
+    `"all"` (default) generates every plot for which inputs are present
+- `src/privy/cli/plot.py` — complete rewrite:
+  - Simplified to `--hits` (required) + `--evidence`, `--compare` optional inputs
+  - `--plot-type all` default; XMFA and raw VCF/BAM/GFA options removed
+  - Outputs echoed to stdout unless `--quiet`
+- `tests/unit/test_plot.py` — 21 unit tests across 5 classes
+- `tests/integration/test_plot_cli.py` — 16 integration tests across 4 classes
+- 535 total tests passing
+- `pyproject.toml` — bumped version to `0.6.0.dev0`
+
 ### Not yet implemented
 
-- `privy plot` — visualization (planned v0.6)
+- `privy annotate` — GFF3/BED feature intersection (v0.7)
+- `privy export` — BED/VCF/GFF3 output layer (v0.8)
+- Multi-cohort batch mode (v0.9)

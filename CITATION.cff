@@ -9,7 +9,7 @@ abstract: >-
   explicit missingness classification, interval merging, and transparent scoring.
 authors:
   - name: "Panex Privus Contributors"
-version: "0.5.0-dev"
+version: "0.6.0-dev"
 date-released: "2026-04-21"
 url: "https://github.com/USDA-ARS-GBRU/Panex_Privus"
 repository-code: "https://github.com/USDA-ARS-GBRU/Panex_Privus"

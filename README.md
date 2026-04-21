@@ -773,14 +773,55 @@ privy compare \
 
 ### privy plot
 
-`privy plot` is planned for v0.6. It will provide visualization of hits, regions, and
-cross-source comparison results. See [Current Status](#current-status) for the roadmap.
+`privy plot` generates focused diagnostic figures from `privy scan` and `privy compare`
+outputs.  Pass `--plot-type all` (default) to get every applicable figure for the
+inputs you provide, or name a specific plot type to generate just that one.
+
+**Basic usage:**
+
+```bash
+# Generate all applicable plots from a scan result
+privy plot --hits results/hits.tsv --outdir plots/
+
+# Add compare concordance figure
+privy plot \
+    --hits results/vcf/hits.tsv \
+    --compare results/compare/compare.tsv \
+    --outdir plots/
+
+# Single plot type, high-res PDF
+privy plot --hits results/hits.tsv --plot-type strictness_bar \
+    --output-format pdf --dpi 300 --outdir plots/
+```
+
+**Plot types:**
+
+| Type | Requires | Output file | Description |
+|------|----------|-------------|-------------|
+| `locus_panel` | `--hits` | `locus_panel.png` | Ranked lollipop of top-N hits by `final_score`, coloured by strictness class |
+| `strictness_bar` | `--hits` | `strictness_bar.png` | Horizontal bar chart of strictness class distribution |
+| `score_distribution` | `--hits` | `score_distribution.png` | Stacked histogram of `final_score` values by strictness class |
+| `support_bar` | `--hits`, `--evidence` | `support_bar.png` | Stacked bar of evidence class counts by source (vcf, bam, gfa) |
+| `compare_summary` | `--hits`, `--compare` | `compare_summary.png` | Horizontal bar of match class distribution from `privy compare` |
+| `all` (default) | `--hits` + any optional | all applicable | Generates every plot for which the required inputs are present |
+
+**Key options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--hits PATH` | required | hits.tsv from privy scan |
+| `--evidence PATH` | optional | evidence.tsv (enables support_bar) |
+| `--compare PATH` | optional | compare.tsv from privy compare (enables compare_summary) |
+| `--plot-type TEXT` | `all` | Which plot to generate |
+| `--top-n INT` | `30` | Number of loci to show in locus_panel |
+| `--output-format TEXT` | `png` | `png`, `svg`, or `pdf` |
+| `--dpi INT` | `150` | Figure DPI (raster formats) |
 
 ---
 
 ## Current Status
 
-Panex Privus is under active development. Version 0.5.0-dev.
+Panex Privus is under active development. Version 0.6.0-dev.
 
 ### What works now
 
@@ -819,7 +860,13 @@ Panex Privus is under active development. Version 0.5.0-dev.
     uninformative / missing_data
   - Writes `compare.tsv` (per-locus-pair), `compare_summary.tsv`, `compare.json`
   - Source labels auto-inferred from locus_id prefix (PPX → vcf, GPX → gfa)
-- 500+ unit and integration tests passing
+- **`privy plot`** — fully operational
+  - Five plot types: locus_panel, strictness_bar, score_distribution, support_bar,
+    compare_summary
+  - `--plot-type all` (default) generates every applicable figure for the given inputs
+  - Outputs PNG, SVG, or PDF; publication-ready styling with the Panex Privus colour palette
+  - Strictness class and match class colours are consistent across all figure types
+- 535+ unit and integration tests passing
 - YAML configuration with three-tier priority
 
 ### Roadmap
@@ -830,8 +877,11 @@ Panex Privus is under active development. Version 0.5.0-dev.
 | v0.2 | GFA scan — standalone pangenome graph discovery |
 | v0.3 | `privy report` — ranked summaries and QC reports |
 | v0.4 | BAM support layer — read-level evidence at discovered loci |
-| v0.5 (current) | `privy compare` — cross-evidence reconciliation between VCF and GFA result sets |
-| v0.6 | `privy plot` — visualization of hits, regions, and comparison results |
+| v0.5 | `privy compare` — cross-evidence reconciliation between VCF and GFA result sets |
+| v0.6 (current) | `privy plot` — diagnostic figures: locus panel, strictness bar, score distribution, compare summary |
+| v0.7 | `privy annotate` — intersect private loci with GFF3/BED gene annotations; classify hits as genic, intronic, intergenic |
+| v0.8 | `privy export` — write hits and regions to BED, annotated VCF, and GFF3 for IGV and downstream tools |
+| v0.9 | Multi-cohort batch mode — run multiple cohort definitions in a single pass; output a cross-cohort private-allele presence/absence matrix |
 | v1.0 | Polished docs, example datasets, manuscript-ready outputs, GitHub release |
 
 ---
@@ -914,7 +964,9 @@ Areas where help is especially welcome:
 
 - Additional test fixtures and regression cases (especially real-world GFA and BAM files)
 - Documentation improvements and worked examples
-- `privy plot` (v0.6) — visualization of hits, regions, and comparison results
+- `privy annotate` (v0.7) — intersect private loci with GFF3/BED gene annotations
+- `privy export` (v0.8) — write hits/regions to BED, VCF, and GFF3 for downstream tools
+- Multi-cohort batch mode (v0.9) — cross-cohort presence/absence matrix
 - Edge-case handling for unusually structured GFA path-name conventions
 
 Please open an issue before making large architectural changes.
