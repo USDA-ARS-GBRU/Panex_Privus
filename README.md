@@ -1083,8 +1083,7 @@ Versioning information is provided in <changelog.txt> or <changelog.md> or [rele
 
 ## Acknowledgments
 
-Inspiration, code snippets, etc.
-* [readme_template](https://gist.github.com/DomPizzie/7a5ff55ffa9081f2de27c315f5018afc)
+Thanks to everyone from the GBRU team.
 
 ### Funding Support
 This is a project supported by the U.S. Department of Agriculture - Agricultural Research Service (USDA-ARS) - Genomics and Bioinformatics Research Unit (GBRU) through CRIS Project No. 6066-21310-006-000-D.
