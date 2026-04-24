@@ -1,5 +1,8 @@
 # Panex Privus (`privy`)
 
+> [!NOTE]
+> This repository is under active development. Suggestions, corrections, teaching examples, and issue reports are welcome through GitHub Issues or pull requests.
+
 **Find genomic variants shared within your target group and absent from everything else.**
 
 Panex Privus is a comparative genomics toolkit for discovering *target-private alleles*: DNA variants that are present in a focal cohort of genomes and absent from a set of off-target genomes. It is designed for plant pangenome research and any study where you need to ask: *What is genetically unique to my group of interest?*
