@@ -17,9 +17,31 @@ Commands:
 """
 
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+
+
+def _version_from_checkout() -> str | None:
+    """Return the local pyproject version when running from a source checkout."""
+    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    if not pyproject.exists():
+        return None
+
+    in_project = False
+    for raw_line in pyproject.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if line == "[project]":
+            in_project = True
+            continue
+        if in_project and line.startswith("["):
+            return None
+        if in_project and line.startswith("version"):
+            _, _, value = line.partition("=")
+            return value.strip().strip('"')
+    return None
+
 
 try:
-    __version__: str = version("panex-privus")
+    __version__: str = _version_from_checkout() or version("panex-privus")
 except PackageNotFoundError:
     __version__ = "unknown"
 

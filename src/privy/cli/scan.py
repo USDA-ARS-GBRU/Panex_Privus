@@ -331,6 +331,15 @@ def scan(
     # --------------------------------------------------------------- outdir
     effective_outdir.mkdir(parents=True, exist_ok=True)
     log.info("Output directory: %s", effective_outdir)
+    effective_threads = state.threads
+    if effective_threads > 1:
+        typer.echo(
+            "[warning] --threads is reserved for future parallel scan support; "
+            "running serially with --threads 1.",
+            err=True,
+        )
+        log.warning("Parallel scan execution is not implemented; forcing threads=1.")
+        effective_threads = 1
 
     # ------------------------------------------------------------------- run
     log.info(
@@ -361,7 +370,7 @@ def scan(
                 write_sample_support=write_sample_support,
                 write_qc=write_qc,
                 write_run_json=write_run_json,
-                threads=state.threads,
+                threads=effective_threads,
             )
         elif gfa is not None:
             # GFA-only primary scan
@@ -381,7 +390,7 @@ def scan(
                 write_sample_support=write_sample_support,
                 write_qc=write_qc,
                 write_run_json=write_run_json,
-                threads=state.threads,
+                threads=effective_threads,
             )
         else:
             raise NotImplementedError("XMFA-only scan is not yet implemented.")

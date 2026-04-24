@@ -1,13 +1,14 @@
 """Thread/process pool helpers for Panex Privus.
 
-TODO (Phase 2): implement safe parallelisation helpers for contig-chunked
-processing.  The design constraint is that parallelisation must not break
-deterministic output ordering.
+The scan backends are currently serial, but this helper keeps deterministic
+ordering for code paths that opt into simple thread-pool mapping.
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, TypeVar
+from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
+from typing import TypeVar
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -20,13 +21,9 @@ def map_with_threads(
 ) -> list[R]:
     """Apply *fn* to each item, optionally using a thread pool.
 
-    Falls back to serial execution when *threads* == 1 (the default).
-
-    TODO (Phase 2): implement concurrent.futures.ThreadPoolExecutor path.
+    Results preserve the input order, matching built-in ``map`` semantics.
     """
     if threads == 1:
         return [fn(item) for item in items]
-    raise NotImplementedError(
-        "Parallel execution (threads > 1) is not yet implemented.  "
-        "Use --threads 1 (the default) for now."
-    )
+    with ThreadPoolExecutor(max_workers=threads) as executor:
+        return list(executor.map(fn, items))

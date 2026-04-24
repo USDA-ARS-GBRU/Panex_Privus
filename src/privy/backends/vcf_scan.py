@@ -35,6 +35,7 @@ from pathlib import Path
 
 from privy.core.cohort import CohortDefinition
 from privy.core.config import PrivyConfig
+from privy.core.evidence import EvidenceRecord
 from privy.core.intervals import merge_loci_to_regions
 from privy.core.locus import Locus, LocusType, PrimarySource
 from privy.core.patterns import AllelePattern, build_allele_pattern
@@ -54,7 +55,6 @@ from privy.io.tsv import (
     SAMPLE_SUPPORT_COLUMNS,
     TsvWriter,
 )
-from privy.core.evidence import EvidenceRecord
 from privy.io.vcf import (
     Genotype,
     classify_variant_type,
@@ -148,9 +148,11 @@ def run_vcf_scan(
         write_sample_support: Write ``sample_support.tsv``.
         write_qc: Write ``qc.tsv``.
         write_run_json: Write ``run.json``.
-        threads: Worker threads (serial only in Phase 2).
+        threads: Worker threads. Values greater than 1 currently run serially.
     """
     start_time = now_iso()
+    if threads > 1:
+        log.warning("VCF scan parallel execution is not implemented; running serially.")
 
     if mode != "private_allele":
         raise NotImplementedError(

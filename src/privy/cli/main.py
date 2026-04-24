@@ -16,7 +16,6 @@ Usage::
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -54,14 +53,14 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def global_options(
-    config: Optional[Path] = typer.Option(
+    config: Path | None = typer.Option(
         None,
         "--config",
         metavar="PATH",
         help="Path to YAML configuration file.",
         show_default=False,
     ),
-    project_name: Optional[str] = typer.Option(
+    project_name: str | None = typer.Option(
         None,
         "--project-name",
         metavar="TEXT",
@@ -79,7 +78,7 @@ def global_options(
         "--threads",
         metavar="INTEGER",
         min=1,
-        help="Number of worker threads to use where supported.",
+        help="Worker threads where supported; current scan backends run serially.",
     ),
     log_level: str = typer.Option(
         "info",
@@ -92,7 +91,7 @@ def global_options(
         "--quiet",
         help="Reduce console output.",
     ),
-    version: Optional[bool] = typer.Option(  # noqa: UP007
+    version: bool | None = typer.Option(
         None,
         "--version",
         callback=_version_callback,

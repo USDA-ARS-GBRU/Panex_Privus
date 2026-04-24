@@ -135,7 +135,7 @@ def run_gfa_scan(
         write_sample_support: Write ``sample_support.tsv``.
         write_qc: Write ``qc.tsv``.
         write_run_json: Write ``run.json``.
-        threads: Worker threads (serial only in Phase 3).
+        threads: Worker threads. Values greater than 1 currently run serially.
 
     Raises:
         FileNotFoundError: If *gfa* does not exist.
@@ -143,6 +143,8 @@ def run_gfa_scan(
         NotImplementedError: If *mode* is not ``"private_allele"``.
     """
     start_time = now_iso()
+    if threads > 1:
+        log.warning("GFA scan parallel execution is not implemented; running serially.")
 
     if mode != "private_allele":
         raise NotImplementedError(
