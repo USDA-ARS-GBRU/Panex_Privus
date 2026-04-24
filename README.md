@@ -1070,3 +1070,22 @@ MIT License — see [LICENSE](LICENSE) for details.
 **Panex Privus** is the official project name. **`privy`** is the command-line tool.
 
 *Panex* evokes breadth — across the whole pangenome. *Privus* means "set apart" or "belonging to one alone." Together: what belongs to your group, found across the whole genome.
+
+### Corresponding Contact
+
+Contact info for current maintaining author
+
+Roth Conrad: roth.conrad@uga.edu
+
+## Version History
+
+Versioning information is provided in <changelog.txt> or <changelog.md> or [release history]()
+
+## Acknowledgments
+
+Inspiration, code snippets, etc.
+* [readme_template](https://gist.github.com/DomPizzie/7a5ff55ffa9081f2de27c315f5018afc)
+
+### Funding Support
+This is a project supported by the U.S. Department of Agriculture - Agricultural Research Service (USDA-ARS) - Genomics and Bioinformatics Research Unit (GBRU) through CRIS Project No. 6066-21310-006-000-D.
+Additional project support was through <and any additional agreements or grants>.
