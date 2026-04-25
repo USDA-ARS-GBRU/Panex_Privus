@@ -1,3 +1,8 @@
+---
+title: Architecture
+description: Panex Privus architecture and CLI surface.
+---
+
 # Architecture
 
 ## Overview
@@ -37,7 +42,7 @@ VCF and GFA are both primary discovery backends.
 VCF discovers target-private alleles from genotype calls. GFA discovers
 target-private graph segments from path/walk traversal. BAM is a support
 layer for VCF hits: it adds read-level depth and allele-fraction evidence at
-already discovered loci. XMFA is not part of the active v0.7 roadmap.
+already discovered loci. XMFA is not part of the active v0.8 roadmap.
 
 ### 3. Missingness is explicit
 Missing calls must not be silently folded into a generic pass/fail decision.
@@ -579,7 +584,7 @@ Its architectural center is simple:
 
 # Current CLI Surface
 
-This section is a compact architecture contract for the active v0.7 command
+This section is a compact architecture contract for the active v0.8 command
 surface. For exhaustive flags and examples, prefer `README.md` and the live
 `privy --help` output.
 

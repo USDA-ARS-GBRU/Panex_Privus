@@ -1,3 +1,8 @@
+---
+title: Development Log
+description: Chronological development notes for Panex Privus.
+---
+
 # Panex Privus — Development Log
 
 This log records what was built in each phase, the reasoning behind key decisions,

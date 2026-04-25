@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
+    <meta name="description" content="{{ page.description | default: site.description }}">
+    <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="skip-link" href="#content">Skip to content</a>
+      <div class="site-shell site-header__inner">
+        <a class="brand" href="{{ '/' | relative_url }}">
+          <span class="brand__title">{{ site.title }}</span>
+          <span class="brand__tagline">target-private genomics</span>
+        </a>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <a href="{{ site.github.repository_url | default: 'https://github.com/USDA-ARS-GBRU/Panex_Privus' }}">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <div class="site-shell docs-layout">
+      <aside class="sidebar" aria-label="Documentation navigation">
+        <nav>
+          {% for item in site.nav %}
+            <a
+              class="sidebar__link{% if page.url == item.url %} sidebar__link--active{% endif %}"
+              href="{{ item.url | relative_url }}"
+            >
+              {{ item.title }}
+            </a>
+          {% endfor %}
+        </nav>
+      </aside>
+
+      <main id="content" class="content">
+        {{ content }}
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div class="site-shell">
+        <span>{{ site.title }}</span>
+        <span>Built from the <code>/docs</code> folder.</span>
+      </div>
+    </footer>
+  </body>
+</html>

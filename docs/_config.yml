@@ -1,0 +1,43 @@
+title: Panex Privus
+description: Comparative genomics toolkit for target-private alleles and graph segments
+url: "https://usda-ars-gbru.github.io"
+baseurl: "/Panex_Privus"
+repository: USDA-ARS-GBRU/Panex_Privus
+
+markdown: kramdown
+permalink: pretty
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+nav:
+  - title: Home
+    url: /
+  - title: Installation
+    url: /installation/
+  - title: Quickstart
+    url: /quickstart/
+  - title: Concepts
+    url: /concepts/
+  - title: Commands
+    url: /commands/
+  - title: Outputs
+    url: /outputs/
+  - title: Configuration
+    url: /configuration/
+  - title: Status
+    url: /status/
+  - title: Troubleshooting
+    url: /troubleshooting/
+  - title: Architecture
+    url: /architecture/
+
+exclude:
+  - dev/
+  - "*.txt"
