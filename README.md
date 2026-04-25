@@ -106,6 +106,7 @@ links below.
 - [Current status and roadmap](docs/status.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Architecture](docs/architecture.md)
+- [Archived longform README](docs/archive/longform-readme.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## Current Status

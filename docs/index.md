@@ -30,6 +30,7 @@ README.
 - [Current status and roadmap]({{ '/status/' | relative_url }})
 - [Architecture]({{ '/architecture/' | relative_url }})
 - [Development log]({{ '/dev-log/' | relative_url }})
+- [Archived longform README]({{ '/archive/longform-readme/' | relative_url }})
 - [Contributing](https://github.com/USDA-ARS-GBRU/Panex_Privus/blob/main/CONTRIBUTING.md)
 
 ## Main Workflow
