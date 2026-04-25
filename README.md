@@ -13,6 +13,24 @@ comparative genomics projects where the core question is:
 
 > What is genetically unique to my group of interest?
 
+## Background
+
+### What is a target-private allele?
+
+Imagine you are studying soybean breeding lines. You have several varieties that
+all share a desirable trait, such as high seed protein content, and a broader
+reference set that does not have that trait. A natural question is:
+
+> What DNA variants are present in the high-protein varieties and absent from
+> the reference varieties?
+
+Those variants are called *target-private alleles*. They may or may not cause
+the trait, but they are candidates worth investigating.
+
+Panex Privus automates finding this signal from a VCF file or a pangenome graph
+(GFA). It handles missing data explicitly, merges nearby candidate variants into
+regions, and scores results so the highest-confidence candidates surface first.
+
 ## What It Does
 
 - Scans indexed multisample **VCF** files for target-private alleles.
