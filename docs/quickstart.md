@@ -6,18 +6,29 @@ description: First commands for scanning, comparing, reporting, plotting, annota
 # Quickstart
 
 This walkthrough takes you from an input file to a ranked list of candidate
-private regions.
+private regions. The story is the same whether you begin with a VCF or a graph:
+define the group you care about, define the comparison group, ask Panex Privus
+what is private to the target group, then add supporting evidence and summaries
+around the candidates.
 
 ## VCF Scan
 
-Make sure your VCF is compressed and indexed:
+Start with a multisample VCF when your discovery question is based on called
+variants. Panex Privus streams through the VCF, tests each alternate allele
+against the target/off-target cohort definition, and writes ranked candidate
+loci.
+
+First, make sure the VCF is bgzip-compressed and indexed. The index lets Panex
+Privus and downstream tools jump directly to genomic intervals.
 
 ```bash
 bgzip -c variants.vcf > variants.vcf.gz
 tabix -p vcf variants.vcf.gz
 ```
 
-Run a scan:
+Next, choose the samples that define the biological contrast. In this example,
+`T1`, `T2`, and `T3` are the group expected to share the signal, while `O1`,
+`O2`, and `O3` are the samples where that signal should be absent.
 
 ```bash
 privy scan \
@@ -27,17 +38,25 @@ privy scan \
   --outdir results/vcf/
 ```
 
-Important outputs:
+The first file to inspect is `hits.tsv`. It is sorted by confidence, so the top
+rows are the best candidates under the current filters and cohort definition.
+The surrounding files explain how each hit was scored and how the run behaved.
 
 - `hits.tsv`: ranked candidate private alleles
 - `regions.tsv`: merged candidate regions
 - `sample_support.tsv`: per-sample genotype/evidence table
+- `evidence.tsv`: per-locus evidence records
 - `qc.tsv`: scan metrics
 - `run.json`: run metadata and resolved configuration
 
 ## GFA Scan
 
-Run a graph scan:
+Use a GFA scan when your discovery question is based on a pangenome graph rather
+than called variants. This asks the same biological question, but at the level of
+graph segments: which segments are traversed by the target samples and absent
+from off-target samples?
+
+Run the graph scan with the same cohort logic:
 
 ```bash
 privy scan \
@@ -48,18 +67,31 @@ privy scan \
 ```
 
 GFA segments must have coordinate tags such as `SN:Z:chr1`, `SO:i:1000`, and
-`LN:i:500`. Minigraph-cactus output usually includes these tags.
+`LN:i:500`. Minigraph-cactus output usually includes these tags. Without them,
+Panex Privus cannot place graph segments back onto genomic coordinates for
+region merging, comparison, or annotation.
 
 ## Add BAM Evidence to a VCF Scan
 
-BAM files must be coordinate-sorted and indexed:
+BAM support is the next layer after VCF discovery. The VCF scan asks, "Which
+called alleles match the target-private pattern?" BAM support asks, "Do the
+reads at those candidate loci agree with that pattern?"
+
+This is useful when you want read-level confidence around high-priority VCF
+hits. BAM support does not discover new loci. It revisits loci discovered from
+the VCF and adds per-sample depth, allele fraction, and evidence classes.
+
+Before using BAMs, make sure each file is coordinate-sorted and indexed:
 
 ```bash
 samtools sort sample.bam -o sample.sorted.bam
 samtools index sample.sorted.bam
 ```
 
-Run with repeated `--bam` flags:
+For a small number of BAMs, pass repeated `--bam` flags. Panex Privus matches
+BAM files to samples by the BAM header `@RG SM` sample tag. If no `SM` tag is
+present, it falls back to the filename stem. Repeated flags are most convenient
+when your BAM headers already use the same sample names as the VCF.
 
 ```bash
 privy scan \
@@ -71,12 +103,15 @@ privy scan \
   --outdir results/vcf_bam/
 ```
 
-Or use a manifest:
+For real projects, a manifest is usually clearer. It makes the sample mapping
+explicit, avoids filename-stem surprises, and keeps long commands readable.
 
 ```text
 bam_path	sample_id
 T1.sorted.bam	T1
+T2.sorted.bam	T2
 O1.sorted.bam	O1
+O2.sorted.bam	O2
 ```
 
 ```bash
@@ -88,7 +123,24 @@ privy scan \
   --outdir results/vcf_bam/
 ```
 
+After the run, compare these files to the VCF-only output:
+
+- `hits.tsv`: `support_score` and `final_score` reflect BAM evidence
+- `evidence.tsv`: includes BAM evidence rows with `support`, `absence`,
+  `contradiction`, `ambiguous`, or `uninformative` classes
+- `sample_support.tsv`: includes depth and allele-fraction values where BAM
+  pileup was informative
+- `qc.tsv`: reports how many loci and BAM observations were evaluated
+
+The evidence classes are intentionally conservative. Low-depth loci are marked
+`uninformative` instead of being treated as absence, and off-target reads that
+support the allele are marked as `contradiction`.
+
 ## Compare VCF and GFA Scans
+
+If you ran both VCF and GFA discovery, compare the two result sets. Concordant
+loci are strong follow-up candidates; source-specific loci are also useful,
+because VCFs and graphs represent variation at different resolutions.
 
 ```bash
 privy compare \
@@ -98,6 +150,9 @@ privy compare \
 ```
 
 ## Report, Plot, Annotate, Export
+
+Once discovery and support layers are in place, generate human-readable outputs
+for review and downstream analysis.
 
 ```bash
 privy report --hits results/vcf/hits.tsv --regions results/vcf/regions.tsv \
