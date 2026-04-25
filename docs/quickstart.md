@@ -11,6 +11,23 @@ define the group you care about, define the comparison group, ask Panex Privus
 what is private to the target group, then add supporting evidence and summaries
 around the candidates.
 
+## Where the Inputs Come From
+
+Panex Privus does not build the VCF, graph, or read alignments itself. It starts
+after you have generated comparative genomics inputs with upstream tools.
+
+- A multisample **VCF** usually comes from variant calling against a reference
+  genome, or from a pangenome workflow that emits genotypes for all samples.
+- A **GFA** pangenome graph usually comes from a graph-building workflow such as
+  minigraph-cactus, PGGB, or another pangenome assembler.
+- **BAM** files come from mapping reads for each sample. For VCF support, reads
+  are usually mapped to the same reference genome used for the VCF. For
+  graph-centered projects, reads may also be mapped to a pangenome graph and
+  projected or summarized in ways that preserve sample-level evidence.
+
+The common pattern is: build or obtain VCF/GFA discovery inputs first, then use
+BAMs as read-level support for candidate loci discovered from the VCF.
+
 ## VCF Scan
 
 Start with a multisample VCF when your discovery question is based on called
@@ -56,6 +73,10 @@ than called variants. This asks the same biological question, but at the level o
 graph segments: which segments are traversed by the target samples and absent
 from off-target samples?
 
+Many users will get both a GFA and a genotyped VCF from the same pangenome
+workflow. In the current quickstart, run them as separate scans so each evidence
+source has its own output directory.
+
 Run the graph scan with the same cohort logic:
 
 ```bash
@@ -87,6 +108,13 @@ Before using BAMs, make sure each file is coordinate-sorted and indexed:
 samtools sort sample.bam -o sample.sorted.bam
 samtools index sample.sorted.bam
 ```
+
+For short reads, this usually means aligning FASTQ files to the reference genome
+used for the VCF with an aligner such as BWA-MEM2 or minimap2, then sorting and
+indexing the resulting BAM. For long reads, minimap2 is commonly used against a
+reference assembly; graph-based read mapping can also be useful, but the BAM
+support layer currently expects coordinate-sorted BAM files that can be queried
+at the VCF hit coordinates.
 
 For a small number of BAMs, pass repeated `--bam` flags. Panex Privus matches
 BAM files to samples by the BAM header `@RG SM` sample tag. If no `SM` tag is
