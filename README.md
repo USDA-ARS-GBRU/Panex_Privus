@@ -74,9 +74,9 @@ privy report \
 
 ## Documentation
 
-The detailed user guide lives in `docs/` and is set up for GitHub Pages:
-
-- **Docs site**: <https://usda-ars-gbru.github.io/Panex_Privus/>
+The detailed user guide lives in `docs/`. It is structured for future GitHub
+Pages publishing; while the repository remains private, use the repository docs
+links below.
 
 - [Documentation home](docs/index.md)
 - [Installation](docs/installation.md)
