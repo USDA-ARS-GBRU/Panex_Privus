@@ -10,9 +10,9 @@ They must match the column specs in the architecture documentation and README.
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Column schemas — canonical, matches docs/architecture.md and README.md
@@ -154,7 +154,7 @@ class TsvWriter:
         self._fh: Any = None
         self._writer: Any = None
 
-    def __enter__(self) -> "TsvWriter":
+    def __enter__(self) -> TsvWriter:
         self._fh = open(self.path, "w", newline="", encoding="utf-8")
         self._writer = csv.DictWriter(
             self._fh,

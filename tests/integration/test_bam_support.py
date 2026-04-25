@@ -15,7 +15,6 @@ from pathlib import Path
 import pytest
 
 from privy.backends.bam_support import (
-    BamAnnotationResult,
     HitLocusInfo,
     _classify_bam_evidence,
     annotate_loci_with_bam,
@@ -24,7 +23,6 @@ from privy.backends.bam_support import (
 from privy.core.cohort import CohortDefinition
 from privy.core.config import BamConfig, default_config
 from privy.core.evidence import EvidenceClass
-
 
 # ---------------------------------------------------------------------------
 # Helpers

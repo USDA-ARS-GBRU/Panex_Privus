@@ -8,12 +8,10 @@ logic is the conceptual center of Panex Privus.
 import pytest
 
 from privy.core.patterns import (
-    AllelePattern,
     StrictnessClass,
     build_allele_pattern,
     classify_strictness,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

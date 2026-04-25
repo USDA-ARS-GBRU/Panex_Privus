@@ -13,9 +13,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from privy.core.config import default_config
+from privy.io.tsv import (
+    HITS_COLUMNS,
+    QC_COLUMNS,
+    RANKED_HITS_COLUMNS,
+    STRICTNESS_SUMMARY_COLUMNS,
+    read_tsv,
+)
 from privy.report.summary import (
     _compute_contradiction_summary,
     _compute_run_summary,
@@ -27,14 +32,6 @@ from privy.report.summary import (
     _write_summary_tsv,
     run_report,
 )
-from privy.io.tsv import (
-    HITS_COLUMNS,
-    QC_COLUMNS,
-    RANKED_HITS_COLUMNS,
-    STRICTNESS_SUMMARY_COLUMNS,
-    read_tsv,
-)
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

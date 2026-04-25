@@ -2,7 +2,7 @@
 
 import pytest
 
-from privy.core.patterns import StrictnessClass, build_allele_pattern
+from privy.core.patterns import build_allele_pattern
 from privy.core.scoring import (
     ScoredHit,
     compute_discovery_score,

@@ -8,7 +8,7 @@ Panex Privus is a comparative genomics toolkit centered on one inference problem
 
 The software is designed to be:
 
-- VCF-first
+- VCF/GFA primary-discovery capable
 - interval-aware
 - multi-evidence
 - auditable
@@ -31,10 +31,13 @@ Instead, all sources contribute evidence toward a common internal question:
 
 This is the architectural core of the project.
 
-### 2. VCF-first discovery
-In v1, VCF is the primary discovery backend.
+### 2. Explicit primary inputs
+VCF and GFA are both primary discovery backends.
 
-BAM, GFA, and XMFA are support and comparison layers. They provide corroboration, contradiction, or contextual annotation.
+VCF discovers target-private alleles from genotype calls. GFA discovers
+target-private graph segments from path/walk traversal. BAM is a support
+layer for VCF hits: it adds read-level depth and allele-fraction evidence at
+already discovered loci. XMFA is not part of the active v0.7 roadmap.
 
 ### 3. Missingness is explicit
 Missing calls must not be silently folded into a generic pass/fail decision.
@@ -48,12 +51,14 @@ The package must scale to plant pangenome datasets. Whole-file in-memory assumpt
 
 ## Command architecture
 
-Panex Privus exposes four top-level commands:
+Panex Privus exposes six top-level commands:
 
 privy scan
 privy compare
 privy report
 privy plot
+privy annotate
+privy export
 
 privy scan
 
@@ -65,7 +70,7 @@ Responsibilities:
 	•	identify target-private alleles or intervals
 	•	classify strictness
 	•	merge loci into candidate regions
-	•	optionally annotate with BAM, GFA, and XMFA evidence
+	•	optionally annotate VCF hits with BAM evidence
 	•	emit machine-readable outputs and run metadata
 
 privy compare
@@ -98,6 +103,26 @@ Responsibilities:
 	•	explain loci and regions
 	•	visualize genotype patterns and support layers
 	•	avoid becoming a general-purpose genome browser
+
+privy annotate
+
+Gene annotation engine.
+
+Responsibilities:
+	•	intersect hits with GFF3 annotations
+	•	classify loci as CDS, UTR, exonic, intronic, or intergenic
+	•	handle contig aliases between discovery and annotation references
+	•	emit annotated hit tables and summary counts
+
+privy export
+
+Downstream-format export engine.
+
+Responsibilities:
+	•	convert scan TSV outputs into genome-tool-friendly interval files
+	•	write BED and GFF3 files for hits and merged regions
+	•	preserve strictness, variant class, score, and provenance details
+	•	emit export metadata
 
 ⸻
 
@@ -246,40 +271,33 @@ BAM contributes:
 
 GFA
 
-Graph-context evidence.
+Primary graph discovery evidence.
 
 GFA contributes:
 	•	path membership
-	•	local graph complexity
-	•	branch and junction proximity
-	•	structural-context annotation
-
-XMFA
-
-Alignment-corroboration evidence.
-
-XMFA contributes:
-	•	target-specific aligned patterns
-	•	regional consistency
-	•	gap-aware corroboration
+	•	walk/path traversal by sample
+	•	graph segment coordinates from SN/SO/LN tags
+	•	private graph-region candidates
+	•	missing-vs-absent classification at graph loci
 
 ⸻
 
 Discovery architecture
 
-Primary scan backend
+Primary scan backends
 
-The initial and primary backend is VCF-based.
+The active primary backends are VCF and GFA. VCF scans evaluate alternate
+alleles. GFA scans evaluate coordinate-tagged graph segments.
 
 Scan workflow
 	1.	validate config and cohort definitions
-	2.	open indexed VCF input
-	3.	iterate by contig or chunk
-	4.	evaluate alternate alleles for target-private patterns
+	2.	open indexed VCF input or parse GFA input
+	3.	iterate by contig, region, record, or graph segment
+	4.	evaluate alternate alleles or graph segments for target-private patterns
 	5.	classify strictness
 	6.	emit locus hits
 	7.	merge nearby loci into regions
-	8.	annotate candidate loci or regions with optional BAM/GFA/XMFA evidence
+	8.	annotate VCF candidate loci with optional BAM evidence
 	9.	score loci and regions
 	10.	write outputs
 
@@ -363,7 +381,7 @@ Comparisons may evaluate:
 	•	boundary tolerance
 	•	evidence sufficiency
 
-This allows meaningful VCF vs BAM, VCF vs GFA, VCF vs XMFA, and multi-evidence comparisons.
+This allows meaningful VCF-vs-GFA and scan-vs-scan comparisons.
 
 ⸻
 
@@ -383,8 +401,6 @@ Support score
 
 Derived from evidence overlays:
 	•	BAM support
-	•	GFA context support
-	•	XMFA corroboration
 
 Penalty score
 
@@ -504,9 +520,9 @@ Unit tests
 Integration tests
 	•	VCF scan
 	•	VCF + BAM support
-	•	VCF + GFA annotation
-	•	VCF + XMFA corroboration
+	•	GFA scan
 	•	compare workflows
+	•	report, plot, and annotate workflows
 
 Regression tests
 
@@ -548,7 +564,9 @@ These boundaries protect clarity and keep the project coherent.
 
 Summary
 
-Panex Privus is designed as a logic-centered, VCF-first, multi-evidence comparative genomics framework for discovering and validating target-private genomic signal.
+Panex Privus is designed as a logic-centered, VCF/GFA primary-discovery,
+multi-evidence comparative genomics framework for discovering and validating
+target-private genomic signal.
 
 Its architectural center is simple:
 	•	define the focal group
@@ -559,7 +577,11 @@ Its architectural center is simple:
 
 ---
 
-# `privy --help` CLI contract
+# Current CLI Surface
+
+This section is a compact architecture contract for the active v0.7 command
+surface. For exhaustive flags and examples, prefer `README.md` and the live
+`privy --help` output.
 
 Panex Privus
 CLI: privy
@@ -571,10 +593,12 @@ USAGE:
   privy [OPTIONS] COMMAND [ARGS]...
 
 COMMANDS:
-  scan      Discover target-private alleles or regions from VCF-first workflows
-  compare   Compare loci or regions across VCF, BAM, GFA, and XMFA evidence
+  scan      Discover target-private alleles or graph segments from VCF or GFA
+  compare   Reconcile two privy scan hits.tsv files
   report    Generate ranked summaries, QC tables, and Markdown/HTML reports
-  plot      Create focused locus and region visualizations
+  plot      Create focused summary and locus diagnostic plots
+  annotate  Intersect private loci with GFF3 gene annotations
+  export    Export scan hits and regions to downstream genome-tool formats
 
 GLOBAL OPTIONS:
   --config PATH              Path to YAML configuration file
@@ -594,9 +618,8 @@ USAGE:
   privy scan [OPTIONS]
 
 PRIMARY INPUT OPTIONS:
-  --vcf PATH                 Indexed multisample VCF (.vcf.gz + .tbi); primary v1 backend
-  --xmfa PATH                XMFA alignment file; optional secondary or alternate input
-  --gfa PATH                 GFA graph file; optional graph-context support layer
+  --vcf PATH                 Indexed multisample VCF (.vcf.gz + .tbi/.csi)
+  --gfa PATH                 GFA graph file; primary backend when used without --vcf
   --bam PATH [PATH ...]      One or more BAM files mapped to the same reference
   --bam-manifest PATH        TSV manifest mapping BAM files to sample names/groups
 
@@ -654,11 +677,7 @@ GFA SUPPORT OPTIONS:
                              Report GFA path membership where available
   --report-graph-complexity / --no-report-graph-complexity
                              Summarize local graph complexity
-
-XMFA SUPPORT OPTIONS:
-  --gap-aware / --no-gap-aware
-                             Use gap-aware alignment corroboration
-  --xmfa-window-bp INTEGER   Window for local XMFA corroboration
+  --min-segment-length INT   Minimum GFA segment length to evaluate
 
 SCORING OPTIONS:
   --discovery-weight FLOAT   Weight for discovery score
@@ -688,42 +707,25 @@ SCAN OUTPUTS:
   run.json
 
 SCAN NOTES:
-  - VCF is the primary discovery backend in v1
+  - VCF and GFA are primary discovery backends
   - Missingness is reported via strictness_class
-  - BAM, GFA, and XMFA provide support, contradiction, or context
+  - BAM provides read-level support/contradiction evidence for VCF hits
   - Designed for indexed streaming and plant pangenome-scale workflows
 
 
 COMPARE
-  Compare loci or regions across evidence sources.
+  Compare two privy scan result sets by coordinate overlap and state compatibility.
 
 USAGE:
   privy compare [OPTIONS]
 
 INPUT OPTIONS:
-  --hits PATH                hits.tsv from privy scan
-  --regions PATH             regions.tsv from privy scan
-  --vcf PATH                 Indexed VCF for comparison
-  --bam PATH [PATH ...]      BAM files for comparison
-  --bam-manifest PATH        BAM manifest TSV
-  --gfa PATH                 GFA graph file
-  --xmfa PATH                XMFA alignment file
-  --a PATH                   First comparison input
-  --b PATH                   Second comparison input
+  --hits-a PATH              hits.tsv from the first scan run
+  --hits-b PATH              hits.tsv from the second scan run
+  --source-a TEXT            Optional display label for source A
+  --source-b TEXT            Optional display label for source B
 
 COMPARE OPTIONS:
-  --mode TEXT                Comparison mode. Supported:
-                               vcf_vs_bam
-                               vcf_vs_gfa
-                               vcf_vs_xmfa
-                               scan_vs_scan
-                               multi_evidence
-                             Default: multi_evidence
-  --overlap-mode TEXT        Overlap mode:
-                               any
-                               reciprocal
-                               contained
-                             Default: reciprocal
   --min-reciprocal-overlap FLOAT
                              Minimum reciprocal overlap for interval matching
   --breakpoint-tolerance-bp INTEGER
@@ -806,28 +808,20 @@ INPUT OPTIONS:
   --hits PATH                hits.tsv
   --regions PATH             regions.tsv
   --evidence PATH            evidence.tsv
-  --vcf PATH                 Indexed VCF
-  --bam PATH [PATH ...]      BAM files
-  --bam-manifest PATH        BAM manifest TSV
-  --gfa PATH                 GFA graph file
-  --xmfa PATH                XMFA alignment file
+  --compare PATH             compare.tsv
 
 SELECTION OPTIONS:
-  --locus-id TEXT            Plot a specific locus
-  --region-id TEXT           Plot a specific region
   --top-n INTEGER            Plot top N loci or regions by score
-  --contig TEXT              Restrict plots to a contig
-  --region TEXT              Restrict plots to contig:start-end
 
 PLOT TYPES:
   --plot-type TEXT           Supported:
                                locus_panel
-                               region_summary
-                               genotype_heatmap
                                strictness_bar
+                               score_distribution
                                support_bar
-                               depth_panel
-                             Default: locus_panel
+                               compare_summary
+                               all
+                             Default: all
 
 PLOT OPTIONS:
   --width FLOAT              Figure width
@@ -864,11 +858,8 @@ EXAMPLES
 
   Compare evidence:
     privy compare \
-      --hits results/hits.tsv \
-      --vcf cohort.vcf.gz \
-      --bam bam_manifest.tsv \
-      --gfa graph.gfa.gz \
-      --mode multi_evidence \
+      --hits-a results/vcf/hits.tsv \
+      --hits-b results/gfa/hits.tsv \
       --outdir compare/
 
   Generate report:
@@ -884,9 +875,13 @@ EXAMPLES
     privy plot \
       --hits results/hits.tsv \
       --top-n 10 \
-      --vcf cohort.vcf.gz \
-      --bam bam_manifest.tsv \
       --outdir plots/
+
+  Export intervals:
+    privy export \
+      --hits results/hits.tsv \
+      --regions results/regions.tsv \
+      --outdir exported/
 
 
 ⸻

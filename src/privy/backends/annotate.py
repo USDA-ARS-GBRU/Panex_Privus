@@ -12,11 +12,10 @@ from __future__ import annotations
 import json
 from collections import Counter
 from pathlib import Path
-from typing import Optional
 
 from privy.io.gff import (
-    AnnotationIndex,
     UTR_FEATURES,
+    AnnotationIndex,
     build_annotation_index,
     load_contig_alias,
     query_genes,
@@ -86,7 +85,7 @@ def run_annotate(
     hits_path: Path,
     gff_path: Path,
     outdir: Path,
-    contig_alias_path: Optional[Path] = None,
+    contig_alias_path: Path | None = None,
     hits_contig_to_gff: bool = False,
 ) -> None:
     """Annotate private loci from *hits_path* with GFF3 gene features.
@@ -124,7 +123,7 @@ def run_annotate(
     # Read hits
     hits_rows = read_tsv(hits_path)
 
-    annotated: list[dict] = []
+    annotated: list[dict[str, object]] = []
     for row in hits_rows:
         raw_contig = row["contig"]
         gff_contig = alias.get(raw_contig, raw_contig)
@@ -154,7 +153,7 @@ def run_annotate(
         w.write_rows(annotated)
 
     # Compute annotation_summary.tsv
-    counts: Counter[str] = Counter(r["annotation_class"] for r in annotated)
+    counts: Counter[str] = Counter(str(r["annotation_class"]) for r in annotated)
     total = len(annotated)
     summary_rows = []
     for cls in ANNOTATION_ORDER:

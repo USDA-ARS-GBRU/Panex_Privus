@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -46,7 +45,7 @@ def annotate(
         help="GFF3 annotation file (plain or .gz).",
     ),
     # -------------------------------------------------- contig name handling
-    contig_alias: Optional[Path] = typer.Option(
+    contig_alias: Path | None = typer.Option(
         None, "--contig-alias", metavar="PATH",
         help=(
             "Two-column TSV mapping contig names.  Default direction: "
@@ -61,7 +60,7 @@ def annotate(
         ),
     ),
     # --------------------------------------------------------------- outputs
-    outdir: Optional[Path] = typer.Option(
+    outdir: Path | None = typer.Option(
         None, "--outdir", metavar="PATH",
         help="Output directory (overrides global --outdir).",
     ),

@@ -6,12 +6,11 @@ GFF3 uses 1-based closed [start, end] — conversion applied at parse time.
 
 from __future__ import annotations
 
-import bisect
 import gzip
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator
-
+from typing import IO
 
 # Feature types used for classification; mRNA and intron are structural only
 CLASSIFY_FEATURES: frozenset[str] = frozenset(
@@ -65,11 +64,11 @@ def _parse_attrs(raw: str) -> dict[str, str]:
     return attrs
 
 
-def _open_gff(path: Path):
+def _open_gff(path: Path) -> IO[str]:
     """Return a file handle, handling .gz transparently."""
     if str(path).endswith(".gz"):
         return gzip.open(path, "rt", encoding="utf-8")
-    return open(path, "r", encoding="utf-8")
+    return open(path, encoding="utf-8")
 
 
 def parse_gff3(
@@ -142,8 +141,8 @@ def build_annotation_index(path: Path) -> AnnotationIndex:
             bucket.append((rec.start, rec.end, rec.gene_id, rec.strand))
         else:
             contig_dict = idx.sub_features.setdefault(contig, {})
-            bucket = contig_dict.setdefault(rec.feature_type, [])
-            bucket.append((rec.start, rec.end))
+            sub_bucket = contig_dict.setdefault(rec.feature_type, [])
+            sub_bucket.append((rec.start, rec.end))
 
     # Sort all buckets by start position for bisect queries
     for contig in idx.genes:
@@ -165,10 +164,7 @@ def _overlapping_gene_intervals(
     q_end: int,
 ) -> list[tuple[int, int, str, str]]:
     """Return gene intervals overlapping [q_start, q_end)."""
-    # All intervals whose start < q_end
-    right = bisect.bisect_left(intervals, (q_end,))
-    candidates = intervals[:right]
-    return [iv for iv in candidates if iv[1] > q_start]
+    return [iv for iv in intervals if iv[0] < q_end and iv[1] > q_start]
 
 
 def _overlaps_sub_feature(
@@ -177,9 +173,8 @@ def _overlaps_sub_feature(
     q_end: int,
 ) -> bool:
     """Return True if any sub-feature interval overlaps [q_start, q_end)."""
-    right = bisect.bisect_left(intervals, (q_end,))
-    for iv in intervals[:right]:
-        if iv[1] > q_start:
+    for iv in intervals:
+        if iv[0] < q_end and iv[1] > q_start:
             return True
     return False
 
@@ -235,7 +230,7 @@ def load_contig_alias(path: Path) -> dict[str, str]:
         Dict mapping source names → canonical names.
     """
     alias: dict[str, str] = {}
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
             if not line or line.startswith("#"):

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 
 class LocusType(str, Enum):
@@ -75,19 +74,19 @@ class Locus:
         """Length of the locus in base pairs."""
         return self.end - self.start
 
-    def overlaps(self, other: "Locus") -> bool:
+    def overlaps(self, other: Locus) -> bool:
         """Return True if this locus overlaps *other* on the same contig."""
         if self.contig != other.contig:
             return False
         return self.start < other.end and other.start < self.end
 
-    def contains(self, other: "Locus") -> bool:
+    def contains(self, other: Locus) -> bool:
         """Return True if this locus fully contains *other*."""
         if self.contig != other.contig:
             return False
         return self.start <= other.start and self.end >= other.end
 
-    def distance_to(self, other: "Locus") -> Optional[int]:
+    def distance_to(self, other: Locus) -> int | None:
         """Return bp gap between non-overlapping same-contig loci.
 
         Returns:
@@ -100,7 +99,7 @@ class Locus:
         left, right = sorted([self, other], key=lambda loc: loc.start)
         return right.start - left.end
 
-    def merge_with(self, other: "Locus", merged_id: Optional[str] = None) -> "Locus":
+    def merge_with(self, other: Locus, merged_id: str | None = None) -> Locus:
         """Return a new :class:`Locus` spanning both loci.
 
         The merged locus inherits this locus's ``primary_source`` and gets

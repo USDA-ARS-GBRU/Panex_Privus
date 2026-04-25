@@ -7,9 +7,31 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — v0.7.0-dev
+## [Unreleased] — v0.8.0-dev
 
 ### Added
+
+**Maintenance hardening — v0.7.1 prep (2026-04-25)**
+
+- Added GitHub Actions CI for Python 3.10, 3.11, and 3.12.
+- Updated architecture and contributor docs to match the current VCF/GFA
+  primary-backend design, BAM support layer, and active v0.8/v0.9 roadmap.
+- Cleaned Ruff and mypy debt across the source tree and tests.
+- Removed duplicate Phase 4 changelog content.
+
+**Phase 9 — privy export (2026-04-25)**
+
+- `src/privy/backends/export.py` — new export backend for converting scan
+  result TSVs into downstream genome-tool formats.
+- `src/privy/cli/export.py` — new `privy export` subcommand registered in the
+  top-level CLI.
+- BED export for `hits.tsv` and `regions.tsv`, including UCSC-style track
+  headers, BED-compatible integer scores, strictness/variant detail columns,
+  and `export.json` metadata.
+- GFF3 export for `hits.tsv` and `regions.tsv`, including 1-based closed
+  coordinate conversion, URL-escaped attributes, and `##gff-version 3` headers.
+- `tests/integration/test_export.py` — 15 tests covering direct writers,
+  `run_export()`, metadata, error handling, BED/GFF3 output, and CLI execution.
 
 **Phase 1 — Repository scaffold and core domain (2026-04-10)**
 
@@ -146,28 +168,6 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `tests/integration/test_report.py` — 43 integration tests across 8 classes
   including CLI command-level tests
 
-**Phase 4 — privy report (2026-04-20)**
-
-- `src/privy/report/summary.py` — complete `run_report()` implementation:
-  - Reads `hits.tsv` (required) + optional `regions.tsv`, `evidence.tsv`,
-    `qc.tsv`, `run.json`
-  - Writes `summary.tsv`, `ranked_hits.tsv`, `strictness_summary.tsv`,
-    `support_summary.tsv` (when evidence provided), `contradiction_summary.tsv`
-  - Three-tier format selection: `markdown`, `html`, `both`
-- `src/privy/report/markdown.py` — `render_markdown_report()`:
-  - Run summary, filtering/QC, top-N hits, strictness distribution, regions,
-    source support, contradiction summary, caveats sections
-  - Pipe-table formatting with `|`-safe cell escaping
-- `src/privy/report/html.py` — `render_html_report()`:
-  - Converts `report.md` to `report.html` using the `Markdown` library
-    (`tables` + `fenced_code` extensions)
-  - Self-contained HTML with minimal inline CSS
-- `src/privy/io/tsv.py` — three new column schemas for report outputs
-- `pyproject.toml` — added `Markdown>=3.4` runtime dep,
-  `types-Markdown` dev dep; bumped version to `0.3.0.dev0`
-- `tests/unit/test_report_summary.py` — 35 unit tests across 8 classes
-- `tests/integration/test_report.py` — 43 integration tests across 8 classes
-
 **Phase 5 — BAM support layer (2026-04-20)**
 
 - `src/privy/core/config.py` — added `min_mapq` and `min_baseq` to
@@ -300,6 +300,6 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Not yet implemented
 
-- `privy export` — BED/VCF/GFF3 output layer (v0.8)
+- Annotated VCF-style export
 - Multi-cohort batch mode (v0.9)
 - Polished docs, example datasets, manuscript-ready outputs (v1.0)

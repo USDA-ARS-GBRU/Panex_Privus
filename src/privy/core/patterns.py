@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class StrictnessClass(str, Enum):
@@ -90,7 +89,7 @@ class AllelePattern:
     # -------------------------------------------------------------- computed
 
     @property
-    def target_support_fraction(self) -> Optional[float]:
+    def target_support_fraction(self) -> float | None:
         """Fraction of *called* (non-missing) target samples supporting the allele."""
         called = self.target_total_n - self.target_missing_n
         if called == 0:
@@ -98,7 +97,7 @@ class AllelePattern:
         return self.target_support_n / called
 
     @property
-    def offtarget_support_fraction(self) -> Optional[float]:
+    def offtarget_support_fraction(self) -> float | None:
         """Fraction of *called* (non-missing) off-target samples supporting the allele."""
         called = self.offtarget_total_n - self.offtarget_missing_n
         if called == 0:
@@ -133,8 +132,8 @@ def classify_strictness(
     offtarget_missing_n: int,
     min_target_support: float = 1.0,
     max_offtarget_support: float = 0.0,
-    relaxed_target_missing: Optional[float] = None,
-    relaxed_offtarget_missing: Optional[float] = None,
+    relaxed_target_missing: float | None = None,
+    relaxed_offtarget_missing: float | None = None,
 ) -> tuple[StrictnessClass, bool, str]:
     """Classify the strictness of a candidate private-allele pattern.
 
@@ -163,10 +162,10 @@ def classify_strictness(
     target_called = target_total_n - target_missing_n
     offtarget_called = offtarget_total_n - offtarget_missing_n
 
-    target_support_frac: Optional[float] = (
+    target_support_frac: float | None = (
         target_support_n / target_called if target_called > 0 else None
     )
-    offtarget_support_frac: Optional[float] = (
+    offtarget_support_frac: float | None = (
         offtarget_support_n / offtarget_called if offtarget_called > 0 else None
     )
 
@@ -278,8 +277,8 @@ def build_allele_pattern(
     offtarget_missing_n: int,
     min_target_support: float = 1.0,
     max_offtarget_support: float = 0.0,
-    relaxed_target_missing: Optional[float] = None,
-    relaxed_offtarget_missing: Optional[float] = None,
+    relaxed_target_missing: float | None = None,
+    relaxed_offtarget_missing: float | None = None,
 ) -> AllelePattern:
     """Construct a fully classified :class:`AllelePattern` from raw counts.
 

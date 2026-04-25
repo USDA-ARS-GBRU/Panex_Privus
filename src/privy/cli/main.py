@@ -11,6 +11,7 @@ Usage::
     privy report    --hits results/hits.tsv --outdir report/
     privy plot      --hits results/hits.tsv --top-n 10 --outdir plots/
     privy annotate  --hits results/hits.tsv --gff annotation.gff3.gz --outdir annotated/
+    privy export    --hits results/hits.tsv --regions results/regions.tsv --outdir exported/
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from pathlib import Path
 import typer
 
 from privy import __version__
-from privy.cli import annotate, compare, plot, report, scan
+from privy.cli import annotate, compare, export, plot, report, scan
 from privy.cli.context import get_state
 from privy.utils.logging import configure_logging
 
@@ -43,6 +44,7 @@ app.add_typer(compare.app, name="compare")
 app.add_typer(report.app, name="report")
 app.add_typer(plot.app, name="plot")
 app.add_typer(annotate.app, name="annotate")
+app.add_typer(export.app, name="export")
 
 
 def _version_callback(value: bool) -> None:

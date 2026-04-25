@@ -17,9 +17,8 @@ from privy.backends.compare import (
     load_hits_tsv,
     reciprocal_overlap_rows,
 )
-from privy.core.config import CompareConfig, default_config
+from privy.core.config import CompareConfig
 from privy.core.evidence import MatchClass
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -212,7 +211,10 @@ class TestIsStateCompatible:
         assert is_state_compatible("contradicted", "contradicted", require=False) is False
 
     def test_both_strict_no_require(self) -> None:
-        assert is_state_compatible("strict_complete", "strict_target_missing", require=False) is True
+        assert (
+            is_state_compatible("strict_complete", "strict_target_missing", require=False)
+            is True
+        )
 
     def test_both_strict_require(self) -> None:
         assert is_state_compatible("strict_complete", "strict_target_missing", require=True) is True

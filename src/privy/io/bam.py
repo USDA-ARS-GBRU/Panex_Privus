@@ -17,7 +17,6 @@ from __future__ import annotations
 import csv
 import logging
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger("privy.io.bam")
 
@@ -41,7 +40,7 @@ def validate_bam_index(bam_path: Path) -> None:
         )
 
 
-def get_bam_sample_name(bam_path: Path) -> Optional[str]:
+def get_bam_sample_name(bam_path: Path) -> str | None:
     """Return the SM tag from the first @RG read-group header, or *None*.
 
     Args:
@@ -56,7 +55,8 @@ def get_bam_sample_name(bam_path: Path) -> Optional[str]:
         header_dict = bam.header.to_dict()
         rg_list = header_dict.get("RG", [])
         if rg_list:
-            return rg_list[0].get("SM")
+            sample_name = rg_list[0].get("SM")
+            return sample_name if isinstance(sample_name, str) else None
     return None
 
 
@@ -129,7 +129,7 @@ def query_position_depth(
     if width == 0:
         return []
 
-    def _mapq_filter(read: "pysam.AlignedSegment") -> bool:  # type: ignore[name-defined]
+    def _mapq_filter(read: pysam.AlignedSegment) -> bool:
         return (
             not read.is_unmapped
             and not read.is_secondary

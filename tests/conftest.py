@@ -128,11 +128,11 @@ _ALT_OFFSET = 14   # within the read → reference position 99
 
 
 def _write_synthetic_bam(
-    path: "Path",
+    path: Path,
     sample: str,
     contigs: list[tuple[str, int]],
     reads: list[dict],
-) -> "Path":
+) -> Path:
     """Write a coordinate-sorted, indexed BAM with synthetic reads.
 
     ``reads`` must already be sorted by ``start`` or be at the same position.
@@ -170,7 +170,7 @@ def _write_synthetic_bam(
 
 
 @pytest.fixture
-def bam_target_t1(tmp_path: "Path") -> "Path":
+def bam_target_t1(tmp_path: Path) -> Path:
     """T1 BAM: 12 reads with ALT allele (T) at 0-based position 99 (VCF pos 100).
 
     depth=12, alt_count=12, allele_fraction=1.0 → should classify as SUPPORT.
@@ -181,7 +181,7 @@ def bam_target_t1(tmp_path: "Path") -> "Path":
 
 
 @pytest.fixture
-def bam_offtarget_o1(tmp_path: "Path") -> "Path":
+def bam_offtarget_o1(tmp_path: Path) -> Path:
     """O1 BAM: 12 reads with only REF allele (A) at position 99.
 
     depth=12, alt_count=0, allele_fraction=0.0 → should classify as ABSENCE.
@@ -192,7 +192,7 @@ def bam_offtarget_o1(tmp_path: "Path") -> "Path":
 
 
 @pytest.fixture
-def bam_offtarget_o1_with_alt(tmp_path: "Path") -> "Path":
+def bam_offtarget_o1_with_alt(tmp_path: Path) -> Path:
     """O1 BAM: 12 reads carrying ALT allele (T) at position 99.
 
     Simulates an off-target sample that carries the private allele
@@ -206,7 +206,7 @@ def bam_offtarget_o1_with_alt(tmp_path: "Path") -> "Path":
 
 
 @pytest.fixture
-def bam_low_depth_t2(tmp_path: "Path") -> "Path":
+def bam_low_depth_t2(tmp_path: Path) -> Path:
     """T2 BAM: only 3 reads at position 99 (below default min_depth=8).
 
     Should classify as UNINFORMATIVE regardless of allele content.

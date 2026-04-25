@@ -6,14 +6,15 @@ Primary use case:
     Given a target cohort and an off-target cohort, identify alleles and genomic
     regions present within the target group and absent from the off-target group,
     with explicit missingness reporting and optional cross-evidence support from
-    BAM, GFA, and XMFA.
+    BAM plus primary discovery from VCF or GFA.
 
 Commands:
-    privy scan      — Discover target-private alleles and regions (VCF-first)
+    privy scan      — Discover target-private alleles and graph segments
     privy compare   — Compare loci or regions across evidence sources
     privy report    — Generate ranked summaries and human-readable reports
     privy plot      — Create focused locus and region visualizations
     privy annotate  — Intersect private loci with GFF3 gene annotations
+    privy export    — Export hits and regions to downstream formats
 """
 
 from importlib.metadata import PackageNotFoundError, version

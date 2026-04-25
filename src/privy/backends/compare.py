@@ -24,7 +24,6 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from privy.core.config import CompareConfig, PrivyConfig
 from privy.core.evidence import MatchClass
@@ -106,7 +105,7 @@ def load_hits_tsv(path: Path) -> list[HitsRow]:
     return result
 
 
-def infer_source_label(rows: list[HitsRow], explicit: Optional[str]) -> str:
+def infer_source_label(rows: list[HitsRow], explicit: str | None) -> str:
     """Return the display label for an evidence source.
 
     Uses *explicit* when provided.  Otherwise infers from locus_id prefix:
@@ -212,7 +211,7 @@ def find_best_match(
     query: HitsRow,
     candidates: list[HitsRow],
     cfg: CompareConfig,
-) -> tuple[Optional[HitsRow], float]:
+) -> tuple[HitsRow | None, float]:
     """Return ``(best_candidate, overlap)`` for a query locus.
 
     Primary search: reciprocal overlap ≥ ``cfg.min_reciprocal_overlap``.
@@ -221,7 +220,7 @@ def find_best_match(
 
     Returns ``(None, 0.0)`` when no candidate qualifies.
     """
-    best: Optional[HitsRow] = None
+    best: HitsRow | None = None
     best_overlap = 0.0
 
     for cand in candidates:
@@ -349,8 +348,16 @@ def _write_compare_summary_tsv(
     for mc in MatchClass:
         n = counts.get(mc.value, 0)
         pct = round(100.0 * n / total, 1) if total > 0 else 0.0
-        scores = [float(r["comparison_score"]) for r in compare_rows if r["match_class"] == mc.value]
-        overlaps = [float(r["coordinate_overlap"]) for r in compare_rows if r["match_class"] == mc.value]
+        scores = [
+            float(r["comparison_score"])
+            for r in compare_rows
+            if r["match_class"] == mc.value
+        ]
+        overlaps = [
+            float(r["coordinate_overlap"])
+            for r in compare_rows
+            if r["match_class"] == mc.value
+        ]
         summary_rows.append({
             "match_class": mc.value,
             "n_loci": str(n),
@@ -367,8 +374,8 @@ def run_compare(
     hits_b: Path,
     outdir: Path,
     cfg: PrivyConfig,
-    source_label_a: Optional[str] = None,
-    source_label_b: Optional[str] = None,
+    source_label_a: str | None = None,
+    source_label_b: str | None = None,
     write_compare_tsv: bool = True,
     write_summary_tsv: bool = True,
     write_json: bool = True,

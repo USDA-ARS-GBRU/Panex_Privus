@@ -9,15 +9,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
 class _GlobalState:
     """Mutable container for options resolved before any subcommand runs."""
 
-    config_path: Optional[Path] = None
-    project_name: Optional[str] = None
+    config_path: Path | None = None
+    project_name: str | None = None
     outdir: Path = field(default_factory=lambda: Path("."))
     threads: int = 1
     log_level: str = "info"

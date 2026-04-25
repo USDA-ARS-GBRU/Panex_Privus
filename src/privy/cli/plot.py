@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 import typer
 
@@ -40,15 +39,15 @@ def plot(
         ..., "--hits", metavar="PATH",
         help="hits.tsv from privy scan (required).",
     ),
-    regions: Optional[Path] = typer.Option(
+    regions: Path | None = typer.Option(
         None, "--regions", metavar="PATH",
         help="regions.tsv from privy scan (optional).",
     ),
-    evidence: Optional[Path] = typer.Option(
+    evidence: Path | None = typer.Option(
         None, "--evidence", metavar="PATH",
         help="evidence.tsv from privy scan (enables support_bar plot).",
     ),
-    compare: Optional[Path] = typer.Option(
+    compare: Path | None = typer.Option(
         None, "--compare", metavar="PATH",
         help="compare.tsv from privy compare (enables compare_summary plot).",
     ),
@@ -62,7 +61,7 @@ def plot(
         ),
     ),
     # ------------------------------------------------------------- selection
-    top_n: Optional[int] = typer.Option(
+    top_n: int | None = typer.Option(
         None, "--top-n", metavar="INTEGER", min=1,
         help="Number of top loci to show in locus_panel [default: 30].",
     ),
@@ -88,7 +87,7 @@ def plot(
         help="Output format: png | svg | pdf.",
     ),
     # --------------------------------------------------------------- outputs
-    outdir: Optional[Path] = typer.Option(
+    outdir: Path | None = typer.Option(
         None, "--outdir", metavar="PATH",
         help="Output directory (overrides global --outdir).",
     ),

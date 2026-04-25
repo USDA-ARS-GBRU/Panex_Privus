@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -46,24 +45,24 @@ def compare(
         ..., "--hits-b", metavar="PATH",
         help="hits.tsv from the second privy scan run (source B).",
     ),
-    source_label_a: Optional[str] = typer.Option(
+    source_label_a: str | None = typer.Option(
         None, "--source-a", metavar="TEXT",
         help="Display label for source A (default: inferred from locus_id prefix).",
     ),
-    source_label_b: Optional[str] = typer.Option(
+    source_label_b: str | None = typer.Option(
         None, "--source-b", metavar="TEXT",
         help="Display label for source B (default: inferred from locus_id prefix).",
     ),
     # --------------------------------------------------- comparison options
-    min_reciprocal_overlap: Optional[float] = typer.Option(
+    min_reciprocal_overlap: float | None = typer.Option(
         None, "--min-reciprocal-overlap", metavar="FLOAT", min=0.0, max=1.0,
         help="Minimum reciprocal overlap fraction for interval matching [default: 0.5].",
     ),
-    breakpoint_tolerance_bp: Optional[int] = typer.Option(
+    breakpoint_tolerance_bp: int | None = typer.Option(
         None, "--breakpoint-tolerance-bp", metavar="INT", min=0,
         help="Gap tolerance (bp) for near-miss breakpoint matching [default: 200].",
     ),
-    require_state_compatibility: Optional[bool] = typer.Option(
+    require_state_compatibility: bool | None = typer.Option(
         None, "--require-state-compatibility/--no-require-state-compatibility",
         help=(
             "Also require strictness-class compatibility (strict_* vs relaxed_threshold) "
@@ -83,7 +82,7 @@ def compare(
         True, "--write-json/--no-write-json",
         help="Write compare.json.",
     ),
-    outdir: Optional[Path] = typer.Option(
+    outdir: Path | None = typer.Option(
         None, "--outdir", metavar="PATH",
         help="Output directory (overrides global --outdir).",
     ),

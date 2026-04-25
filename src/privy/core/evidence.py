@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 
 class EvidenceClass(str, Enum):
@@ -108,8 +108,8 @@ class EvidenceRecord:
     evidence_class: EvidenceClass
     metric_name: str
     metric_value: float
-    sample_id: Optional[str] = None
-    group_id: Optional[str] = None
+    sample_id: str | None = None
+    group_id: str | None = None
     qualifiers: dict[str, Any] = field(default_factory=dict)
     provenance: str = ""
 

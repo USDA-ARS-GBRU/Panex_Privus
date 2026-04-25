@@ -74,8 +74,11 @@ class ScanStats:
              "description": "Records skipped: FILTER != PASS"},
             {"metric": "records_skipped_qual",    "value": str(self.records_skipped_qual),
              "description": "Records skipped: QUAL below threshold"},
-            {"metric": "records_skipped_multiallelic", "value": str(self.records_skipped_multiallelic),
-             "description": "Records skipped: multiallelic (when allow_multiallelic=False)"},
+            {
+                "metric": "records_skipped_multiallelic",
+                "value": str(self.records_skipped_multiallelic),
+                "description": "Records skipped: multiallelic (when allow_multiallelic=False)",
+            },
             {"metric": "alleles_evaluated",       "value": str(self.alleles_evaluated),
              "description": "Alternate alleles evaluated for private-allele status"},
             {"metric": "alleles_passed",          "value": str(self.alleles_passed),

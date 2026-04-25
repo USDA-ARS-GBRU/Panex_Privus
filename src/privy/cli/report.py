@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -33,27 +32,27 @@ app = typer.Typer(
 @app.callback(invoke_without_command=True)
 def report(
     # --------------------------------------------------------------- inputs
-    hits: Optional[Path] = typer.Option(
+    hits: Path | None = typer.Option(
         None, "--hits", metavar="PATH",
         help="hits.tsv from privy scan.",
     ),
-    regions: Optional[Path] = typer.Option(
+    regions: Path | None = typer.Option(
         None, "--regions", metavar="PATH",
         help="regions.tsv from privy scan.",
     ),
-    evidence: Optional[Path] = typer.Option(
+    evidence: Path | None = typer.Option(
         None, "--evidence", metavar="PATH",
         help="evidence.tsv from privy scan.",
     ),
-    compare: Optional[Path] = typer.Option(
+    compare: Path | None = typer.Option(
         None, "--compare", metavar="PATH",
         help="compare.tsv from privy compare.",
     ),
-    qc: Optional[Path] = typer.Option(
+    qc: Path | None = typer.Option(
         None, "--qc", metavar="PATH",
         help="qc.tsv from privy scan.",
     ),
-    run_json: Optional[Path] = typer.Option(
+    run_json: Path | None = typer.Option(
         None, "--run-json", metavar="PATH",
         help="run.json from privy scan.",
     ),
@@ -82,11 +81,11 @@ def report(
         True, "--include-regions/--no-include-regions",
         help="Include candidate region summary.",
     ),
-    title: Optional[str] = typer.Option(
+    title: str | None = typer.Option(
         None, "--title", metavar="TEXT",
         help="Optional report title.",
     ),
-    outdir: Optional[Path] = typer.Option(
+    outdir: Path | None = typer.Option(
         None, "--outdir", metavar="PATH",
         help="Output directory. Overrides global --outdir.",
     ),

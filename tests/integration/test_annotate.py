@@ -35,7 +35,13 @@ def _write_hits(path: Path, rows: list[dict]) -> Path:
     return path
 
 
-def _hit(locus_id: str, contig: str, start: int, end: int, strictness: str = "strict_complete") -> dict:
+def _hit(
+    locus_id: str,
+    contig: str,
+    start: int,
+    end: int,
+    strictness: str = "strict_complete",
+) -> dict:
     return {
         "locus_id": locus_id, "contig": contig,
         "start": str(start), "end": str(end),

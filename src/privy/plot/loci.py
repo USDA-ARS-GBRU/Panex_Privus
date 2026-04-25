@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from privy.core.config import PrivyConfig
 
@@ -46,8 +45,8 @@ def plot_locus_panel(
     """
     import matplotlib  # noqa: PLC0415
     matplotlib.use("Agg")
-    import matplotlib.pyplot as plt  # noqa: PLC0415
     import matplotlib.lines as mlines  # noqa: PLC0415
+    import matplotlib.pyplot as plt  # noqa: PLC0415
 
     from privy.plot.themes import (  # noqa: PLC0415
         STRICTNESS_COLOURS,
@@ -77,9 +76,9 @@ def plot_locus_panel(
     scores = [float(r.get("final_score", 0.0)) for r in rows]
     colors = [STRICTNESS_COLOURS.get(r.get("strictness_class", ""), "#aaaaaa") for r in rows]
 
-    for xi, yi in zip(x, scores):
+    for xi, yi in zip(x, scores, strict=False):
         ax.vlines(xi, 0, yi, color="#cccccc", linewidth=0.9, zorder=1)
-    for xi, yi, color in zip(x, scores, colors):
+    for xi, yi, color in zip(x, scores, colors, strict=False):
         ax.scatter(xi, yi, color=color, s=45, zorder=2, edgecolors="none")
 
     ax.set_xlabel(f"Rank (top {len(rows)} by final_score)")
@@ -117,20 +116,20 @@ def plot_locus_panel(
 
 def run_plot(
     hits: Path,
-    regions: Optional[Path],
-    evidence: Optional[Path],
-    vcf: Optional[Path],
-    bam: Optional[list[Path]],
-    bam_manifest: Optional[Path],
-    gfa: Optional[Path],
-    xmfa: Optional[Path],  # accepted for CLI compat; not used
-    compare: Optional[Path],
+    regions: Path | None,
+    evidence: Path | None,
+    vcf: Path | None,
+    bam: list[Path] | None,
+    bam_manifest: Path | None,
+    gfa: Path | None,
+    xmfa: Path | None,  # accepted for CLI compat; not used
+    compare: Path | None,
     cfg: PrivyConfig,
-    locus_id: Optional[str],
-    region_id: Optional[str],
-    top_n: Optional[int],
-    contig: Optional[str],
-    region: Optional[str],
+    locus_id: str | None,
+    region_id: str | None,
+    top_n: int | None,
+    contig: str | None,
+    region: str | None,
     plot_type: str,
     width: float,
     height: float,

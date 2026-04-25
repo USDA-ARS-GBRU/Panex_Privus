@@ -5,11 +5,7 @@ from __future__ import annotations
 import gzip
 from pathlib import Path
 
-import pytest
-
 from privy.io.gff import (
-    AnnotationIndex,
-    GffRecord,
     build_annotation_index,
     load_contig_alias,
     parse_gff3,

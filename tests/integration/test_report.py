@@ -18,7 +18,6 @@ Test classes:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
@@ -33,7 +32,6 @@ from privy.io.tsv import (
     read_tsv,
 )
 from privy.report.summary import run_report
-
 
 # ---------------------------------------------------------------------------
 # Synthetic input data
@@ -454,6 +452,7 @@ class TestWithOptionalInputs:
 class TestCli:
     def test_privy_report_runs_via_cli(self, scan_dir: Path, tmp_path: Path) -> None:
         from typer.testing import CliRunner
+
         from privy.cli.main import app
 
         out = tmp_path / "cli_report"
@@ -473,6 +472,7 @@ class TestCli:
 
     def test_privy_report_fails_without_hits(self, tmp_path: Path) -> None:
         from typer.testing import CliRunner
+
         from privy.cli.main import app
 
         runner = CliRunner()
@@ -481,6 +481,7 @@ class TestCli:
 
     def test_privy_report_fails_with_missing_hits_file(self, tmp_path: Path) -> None:
         from typer.testing import CliRunner
+
         from privy.cli.main import app
 
         runner = CliRunner()

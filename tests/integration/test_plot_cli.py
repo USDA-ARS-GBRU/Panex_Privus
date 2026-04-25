@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 from pathlib import Path
 
 import pytest
@@ -11,7 +10,6 @@ from typer.testing import CliRunner
 from privy.cli.main import app
 from privy.core.config import default_config
 from privy.plot.loci import run_plot
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

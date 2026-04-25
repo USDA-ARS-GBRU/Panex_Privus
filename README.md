@@ -883,11 +883,61 @@ the GFF3 but your VCF may use `chr1`–`chr20`.  Provide a two-column TSV alias 
 (source name, tab, target name) and use `--hits-to-gff` when the hits file uses the
 non-GFF3 names, or `--gff-to-hits` (default) when the GFF3 uses the non-hits names.
 
+### privy export
+
+`privy export` converts scan result tables into downstream genome-tool formats.
+The current export formats are BED and GFF3, which work well with IGV, bedtools,
+annotation joins, and quick interval inspection.
+
+**Basic usage:**
+
+```bash
+# Export both hits and merged regions to BED
+privy export \
+    --hits results/hits.tsv \
+    --regions results/regions.tsv \
+    --outdir exported/
+
+# Export only hits, without a BED track header
+privy export \
+    --hits results/hits.tsv \
+    --kind hits \
+    --no-include-header \
+    --outdir exported/
+
+# Export hits and regions as GFF3 features
+privy export \
+    --hits results/hits.tsv \
+    --regions results/regions.tsv \
+    --format gff3 \
+    --outdir exported_gff3/
+```
+
+**Key options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--hits PATH` | optional | hits.tsv from `privy scan` |
+| `--regions PATH` | optional | regions.tsv from `privy scan` |
+| `--format TEXT` | `bed` | Export format: `bed` or `gff3` |
+| `--kind TEXT` | `both` | What to export: `hits`, `regions`, or `both` |
+| `--track-name TEXT` | `Panex Privus` | BED track name |
+| `--include-header` | on | Include a BED track line or `##gff-version 3` header |
+| `--outdir PATH` | `.` | Output directory |
+
+**Outputs:**
+
+| File | Contents |
+|------|----------|
+| `hits.bed` / `hits.gff3` | Intervals/features for each hit, with strictness, variant type, allele key, and score details |
+| `regions.bed` / `regions.gff3` | Intervals/features for merged regions, with dominant strictness, variant types, locus count, and score details |
+| `export.json` | Run metadata and paths written |
+
 ---
 
 ## Current Status
 
-Panex Privus is under active development. Version 0.7.0-dev.
+Panex Privus is under active development. Version 0.8.0-dev.
 
 ### What works now
 
@@ -939,7 +989,13 @@ Panex Privus is under active development. Version 0.7.0-dev.
   - `--contig-alias` flag for cross-reference contig name mapping (e.g. Gm01 → chr1)
   - Writes `annotated_hits.tsv` (all hits columns + 5 annotation columns),
     `annotation_summary.tsv`, and `annotate.json`
-- 588 unit and integration tests passing
+- **`privy export`** — BED and GFF3 export operational
+  - Exports hits and/or merged regions to BED or GFF3
+  - Writes `hits.bed` / `regions.bed` or `hits.gff3` / `regions.gff3`, plus `export.json`
+  - BED score field is scaled and clamped to the standard 0-1000 range
+  - GFF3 export converts 0-based half-open Privy coordinates to 1-based closed features
+  - Annotated VCF-style export remains planned follow-on work
+- 598 unit and integration tests passing
 - YAML configuration with three-tier priority
 
 ### Roadmap
@@ -952,10 +1008,10 @@ Panex Privus is under active development. Version 0.7.0-dev.
 | v0.4 | BAM support layer — read-level evidence at discovered loci |
 | v0.5 | `privy compare` — cross-evidence reconciliation between VCF and GFA result sets |
 | v0.6 | `privy plot` — diagnostic figures: locus panel, strictness bar, score distribution, compare summary |
-| v0.7 (current) | `privy annotate` — intersect private loci with GFF3 gene annotations; classify hits as CDS / UTR / exonic / intronic / intergenic |
-| v0.8 | `privy export` — write hits and regions to BED, annotated VCF, and GFF3 for IGV and downstream tools |
+| v0.7 | `privy annotate` — intersect private loci with GFF3 gene annotations; classify hits as CDS / UTR / exonic / intronic / intergenic |
+| v0.8 (current) | `privy export` — write hits and regions to BED/GFF3 for IGV and downstream tools |
 | v0.9 | Multi-cohort batch mode — run multiple cohort definitions in a single pass; output a cross-cohort private-allele presence/absence matrix |
-| v1.0 | Polished docs, example datasets, manuscript-ready outputs, GitHub release |
+| v1.0 | Annotated VCF-style export, polished docs, example datasets, manuscript-ready outputs, GitHub release |
 
 ---
 
@@ -1037,7 +1093,7 @@ Areas where help is especially welcome:
 
 - Additional test fixtures and regression cases (especially real-world GFA and BAM files)
 - Documentation improvements and worked examples
-- `privy export` (v0.8) — write hits/regions to BED, VCF, and GFF3 for downstream tools
+- Additional export targets beyond BED/GFF3, especially annotated VCF
 - Multi-cohort batch mode (v0.9) — cross-cohort presence/absence matrix
 - Edge-case handling for unusually structured GFA path-name conventions
 

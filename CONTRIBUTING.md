@@ -79,9 +79,9 @@ This project uses:
 Run before committing:
 
 ```bash
-ruff check src/ tests/
-ruff format src/ tests/
-mypy src/privy/core/
+ruff check src tests
+ruff format src tests
+mypy src
 ```
 
 CI enforces these checks on every pull request.
@@ -92,7 +92,9 @@ CI enforces these checks on every pull request.
 
 Before making changes, read [`docs/architecture.md`](docs/architecture.md). The key principle:
 
-> File formats do not define truth. Each source (VCF, BAM, GFA, XMFA) contributes evidence into a common internal representation. The core logic (`src/privy/core/`) must remain format-independent.
+> File formats do not define truth. VCF and GFA are primary discovery
+> backends, while BAM contributes read-level support evidence at discovered
+> VCF loci. The core logic (`src/privy/core/`) must remain format-independent.
 
 The `StrictnessClass` framework is a deliberate design choice — missingness must never be silently folded into pass/fail. Do not simplify it.
 
@@ -104,9 +106,9 @@ src/privy/
 ├── core/         — domain objects and pure logic (no file I/O)
 ├── io/           — format readers and writers
 ├── backends/     — format-specific scan orchestrators
-├── compare/      — cross-evidence comparison logic
-├── report/       — report generation (stub)
-├── plot/         — visualization (stub)
+├── compare/      — compatibility helpers and comparison primitives
+├── report/       — summary tables plus Markdown/HTML report generation
+├── plot/         — diagnostic and publication-oriented summary plots
 └── utils/        — logging, config, metrics, misc
 ```
 
@@ -131,9 +133,10 @@ See the [roadmap in README.md](README.md#current-status) for the planned phases.
 
 Areas currently most in need of contribution:
 
-- BAM support layer (`src/privy/backends/bam_support.py`) — Phase 3
-- Report generation (`src/privy/report/`) — Phase 2
-- Plot command (`src/privy/plot/`) — Phase 2
+- Additional export targets beyond BED/GFF3, especially annotated VCF
+- Multi-cohort batch mode and cross-cohort private-signal matrices
+- Real-world regression fixtures, especially pangenome GFA and BAM edge cases
+- Documentation improvements and worked examples for new users
 - Additional integration test fixtures
 
 ---

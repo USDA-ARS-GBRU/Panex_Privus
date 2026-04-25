@@ -5,7 +5,6 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Generator
 
 import pytest
 from typer.testing import CliRunner
@@ -15,7 +14,6 @@ from privy.cli.main import app
 from privy.core.config import default_config
 from privy.core.evidence import MatchClass
 from privy.io.tsv import COMPARE_COLUMNS, COMPARE_SUMMARY_COLUMNS, read_tsv
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -18,7 +18,6 @@ import pytest
 
 from privy.io.gfa import (
     GfaGraph,
-    GfaWalk,
     extract_cohort_segment_counts,
     get_gfa_samples,
     get_samples_present_at_locus,

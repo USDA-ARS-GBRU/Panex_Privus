@@ -17,7 +17,6 @@ Design principle:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from privy.core.patterns import AllelePattern, StrictnessClass
 
@@ -58,7 +57,7 @@ class ScoredHit:
 
 def compute_discovery_score(
     pattern: AllelePattern,
-    variant_qual: Optional[float] = None,
+    variant_qual: float | None = None,
     discovery_weight: float = 1.0,
 ) -> float:
     """Compute a discovery score from an :class:`~privy.core.patterns.AllelePattern`.

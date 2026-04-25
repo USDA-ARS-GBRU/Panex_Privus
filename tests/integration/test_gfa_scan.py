@@ -312,7 +312,7 @@ class TestContigFilter:
         rows = read_tsv(out / "hits.tsv")
         assert len(rows) == 2
 
-    def test_contig_filter_chrX_gives_no_hits(
+    def test_contig_filter_chrx_gives_no_hits(
         self, tmp_path: Path, cohort: CohortDefinition, cfg
     ) -> None:
         out = tmp_path / "noctg"

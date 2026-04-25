@@ -20,7 +20,7 @@ Example usage::
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -38,7 +38,7 @@ class CohortConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def check_no_overlap(self) -> "CohortConfig":
+    def check_no_overlap(self) -> CohortConfig:
         overlap = set(self.targets) & set(self.off_targets)
         if overlap:
             raise ValueError(
@@ -66,11 +66,11 @@ class ScanConfig(BaseModel):
         default=True,
         description="Include strictness_class in all locus outputs.",
     )
-    relaxed_target_missing: Optional[float] = Field(
+    relaxed_target_missing: float | None = Field(
         default=None, ge=0.0, le=1.0,
         description="Tolerated target missingness fraction for relaxed_threshold class.",
     )
-    relaxed_offtarget_missing: Optional[float] = Field(
+    relaxed_offtarget_missing: float | None = Field(
         default=None, ge=0.0, le=1.0,
         description="Tolerated off-target missingness fraction for relaxed_threshold class.",
     )
@@ -86,7 +86,7 @@ class ScanConfig(BaseModel):
         default=True,
         description="Require VCF FILTER=PASS.",
     )
-    min_qual: Optional[float] = Field(
+    min_qual: float | None = Field(
         default=None,
         description="Minimum VCF QUAL score.",
     )

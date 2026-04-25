@@ -8,7 +8,7 @@ TODO (Phase 5): implement :func:`classify_comparison`.
 
 from __future__ import annotations
 
-from privy.core.evidence import ComparisonRecord, EvidenceRecord, MatchClass
+from privy.core.evidence import EvidenceRecord, MatchClass
 from privy.core.locus import Locus
 
 

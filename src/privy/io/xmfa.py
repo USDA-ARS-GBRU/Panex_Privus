@@ -12,9 +12,9 @@ TODO (Phase 5):
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Optional
 
 
 @dataclass
@@ -48,7 +48,7 @@ def find_blocks_overlapping(
     contig: str,
     start: int,
     end: int,
-    reference_genome_id: Optional[str] = None,
+    reference_genome_id: str | None = None,
 ) -> list[list[XmfaBlock]]:
     """Return alignment blocks where the reference genome overlaps [start, end).
 

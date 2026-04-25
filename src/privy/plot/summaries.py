@@ -62,7 +62,7 @@ def plot_strictness_bar(
     ax.set_title(f"Strictness class distribution  (n={len(hits_rows)})")
     ax.invert_yaxis()
 
-    for bar, val in zip(bars, values):
+    for bar, val in zip(bars, values, strict=False):
         ax.text(
             bar.get_width() + max(values) * 0.01,
             bar.get_y() + bar.get_height() / 2,
@@ -211,9 +211,11 @@ def plot_support_bar(
         if not any(vals):
             continue
         color = EVIDENCE_COLOURS.get(ec, "#aaaaaa")
-        ax.bar(x, vals, bottom=bottom, color=color, edgecolor="none",
-               alpha=0.88, label=ec)
-        bottom = [b + v for b, v in zip(bottom, vals)]
+        ax.bar(
+            x, vals, bottom=bottom, color=color, edgecolor="none",
+            alpha=0.88, label=ec,
+        )
+        bottom = [b + v for b, v in zip(bottom, vals, strict=False)]
 
     ax.set_xticks(x)
     ax.set_xticklabels(sources)
@@ -274,7 +276,7 @@ def plot_compare_summary(
     ax.set_title(f"Comparison match class distribution  (n={len(compare_rows)})")
     ax.invert_yaxis()
 
-    for bar, val in zip(bars, values):
+    for bar, val in zip(bars, values, strict=False):
         ax.text(
             bar.get_width() + max(values) * 0.01,
             bar.get_y() + bar.get_height() / 2,

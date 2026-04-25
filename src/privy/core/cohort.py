@@ -13,7 +13,6 @@ Key invariants:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -55,9 +54,9 @@ class CohortDefinition:
         cls,
         targets: list[str],
         off_targets: list[str],
-        ignored_samples: Optional[list[str]] = None,
-        metadata: Optional[dict[str, str]] = None,
-    ) -> "CohortDefinition":
+        ignored_samples: list[str] | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> CohortDefinition:
         """Construct from plain Python lists (convenience wrapper)."""
         return cls(
             targets=tuple(targets),
