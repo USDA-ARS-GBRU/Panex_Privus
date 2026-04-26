@@ -37,8 +37,8 @@ def test_scan_cli_runs_end_to_end(indexed_vcf: Path, tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.stdout
-    assert (outdir / "hits.tsv").exists()
-    assert (outdir / "run.json").exists()
+    assert (outdir / "vcf" / "hits.tsv").exists()
+    assert (outdir / "vcf" / "run.json").exists()
 
 
 def test_scan_cli_applies_boolean_scan_override(indexed_vcf: Path, tmp_path: Path) -> None:
@@ -66,9 +66,9 @@ def test_scan_cli_applies_boolean_scan_override(indexed_vcf: Path, tmp_path: Pat
     )
 
     assert result.exit_code == 0, result.output
-    run_data = json.loads((outdir / "run.json").read_text())
+    run_data = json.loads((outdir / "vcf" / "run.json").read_text())
     assert run_data["config"]["scan"]["allow_multiallelic"] is False
-    hits_lines = (outdir / "hits.tsv").read_text().strip().splitlines()
+    hits_lines = (outdir / "vcf" / "hits.tsv").read_text().strip().splitlines()
     assert len(hits_lines) == 7  # header + 6 hits
 
 
@@ -114,8 +114,8 @@ def test_scan_cli_runs_gfa_backend_end_to_end(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert (outdir / "hits.tsv").exists()
-    assert (outdir / "run.json").exists()
+    assert (outdir / "gfa" / "hits.tsv").exists()
+    assert (outdir / "gfa" / "run.json").exists()
 
 
 def test_scan_cli_applies_gfa_min_segment_length_override(tmp_path: Path) -> None:
@@ -144,10 +144,47 @@ def test_scan_cli_applies_gfa_min_segment_length_override(tmp_path: Path) -> Non
     )
 
     assert result.exit_code == 0, result.output
-    run_data = json.loads((outdir / "run.json").read_text())
+    run_data = json.loads((outdir / "gfa" / "run.json").read_text())
     assert run_data["config"]["gfa"]["min_segment_length"] == 11
-    hits_lines = (outdir / "hits.tsv").read_text().strip().splitlines()
+    hits_lines = (outdir / "gfa" / "hits.tsv").read_text().strip().splitlines()
     assert len(hits_lines) == 1  # header only
+
+
+def test_scan_cli_runs_vcf_and_gfa_then_compares(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "combined-out"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--vcf",
+            str(indexed_vcf),
+            "--gfa",
+            str(GFA_PATH),
+            "--targets",
+            "T1",
+            "--targets",
+            "T2",
+            "--off-targets",
+            "O1",
+            "--off-targets",
+            "O2",
+            "--off-targets",
+            "O3",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (outdir / "vcf" / "hits.tsv").exists()
+    assert (outdir / "gfa" / "hits.tsv").exists()
+    assert (outdir / "compare" / "compare.tsv").exists()
+    assert (outdir / "compare" / "compare_summary.tsv").exists()
+    compare_data = json.loads((outdir / "compare" / "compare.json").read_text())
+    assert compare_data["source_a"] == "vcf"
+    assert compare_data["source_b"] == "gfa"
 
 
 def test_scan_cli_loads_cohort_from_yaml_file(tmp_path: Path) -> None:
@@ -172,7 +209,7 @@ def test_scan_cli_loads_cohort_from_yaml_file(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert (outdir / "hits.tsv").exists()
+    assert (outdir / "gfa" / "hits.tsv").exists()
 
 
 def test_scan_cli_loads_cohort_from_tsv_file(tmp_path: Path) -> None:
@@ -201,4 +238,4 @@ def test_scan_cli_loads_cohort_from_tsv_file(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert (outdir / "hits.tsv").exists()
+    assert (outdir / "gfa" / "hits.tsv").exists()

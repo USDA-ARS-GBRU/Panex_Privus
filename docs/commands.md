@@ -30,7 +30,13 @@ Primary discovery command.
 ```bash
 privy scan --vcf variants.vcf.gz --targets T1 T2 --off-targets O1 O2 --outdir results/
 privy scan --gfa pangenome.gfa --targets T1 T2 --off-targets O1 O2 --outdir results/
+privy scan --vcf variants.vcf.gz --gfa pangenome.gfa \
+  --targets T1 T2 --off-targets O1 O2 --outdir results/
 ```
+
+Scan outputs are written to source subdirectories: `results/vcf/` for VCF
+discovery, `results/gfa/` for GFA discovery, and `results/compare/` when both
+inputs are provided.
 
 Key options:
 
@@ -53,7 +59,8 @@ Key options:
 Compare two scan result sets.
 
 ```bash
-privy compare --hits-a vcf/hits.tsv --hits-b gfa/hits.tsv --outdir compare/
+privy compare --hits-a results/vcf/hits.tsv --hits-b results/gfa/hits.tsv \
+  --outdir results/compare/
 ```
 
 Key options:
@@ -73,8 +80,8 @@ Key options:
 Generate Markdown and/or HTML reports from existing outputs.
 
 ```bash
-privy report --hits results/hits.tsv --regions results/regions.tsv \
-  --qc results/qc.tsv --format both --outdir report/
+privy report --hits results/vcf/hits.tsv --regions results/vcf/regions.tsv \
+  --qc results/vcf/qc.tsv --format both --outdir report/
 ```
 
 ## `privy plot`
@@ -82,7 +89,7 @@ privy report --hits results/hits.tsv --regions results/regions.tsv \
 Generate diagnostic figures.
 
 ```bash
-privy plot --hits results/hits.tsv --evidence results/evidence.tsv --outdir plots/
+privy plot --hits results/vcf/hits.tsv --evidence results/vcf/evidence.tsv --outdir plots/
 ```
 
 Plot types:
@@ -99,7 +106,7 @@ Plot types:
 Intersect hits with GFF3 annotation.
 
 ```bash
-privy annotate --hits results/hits.tsv --gff annotation.gff3.gz --outdir annotated/
+privy annotate --hits results/vcf/hits.tsv --gff annotation.gff3.gz --outdir annotated/
 ```
 
 ## `privy export`
@@ -107,9 +114,9 @@ privy annotate --hits results/hits.tsv --gff annotation.gff3.gz --outdir annotat
 Export hits and regions to BED or GFF3.
 
 ```bash
-privy export --hits results/hits.tsv --regions results/regions.tsv \
+privy export --hits results/vcf/hits.tsv --regions results/vcf/regions.tsv \
   --format bed --outdir exported/
 
-privy export --hits results/hits.tsv --regions results/regions.tsv \
+privy export --hits results/vcf/hits.tsv --regions results/vcf/regions.tsv \
   --format gff3 --outdir exported_gff3/
 ```

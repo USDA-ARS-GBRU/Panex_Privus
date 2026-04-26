@@ -52,7 +52,7 @@ privy scan \
   --vcf variants.vcf.gz \
   --targets T1 T2 T3 \
   --off-targets O1 O2 O3 \
-  --outdir results/vcf/
+  --outdir results/
 ```
 
 The first file to inspect is `hits.tsv`. It is sorted by confidence, so the top
@@ -66,6 +66,8 @@ The surrounding files explain how each hit was scored and how the run behaved.
 - `qc.tsv`: scan metrics
 - `run.json`: run metadata and resolved configuration
 
+VCF scan outputs are written under `results/vcf/`.
+
 ## GFA Scan
 
 Use a GFA scan when your discovery question is based on a pangenome graph rather
@@ -74,8 +76,8 @@ graph segments: which segments are traversed by the target samples and absent
 from off-target samples?
 
 Many users will get both a GFA and a genotyped VCF from the same pangenome
-workflow. In the current quickstart, run them as separate scans so each evidence
-source has its own output directory.
+workflow. You can run them separately, or provide both inputs in one command and
+let Panex Privus create `vcf/`, `gfa/`, and `compare/` result directories.
 
 Run the graph scan with the same cohort logic:
 
@@ -84,13 +86,15 @@ privy scan \
   --gfa pangenome.gfa \
   --targets T1 T2 T3 \
   --off-targets O1 O2 O3 \
-  --outdir results/gfa/
+  --outdir results/
 ```
 
 GFA segments must have coordinate tags such as `SN:Z:chr1`, `SO:i:1000`, and
 `LN:i:500`. Minigraph-cactus output usually includes these tags. Without them,
 Panex Privus cannot place graph segments back onto genomic coordinates for
 region merging, comparison, or annotation.
+
+GFA scan outputs are written under `results/gfa/`.
 
 ## Add BAM Evidence to a VCF Scan
 
@@ -128,7 +132,7 @@ privy scan \
   --off-targets O1 O2 \
   --bam T1.sorted.bam \
   --bam O1.sorted.bam \
-  --outdir results/vcf_bam/
+  --outdir results/
 ```
 
 For real projects, a manifest is usually clearer. It makes the sample mapping
@@ -148,7 +152,7 @@ privy scan \
   --targets T1 T2 \
   --off-targets O1 O2 \
   --bam-manifest manifest.tsv \
-  --outdir results/vcf_bam/
+  --outdir results/
 ```
 
 After the run, compare these files to the VCF-only output:
@@ -169,6 +173,22 @@ support the allele are marked as `contradiction`.
 If you ran both VCF and GFA discovery, compare the two result sets. Concordant
 loci are strong follow-up candidates; source-specific loci are also useful,
 because VCFs and graphs represent variation at different resolutions.
+
+The simplest path is to provide both discovery inputs to `privy scan`:
+
+```bash
+privy scan \
+  --vcf variants.vcf.gz \
+  --gfa pangenome.gfa \
+  --targets T1 T2 T3 \
+  --off-targets O1 O2 O3 \
+  --outdir results/
+```
+
+This writes VCF discovery outputs to `results/vcf/`, graph discovery outputs to
+`results/gfa/`, and reconciliation outputs to `results/compare/`.
+
+You can also compare scan directories explicitly:
 
 ```bash
 privy compare \

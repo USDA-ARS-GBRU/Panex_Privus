@@ -851,13 +851,13 @@ EXAMPLES
       --mode private_allele \
       --outdir results/
 
-  Scan with BAM and GFA support:
+  Combined VCF and GFA scan with BAM support:
     privy scan \
       --vcf cohort.vcf.gz \
+      --gfa graph.gfa.gz \
       --targets Benning Harosoy Clark \
       --off-targets Jack Lee Minsoy \
-      --bam bam_manifest.tsv \
-      --gfa graph.gfa.gz \
+      --bam-manifest bam_manifest.tsv \
       --merge-distance 1000 \
       --outdir results/
 
@@ -865,27 +865,27 @@ EXAMPLES
     privy compare \
       --hits-a results/vcf/hits.tsv \
       --hits-b results/gfa/hits.tsv \
-      --outdir compare/
+      --outdir results/compare/
 
   Generate report:
     privy report \
-      --hits results/hits.tsv \
-      --regions results/regions.tsv \
-      --evidence results/evidence.tsv \
-      --compare compare/compare.tsv \
-      --qc results/qc.tsv \
+      --hits results/vcf/hits.tsv \
+      --regions results/vcf/regions.tsv \
+      --evidence results/vcf/evidence.tsv \
+      --compare results/compare/compare.tsv \
+      --qc results/vcf/qc.tsv \
       --outdir report/
 
   Plot top loci:
     privy plot \
-      --hits results/hits.tsv \
+      --hits results/vcf/hits.tsv \
       --top-n 10 \
       --outdir plots/
 
   Export intervals:
     privy export \
-      --hits results/hits.tsv \
-      --regions results/regions.tsv \
+      --hits results/vcf/hits.tsv \
+      --regions results/vcf/regions.tsv \
       --outdir exported/
 
 

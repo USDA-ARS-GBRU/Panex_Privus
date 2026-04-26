@@ -1,10 +1,10 @@
-"""``privy scan`` — primary discovery engine.
+"""``privy scan`` — primary discovery orchestration.
 
-Discovers target-private alleles and candidate private regions from
-VCF-first workflows with optional BAM, GFA, and XMFA support layers.
+Discovers target-private alleles and candidate private regions from VCF and
+GFA primary inputs, with optional BAM support for VCF-discovered loci.
 
-This module wires all CLI options and resolves them against the YAML config
-before dispatching to :mod:`privy.backends.vcf_scan`.
+This module wires all CLI options, resolves them against the YAML config, and
+dispatches to source-specific scan backends.
 """
 
 from __future__ import annotations
@@ -27,10 +27,10 @@ app = typer.Typer(
     name="scan",
     help=(
         "Discover target-private alleles and candidate private regions.\n\n"
-        "VCF is the primary discovery backend. BAM, GFA, and XMFA are support layers.\n"
+        "VCF and GFA are primary discovery backends. When both are supplied, "
+        "Privy runs both scans and compares their hits.\n"
         "Missingness is reported via [italic]strictness_class[/italic] in all outputs.\n\n"
-        "[bold]Outputs:[/bold] hits.tsv, regions.tsv, evidence.tsv, "
-        "sample_support.tsv, qc.tsv, run.json"
+        "[bold]Outputs:[/bold] vcf/, gfa/, and compare/ subdirectories as applicable"
     ),
     rich_markup_mode="rich",
     no_args_is_help=True,
@@ -221,7 +221,7 @@ def scan(
                                         help="Write run.json."),
     outdir: Path | None = typer.Option(
         None, "--outdir", metavar="PATH",
-        help="Output directory. Overrides global --outdir.",
+        help="Base output directory. Scans are written to source subdirectories.",
     ),
 ) -> None:
     """Discover target-private alleles and candidate private regions.
@@ -330,7 +330,7 @@ def scan(
 
     # --------------------------------------------------------------- outdir
     effective_outdir.mkdir(parents=True, exist_ok=True)
-    log.info("Output directory: %s", effective_outdir)
+    log.info("Base output directory: %s", effective_outdir)
     effective_threads = state.threads
     if effective_threads > 1:
         typer.echo(
@@ -348,19 +348,25 @@ def scan(
     )
 
     try:
+        ran_vcf = False
+        ran_gfa = False
+        vcf_outdir = effective_outdir / "vcf"
+        gfa_outdir = effective_outdir / "gfa"
+
         if vcf is not None:
-            # VCF-first: use the VCF backend; GFA/XMFA/BAM are optional layers
             from privy.backends.vcf_scan import run_vcf_scan  # noqa: PLC0415
 
+            vcf_outdir.mkdir(parents=True, exist_ok=True)
+            log.info("Starting VCF scan | outdir=%s", vcf_outdir)
             run_vcf_scan(
                 vcf=vcf,
                 cohort=cohort,
                 cfg=cfg,
-                outdir=effective_outdir,
+                outdir=vcf_outdir,
                 mode=mode,
                 bam=bam,
                 bam_manifest=bam_manifest,
-                gfa=gfa,
+                gfa=None,
                 xmfa=xmfa,
                 region=region,
                 contig=contig,
@@ -372,15 +378,18 @@ def scan(
                 write_run_json=write_run_json,
                 threads=effective_threads,
             )
-        elif gfa is not None:
-            # GFA-only primary scan
+            ran_vcf = True
+
+        if gfa is not None:
             from privy.backends.gfa_scan import run_gfa_scan  # noqa: PLC0415
 
+            gfa_outdir.mkdir(parents=True, exist_ok=True)
+            log.info("Starting GFA scan | outdir=%s", gfa_outdir)
             run_gfa_scan(
                 gfa=gfa,
                 cohort=cohort,
                 cfg=cfg,
-                outdir=effective_outdir,
+                outdir=gfa_outdir,
                 mode=mode,
                 region=region,
                 contig=contig,
@@ -392,7 +401,28 @@ def scan(
                 write_run_json=write_run_json,
                 threads=effective_threads,
             )
-        else:
+            ran_gfa = True
+
+        if ran_vcf and ran_gfa:
+            if write_hits:
+                from privy.backends.compare import run_compare  # noqa: PLC0415
+
+                compare_outdir = effective_outdir / "compare"
+                log.info("Starting VCF/GFA compare | outdir=%s", compare_outdir)
+                run_compare(
+                    hits_a=vcf_outdir / "hits.tsv",
+                    hits_b=gfa_outdir / "hits.tsv",
+                    outdir=compare_outdir,
+                    cfg=cfg,
+                    source_label_a="vcf",
+                    source_label_b="gfa",
+                )
+            else:
+                log.warning(
+                    "Skipping automatic VCF/GFA compare because --no-write-hits was used."
+                )
+
+        if not ran_vcf and not ran_gfa:
             raise NotImplementedError("XMFA-only scan is not yet implemented.")
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(f"[error] {exc}", err=True)

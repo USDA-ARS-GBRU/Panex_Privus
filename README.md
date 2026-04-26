@@ -57,7 +57,7 @@ privy scan \
   --vcf cohort.vcf.gz \
   --targets Benning Harosoy Clark \
   --off-targets Jack Lee Minsoy \
-  --outdir results/vcf/
+  --outdir results/
 ```
 
 Run a GFA scan:
@@ -67,7 +67,18 @@ privy scan \
   --gfa pangenome.gfa \
   --targets Benning Harosoy Clark \
   --off-targets Jack Lee Minsoy \
-  --outdir results/gfa/
+  --outdir results/
+```
+
+Run both discovery backends and compare them:
+
+```bash
+privy scan \
+  --vcf cohort.vcf.gz \
+  --gfa pangenome.gfa \
+  --targets Benning Harosoy Clark \
+  --off-targets Jack Lee Minsoy \
+  --outdir results/
 ```
 
 Compare two scan outputs:

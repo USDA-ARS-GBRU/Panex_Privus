@@ -5,7 +5,10 @@ description: Panex Privus output files and important result columns.
 
 # Output Files
 
-`privy scan` writes six primary outputs.
+`privy scan` writes source-specific output directories. VCF discovery results
+go under `results/vcf/`, GFA discovery results go under `results/gfa/`, and a
+combined VCF+GFA run also writes reconciliation files under `results/compare/`.
+Each scan directory contains six primary outputs.
 
 | File | Purpose |
 |------|---------|
