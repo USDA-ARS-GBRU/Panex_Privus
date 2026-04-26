@@ -197,21 +197,101 @@ privy compare \
   --outdir results/compare/
 ```
 
-## Report, Plot, Annotate, Export
+## Generate a Report
 
-Once discovery and support layers are in place, generate human-readable outputs
-for review and downstream analysis.
+Use `privy report` when you want a compact, shareable summary of a scan. The
+report command reads the TSV files produced by `privy scan` and turns them into
+ranked tables, strictness summaries, QC summaries, and Markdown or HTML.
 
 ```bash
-privy report --hits results/vcf/hits.tsv --regions results/vcf/regions.tsv \
-  --qc results/vcf/qc.tsv --format both --outdir results/report/
-
-privy plot --hits results/vcf/hits.tsv --evidence results/vcf/evidence.tsv \
-  --outdir results/plots/
-
-privy annotate --hits results/vcf/hits.tsv --gff annotation.gff3.gz \
-  --outdir results/annotated/
-
-privy export --hits results/vcf/hits.tsv --regions results/vcf/regions.tsv \
-  --format gff3 --outdir results/exported/
+privy report \
+  --hits results/vcf/hits.tsv \
+  --regions results/vcf/regions.tsv \
+  --evidence results/vcf/evidence.tsv \
+  --qc results/vcf/qc.tsv \
+  --compare results/compare/compare.tsv \
+  --format both \
+  --outdir results/report/
 ```
+
+Report outputs:
+
+- `summary.tsv`: run-level summary metrics
+- `ranked_hits.tsv`: top hits with an explicit `rank` column
+- `strictness_summary.tsv`: counts and percentages by strictness class
+- `support_summary.tsv`: evidence counts by source and evidence class
+- `contradiction_summary.tsv`: contradiction metrics from QC and compare inputs
+- `report.md`: human-readable Markdown report
+- `report.html`: browser-friendly HTML report when `--format html` or `both`
+
+## Plot Diagnostics
+
+Use `privy plot` to make quick diagnostic figures from scan and compare outputs.
+These plots are meant to help you see ranking, score distributions, strictness
+classes, BAM evidence, and VCF/GFA concordance at a glance.
+
+```bash
+privy plot \
+  --hits results/vcf/hits.tsv \
+  --evidence results/vcf/evidence.tsv \
+  --compare results/compare/compare.tsv \
+  --plot-type all \
+  --outdir results/plots/
+```
+
+Plot outputs:
+
+- `locus_panel.png`: ranked view of the top loci by `final_score`
+- `strictness_bar.png`: strictness-class distribution
+- `score_distribution.png`: `final_score` distribution by strictness class
+- `support_bar.png`: evidence-class counts by source, enabled by `--evidence`
+- `compare_summary.png`: VCF/GFA match-class distribution, enabled by `--compare`
+
+Use `--output-format svg` or `--output-format pdf` if you want vector graphics
+for editing or publication layouts.
+
+## Annotate Hits
+
+Use `privy annotate` when you want to connect candidate private loci to gene
+models or other GFF3 features. This is usually the first biological
+interpretation step after ranking: it tells you whether each hit is coding,
+UTR, exonic, intronic, or intergenic.
+
+```bash
+privy annotate \
+  --hits results/vcf/hits.tsv \
+  --gff annotation.gff3.gz \
+  --outdir results/annotated/
+```
+
+Annotation outputs:
+
+- `annotated_hits.tsv`: all hit columns plus annotation class and gene context
+- `annotation_summary.tsv`: counts and percentages by annotation class
+- `annotate.json`: annotation run metadata
+
+If your hit contig names differ from the GFF3 contig names, use a two-column
+contig alias file with `--contig-alias`.
+
+## Export Intervals
+
+Use `privy export` when you want to move candidates into genome browsers or
+interval-based tools. BED is convenient for IGV and bedtools; GFF3 is useful
+when you want feature-style records with attributes.
+
+```bash
+privy export \
+  --hits results/vcf/hits.tsv \
+  --regions results/vcf/regions.tsv \
+  --format gff3 \
+  --outdir results/exported/
+```
+
+Export outputs:
+
+- `hits.bed` or `hits.gff3`: one interval or feature per candidate hit
+- `regions.bed` or `regions.gff3`: merged candidate regions
+- `export.json`: export run metadata and written file paths
+
+Use `--format bed` for BED output. Use `--kind hits`, `--kind regions`, or
+`--kind both` to control which interval sets are exported.
