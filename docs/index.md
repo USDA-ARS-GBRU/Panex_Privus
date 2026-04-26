@@ -15,12 +15,11 @@ README.
 ## Start Here
 
 - [Installation]({{ '/installation/' | relative_url }})
-- [Quickstart]({{ '/quickstart/' | relative_url }})
+- [Run Guide]({{ '/run-guide/' | relative_url }})
 - [Core concepts]({{ '/concepts/' | relative_url }})
 
 ## Running Analyses
 
-- [Command reference]({{ '/commands/' | relative_url }})
 - [Configuration]({{ '/configuration/' | relative_url }})
 - [Output files]({{ '/outputs/' | relative_url }})
 - [Troubleshooting]({{ '/troubleshooting/' | relative_url }})

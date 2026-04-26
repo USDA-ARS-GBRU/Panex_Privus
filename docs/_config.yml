@@ -21,12 +21,10 @@ nav:
     url: /
   - title: Installation
     url: /installation/
-  - title: Quickstart
-    url: /quickstart/
+  - title: Run Guide
+    url: /run-guide/
   - title: Concepts
     url: /concepts/
-  - title: Commands
-    url: /commands/
   - title: Outputs
     url: /outputs/
   - title: Configuration

@@ -116,6 +116,9 @@ privy report \
   --outdir results/report/
 ```
 
+See the [run guide](docs/run-guide.md) for the full workflow, command options,
+BAM support, VCF/GFA comparison, reports, plots, annotation, and export.
+
 ## Documentation
 
 The detailed user guide lives in `docs/`. It is structured for future GitHub
@@ -124,9 +127,8 @@ links below.
 
 - [Documentation home](docs/index.md)
 - [Installation](docs/installation.md)
-- [Quickstart](docs/quickstart.md)
+- [Run guide](docs/run-guide.md)
 - [Core concepts](docs/concepts.md)
-- [Command reference](docs/commands.md)
 - [Output files](docs/outputs.md)
 - [Configuration](docs/configuration.md)
 - [Current status and roadmap](docs/status.md)
