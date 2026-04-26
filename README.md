@@ -42,13 +42,28 @@ regions, and scores results so the highest-confidence candidates surface first.
 
 ## Quick Start
 
-Install from source:
+### Install
+
+The recommended install path is a dedicated mamba environment:
+
+```bash
+mamba create -n privy -c conda-forge -c bioconda \
+  python=3.11 pysam samtools bcftools htslib
+conda activate privy
+```
+
+Then install Panex Privus from source:
 
 ```bash
 git clone https://github.com/USDA-ARS-GBRU/Panex_Privus.git
 cd Panex_Privus
-pip install .
+python -m pip install .
 ```
+
+See the [installation guide](docs/installation.md) for pixi, conda, pip, and
+developer install options.
+
+### Run a Scan
 
 Run a VCF scan:
 
