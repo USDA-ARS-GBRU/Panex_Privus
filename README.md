@@ -35,6 +35,7 @@ regions, and scores results so the highest-confidence candidates surface first.
 
 - Scans indexed multisample **VCF** files for target-private alleles.
 - Scans **GFA** pangenome graphs for target-private graph segments.
+- Summarizes full, target, and off-target pangenomes from GFA segments or VCF alleles.
 - Keeps missing data explicit with `strictness_class` labels.
 - Adds optional **BAM** read-level support at VCF hit loci.
 - Compares VCF and GFA result sets with coordinate-aware matching.

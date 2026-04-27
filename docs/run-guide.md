@@ -275,9 +275,9 @@ Pangenome outputs:
 - `pangenome_composition.png`: stacked composition summary
 - `pangenome.json`: run metadata, resolved groups, and output list
 
-See [Figures and Tables]({{ '/figures-and-tables/' | relative_url }}) for
-example output snippets, figure captions, and guidance on using pangenome plots
-in research reports or publications.
+See [Figures and Tables](figures-and-tables.md) for example output snippets,
+figure captions, and guidance on using pangenome plots in research reports or
+publications.
 
 ## Compare Existing Scan Outputs
 

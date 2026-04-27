@@ -5,10 +5,146 @@ description: How to interpret Panex Privus pangenome outputs and adapt them for 
 
 # Figures and Tables
 
-Panex Privus writes pangenome outputs as both machine-readable tables and
-publication-starting plots. The tables are the analysis record. The plots are
-interpretive summaries that help you explain full, target, and off-target
-pangenomes in a manuscript, report, or slide deck.
+Panex Privus writes analysis outputs as machine-readable tables, Markdown/HTML
+reports, and publication-starting plots. The tables are the analysis record.
+The plots and reports are interpretive summaries that help you explain
+target-private signal, VCF/GFA agreement, read-level support, annotations, and
+pangenome structure in a manuscript, report, or slide deck.
+
+## Command Outputs At A Glance
+
+| Command | Main tables | Main figures or reports | Research use |
+|---------|-------------|-------------------------|--------------|
+| `privy scan` | `hits.tsv`, `regions.tsv`, `sample_support.tsv`, `evidence.tsv`, `qc.tsv` | Input to `privy report` and `privy plot` | Candidate discovery and ranking |
+| `privy pangenome` | `feature_summary.tsv`, `coverage_histogram.tsv`, `composition.tsv`, `growth_curves.tsv` | `pangenome_growth.png`, `pangenome_coverage.png`, `pangenome_composition.png` | Full, target, and off-target pangenome summaries |
+| `privy compare` | `compare.tsv`, `compare_summary.tsv` | `compare_summary.png` through `privy plot` | VCF/GFA or run-to-run concordance |
+| `privy report` | `summary.tsv`, `ranked_hits.tsv`, `strictness_summary.tsv` | `report.md`, `report.html` | Shareable candidate summaries |
+| `privy plot` | Reads scan/compare TSVs | `locus_panel.png`, `strictness_bar.png`, `score_distribution.png`, `support_bar.png`, `compare_summary.png` | Diagnostic and presentation figures |
+| `privy annotate` | `annotated_hits.tsv`, `annotation_summary.tsv` | Input to downstream figures/tables | Gene-context interpretation |
+| `privy export` | `hits.bed/gff3`, `regions.bed/gff3` | Genome browser tracks | IGV, JBrowse, bedtools, and genome-browser workflows |
+
+## Scan Tables
+
+`privy scan` is the discovery step. It asks which alleles or graph segments are
+present in the target group and absent from off-target genomes.
+
+The most publication-relevant scan table is `hits.tsv`. Each row is one
+candidate private locus. For a manuscript or supplement, useful columns include:
+
+| Column | How to use it |
+|--------|---------------|
+| `locus_id` | Stable identifier for cross-referencing figures and supplements |
+| `contig`, `start`, `end` | Genomic interval; coordinates are 0-based half-open |
+| `variant_type` | Distinguishes SNP, indel, SV, or graph-region candidates |
+| `allele_key` | Source-specific allele or graph-segment identifier |
+| `target_support_n`, `offtarget_support_n` | Cohort support counts |
+| `target_missing_n`, `offtarget_missing_n` | Missingness counts to report uncertainty |
+| `strictness_class` | Missingness-aware confidence category |
+| `final_score` | Ranking score for prioritization |
+
+**Table caption example.** Ranked target-private candidate loci discovered by
+Panex Privus. Candidate intervals are reported in 0-based half-open
+coordinates. `target_support_n` and `offtarget_support_n` give the number of
+samples supporting the allele or graph segment in each cohort, while
+`target_missing_n` and `offtarget_missing_n` preserve missing or uninformative
+data separately from biological absence. Candidates are sorted by `final_score`.
+
+`regions.tsv` is better for locus clusters. Use it when nearby candidate hits
+should be discussed as one candidate interval rather than many individual
+alleles or graph segments.
+
+**Table caption example.** Candidate private regions produced by merging nearby
+passing loci. Each region records the number of constituent loci, dominant
+strictness class, target consistency, off-target exclusion, and maximum or
+representative ranking score.
+
+## Compare Tables
+
+`privy compare` reconciles two scan outputs, usually one VCF run and one GFA
+run. The goal is not to force the two sources to agree perfectly, but to make
+agreement, partial agreement, and source-specific discoveries explicit.
+
+Key `compare.tsv` columns:
+
+| Column | How to use it |
+|--------|---------------|
+| `locus_id_a`, `locus_id_b` | Candidate IDs from the two input scans |
+| `source_a`, `source_b` | Labels such as `vcf` and `gfa` |
+| `coordinate_overlap` | How much the two intervals overlap |
+| `match_class` | `supported`, `partially_supported`, `contradicted`, `source_specific`, `uninformative`, or `missing_data` |
+| `state_compatibility` | Whether the cohort-support states are compatible |
+| `comparison_score` | Summary score for agreement |
+
+**Table caption example.** Concordance between VCF-derived and graph-derived
+target-private candidates. Candidate pairs were matched by reciprocal
+coordinate overlap and classified by match class. Source-specific rows indicate
+candidates detected in one input representation but not matched in the other.
+
+`compare_summary.tsv` is useful in the main text because it reduces many locus
+pairs to counts and percentages by match class.
+
+## Plot Diagnostics
+
+`privy plot` turns scan and compare outputs into quick figures. These are meant
+as diagnostic and presentation-ready starting points; for formal publication,
+export SVG or PDF and adjust labels, typography, or panel layout as needed.
+
+Common plot outputs:
+
+| Plot | Best use | Caption focus |
+|------|----------|---------------|
+| `locus_panel.png` | Show top-ranked candidates | Ranking by `final_score`; color by strictness class |
+| `strictness_bar.png` | Summarize confidence classes | Counts of strict, relaxed, missing, and contradicted candidates |
+| `score_distribution.png` | Inspect ranking distribution | Score range and class-specific score patterns |
+| `support_bar.png` | Summarize evidence records | BAM/VCF/GFA support, absence, ambiguity, contradiction |
+| `compare_summary.png` | Present VCF/GFA concordance | Match-class distribution between sources |
+
+**Figure caption example.** Diagnostic summary of Panex Privus candidate loci.
+The locus panel shows top-ranked candidates by final score, with colors
+indicating strictness class. Strictness and score-distribution panels summarize
+confidence and ranking behavior across all emitted loci.
+
+## Report Tables
+
+`privy report` packages scan outputs into collaborator-friendly Markdown or HTML.
+Use it for lab notebooks, supplemental summaries, and review handoffs. The
+report is not a replacement for the raw TSVs; it is a readable layer over them.
+
+Publication-useful report outputs:
+
+- `summary.tsv`: run-level counts and top-locus metadata
+- `ranked_hits.tsv`: top candidates with explicit rank values
+- `strictness_summary.tsv`: counts and percentages by strictness class
+- `support_summary.tsv`: evidence class counts when evidence is supplied
+- `contradiction_summary.tsv`: contradiction metrics from QC and compare inputs
+
+**Table caption example.** Summary of Panex Privus scan results, including the
+number of candidate loci, merged candidate regions, evaluated records, top-ranked
+locus, and strictness-class distribution.
+
+## Annotation And Export Tables
+
+`privy annotate` connects candidate loci to a GFF3 annotation. Use
+`annotated_hits.tsv` when you need to prioritize candidates by gene context.
+
+**Table caption example.** Target-private candidate loci annotated against the
+reference gene model. Annotation classes distinguish coding sequence, UTR,
+exonic, intronic, and intergenic candidates, with gene identifiers reported for
+overlapping genic features.
+
+`privy export` writes BED or GFF3 files for genome browsers and interval tools.
+These are usually not final manuscript tables, but they are useful for manual
+inspection, figure panel preparation, and downstream intersection analyses.
+
+**Track caption example.** BED track of Panex Privus candidate private loci,
+scaled by final score and displayed against the reference genome annotation.
+
+## Pangenome Tables And Plots
+
+`privy pangenome` describes the full pangenome and the target/off-target
+sub-pangenomes. It complements `privy scan`: the scan finds candidate
+target-private loci, while pangenome analysis describes the feature space those
+candidates come from.
 
 The examples below were generated from the small test fixtures included in the
 repository:
@@ -86,7 +222,7 @@ the shape of each group’s pangenome, not only candidate target-private signal.
 
 ## Pangenome Growth
 
-![Pangenome growth example]({{ '/assets/examples/pangenome-gfa/pangenome_growth.png' | relative_url }})
+![Pangenome growth example](assets/examples/pangenome-gfa/pangenome_growth.png)
 
 **Figure caption example.** Pangenome growth curves for the full cohort, target
 sub-pangenome, and off-target sub-pangenome. Curves show the mean number of
@@ -103,7 +239,7 @@ representation.
 
 ## Coverage Distribution
 
-![Pangenome coverage example]({{ '/assets/examples/pangenome-gfa/pangenome_coverage.png' | relative_url }})
+![Pangenome coverage example](assets/examples/pangenome-gfa/pangenome_coverage.png)
 
 **Figure caption example.** Feature coverage distribution for full, target, and
 off-target groups. The x-axis gives the number of samples containing a feature,
@@ -118,7 +254,7 @@ unexpected representation imbalance between groups.
 
 ## Pangenome Composition
 
-![Pangenome composition example]({{ '/assets/examples/pangenome-gfa/pangenome_composition.png' | relative_url }})
+![Pangenome composition example](assets/examples/pangenome-gfa/pangenome_composition.png)
 
 **Figure caption example.** Core, accessory, private, and absent feature counts
 for the full cohort, target sub-pangenome, and off-target sub-pangenome.
@@ -130,7 +266,7 @@ Use this figure to communicate the structure of each group’s pangenome. It is
 especially useful when the target group has a distinct sub-pangenome profile
 relative to the background group.
 
-## Reporting In Methods
+## Reporting Pangenome Analyses In Methods
 
 A reproducible methods paragraph should include:
 
@@ -154,12 +290,13 @@ Example language:
 For VCF analyses, replace "graph segments" with "alternate alleles from the
 multisample VCF."
 
-## Interpretation Caveats
+## General Interpretation Caveats
 
-- Target-private pangenome features are hypotheses, not causal claims.
+- Target-private loci and pangenome features are hypotheses, not causal claims.
+- Score rank is a prioritization aid, not a probability of causality.
 - GFA segment features and VCF allele features are comparable through the Privy
   matrix model, but they represent different upstream data products.
 - Missing samples, graph construction choices, variant normalization, and
   upstream filtering can change core/accessory/private counts.
-- Publication figures should report the input representation and group
-  definitions directly in the caption or methods.
+- Publication figures should report the command, input representation, cohort
+  definitions, and important thresholds directly in the caption or methods.
