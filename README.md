@@ -96,6 +96,15 @@ privy scan \
   --outdir results/
 ```
 
+Analyze the graph pangenome and target/off-target sub-pangenomes:
+
+```bash
+privy pangenome \
+  --gfa pangenome.gfa \
+  --targets Benning Harosoy Clark \
+  --outdir results/pangenome/
+```
+
 Compare two scan outputs:
 
 ```bash

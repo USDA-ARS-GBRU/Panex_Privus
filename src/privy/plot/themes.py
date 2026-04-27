@@ -35,6 +35,19 @@ MATCH_COLOURS: dict[str, str] = {
     "missing_data": "#bdc3c7",
 }
 
+PANGENOME_GROUP_COLOURS: dict[str, str] = {
+    "full": "#933b41",
+    "target": "#0868ac",
+    "off_target": "#542788",
+}
+
+PANGENOME_CATEGORY_COLOURS: dict[str, str] = {
+    "core": "#0868ac",
+    "accessory": "#b35806",
+    "private": "#542788",
+    "absent": "#bdbdbd",
+}
+
 # ---------------------------------------------------------------------------
 # Canonical ordering for consistent plot axes
 # ---------------------------------------------------------------------------
@@ -56,6 +69,10 @@ MATCH_ORDER: list[str] = [
     "uninformative",
     "missing_data",
 ]
+
+PANGENOME_GROUP_ORDER: list[str] = ["full", "target", "off_target"]
+
+PANGENOME_CATEGORY_ORDER: list[str] = ["core", "accessory", "private", "absent"]
 
 
 def apply_privy_theme() -> None:

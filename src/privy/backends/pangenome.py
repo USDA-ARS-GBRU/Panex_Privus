@@ -71,6 +71,8 @@ def run_pangenome_gfa(
     ignored_samples: list[str] | None = None,
     permutations: int = 100,
     seed: int = 42,
+    write_plots: bool = True,
+    plot_format: str = "png",
 ) -> None:
     """Run the first-pass GFA pangenome analysis."""
     if not gfa.exists():
@@ -93,6 +95,8 @@ def run_pangenome_gfa(
         input_path=gfa,
         permutations=permutations,
         seed=seed,
+        write_plots=write_plots,
+        plot_format=plot_format,
     )
 
 
@@ -103,6 +107,8 @@ def write_pangenome_outputs(
     input_path: Path,
     permutations: int,
     seed: int,
+    write_plots: bool = True,
+    plot_format: str = "png",
 ) -> None:
     """Write shared pangenome analysis outputs."""
     feature_rows = build_feature_summary_rows(matrix, groups)
@@ -119,6 +125,21 @@ def write_pangenome_outputs(
     with TsvWriter(outdir / "growth_curves.tsv", GROWTH_CURVE_COLUMNS) as writer:
         writer.write_rows(growth_rows)
 
+    plot_paths: list[str] = []
+    if write_plots:
+        from privy.plot.pangenome import plot_all_pangenome  # noqa: PLC0415
+
+        plot_paths = [
+            str(path.name)
+            for path in plot_all_pangenome(
+                coverage_rows=coverage_rows,
+                composition_rows=composition_rows,
+                growth_rows=growth_rows,
+                outdir=outdir,
+                output_format=plot_format,
+            )
+        ]
+
     metadata: dict[str, Any] = {
         "created_at": now_iso(),
         "analysis": "pangenome",
@@ -128,7 +149,9 @@ def write_pangenome_outputs(
         },
         "parameters": {
             "permutations": permutations,
+            "plot_format": plot_format,
             "seed": seed,
+            "write_plots": write_plots,
         },
         "samples": {
             "full": list(groups.full),
@@ -147,6 +170,7 @@ def write_pangenome_outputs(
             "coverage_histogram.tsv",
             "composition.tsv",
             "growth_curves.tsv",
+            *plot_paths,
             "pangenome.json",
         ],
     }

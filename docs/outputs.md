@@ -19,6 +19,20 @@ Each scan directory contains six primary outputs.
 | `qc.tsv` | Scan metrics |
 | `run.json` | Run metadata and resolved configuration |
 
+`privy pangenome` writes pangenome-wide and sub-pangenome summaries to the
+directory you choose with `--outdir`.
+
+| File | Purpose |
+|------|---------|
+| `feature_summary.tsv` | One row per pangenome feature with full, target, and off-target counts |
+| `coverage_histogram.tsv` | Coverage histogram by feature count and bp |
+| `composition.tsv` | Core, accessory, private, and absent feature totals |
+| `growth_curves.tsv` | Permutation-based pangenome growth data |
+| `pangenome_growth.png` | Growth curves for full, target, and off-target groups |
+| `pangenome_coverage.png` | Feature coverage distribution |
+| `pangenome_composition.png` | Group composition plot |
+| `pangenome.json` | Run metadata, resolved groups, parameters, and output list |
+
 ## Key `hits.tsv` Columns
 
 | Column | Meaning |
@@ -59,6 +73,26 @@ For a SNP at VCF position 12345, `start=12344` and `end=12345`.
 
 Match classes include `supported`, `partially_supported`, `contradicted`,
 `source_specific`, `uninformative`, and `missing_data`.
+
+## Pangenome Outputs
+
+`feature_summary.tsv` uses a shared feature model. In the GFA adapter, each
+feature is a graph segment. In the planned VCF adapter, each feature will be an
+analyzed variant allele.
+
+| Column | Meaning |
+|--------|---------|
+| `feature_id` | Source-specific feature identifier |
+| `source_type` | Input source, currently `gfa` |
+| `feature_type` | Feature kind, currently `segment` |
+| `contig`, `start`, `end` | Coordinates when available |
+| `length` | Feature length used for bp-weighted summaries |
+| `total_present_n` | Number of active samples containing the feature |
+| `target_present_n` | Number of target samples containing the feature |
+| `offtarget_present_n` | Number of off-target samples containing the feature |
+| `full_category`, `target_category`, `offtarget_category` | `absent`, `private`, `accessory`, or `core` |
+| `target_private` | `True` when present in targets and absent from off-targets |
+| `offtarget_private` | `True` when present in off-targets and absent from targets |
 
 ## Annotate Outputs
 

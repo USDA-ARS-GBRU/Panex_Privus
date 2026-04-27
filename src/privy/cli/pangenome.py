@@ -64,6 +64,14 @@ def pangenome(
         42, "--seed", metavar="INTEGER",
         help="Random seed used for deterministic permutations.",
     ),
+    write_plots: bool = typer.Option(
+        True, "--plots/--no-plots",
+        help="Write first-pass pangenome plots alongside TSV outputs.",
+    ),
+    plot_format: str = typer.Option(
+        "png", "--plot-format", metavar="TEXT",
+        help="Plot format: png, svg, or pdf.",
+    ),
     outdir: Path | None = typer.Option(
         None, "--outdir", metavar="PATH",
         help="Output directory for pangenome tables.",
@@ -93,6 +101,9 @@ def pangenome(
             err=True,
         )
         raise typer.Exit(code=1)
+    if plot_format not in {"png", "svg", "pdf"}:
+        typer.echo("[error] --plot-format must be one of: png, svg, pdf.", err=True)
+        raise typer.Exit(code=1)
 
     try:
         if gfa is None:
@@ -107,6 +118,8 @@ def pangenome(
             outdir=effective_outdir,
             permutations=permutations,
             seed=seed,
+            write_plots=write_plots,
+            plot_format=plot_format,
         )
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(f"[error] {exc}", err=True)

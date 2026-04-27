@@ -61,6 +61,42 @@ def _compare_rows() -> list[dict[str, str]]:
     ]
 
 
+def _pangenome_growth_rows() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for group, base in (("full", 5), ("target", 3), ("off_target", 4)):
+        for trial in (1, 2):
+            for n in (1, 2, 3):
+                rows.append({
+                    "group": group,
+                    "trial": trial,
+                    "n": n,
+                    "sample_added": f"S{n}",
+                    "features": base + n + trial,
+                    "bp": (base + n + trial) * 10,
+                    "new_features": 1,
+                    "new_bp": 10,
+                    "singleton_features": 2,
+                    "singleton_bp": 20,
+                })
+    return rows
+
+
+def _pangenome_coverage_rows() -> list[dict[str, object]]:
+    return [
+        {"group": group, "coverage": coverage, "n_features": 4 - coverage, "n_bp": 10}
+        for group in ("full", "target", "off_target")
+        for coverage in range(4)
+    ]
+
+
+def _pangenome_composition_rows() -> list[dict[str, object]]:
+    return [
+        {"group": group, "category": category, "n_features": i + 1, "n_bp": (i + 1) * 10}
+        for group in ("full", "target", "off_target")
+        for i, category in enumerate(("core", "accessory", "private", "absent"))
+    ]
+
+
 # ---------------------------------------------------------------------------
 # TestPlotStrictnessBar
 # ---------------------------------------------------------------------------
@@ -206,3 +242,41 @@ class TestPlotLocusPanel:
         from privy.plot.loci import plot_locus_panel
         out = plot_locus_panel(_hits_rows(5), tmp_path, show_labels=False)
         assert out.exists()
+
+
+# ---------------------------------------------------------------------------
+# TestPangenomePlots
+# ---------------------------------------------------------------------------
+
+class TestPangenomePlots:
+    def test_growth_plot_creates_file(self, tmp_path: Path) -> None:
+        from privy.plot.pangenome import plot_pangenome_growth
+        out = plot_pangenome_growth(_pangenome_growth_rows(), tmp_path)
+        assert out.exists()
+        assert out.stat().st_size > 500
+
+    def test_coverage_plot_creates_file(self, tmp_path: Path) -> None:
+        from privy.plot.pangenome import plot_pangenome_coverage
+        out = plot_pangenome_coverage(_pangenome_coverage_rows(), tmp_path)
+        assert out.exists()
+        assert out.stat().st_size > 500
+
+    def test_composition_plot_creates_file(self, tmp_path: Path) -> None:
+        from privy.plot.pangenome import plot_pangenome_composition
+        out = plot_pangenome_composition(_pangenome_composition_rows(), tmp_path)
+        assert out.exists()
+        assert out.stat().st_size > 500
+
+    def test_all_pangenome_plots_creates_three_files(self, tmp_path: Path) -> None:
+        from privy.plot.pangenome import plot_all_pangenome
+        generated = plot_all_pangenome(
+            coverage_rows=_pangenome_coverage_rows(),
+            composition_rows=_pangenome_composition_rows(),
+            growth_rows=_pangenome_growth_rows(),
+            outdir=tmp_path,
+        )
+        assert {p.name for p in generated} == {
+            "pangenome_growth.png",
+            "pangenome_coverage.png",
+            "pangenome_composition.png",
+        }

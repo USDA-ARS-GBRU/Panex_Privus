@@ -38,8 +38,12 @@ def test_pangenome_cli_runs_gfa_with_inferred_offtargets(tmp_path: Path) -> None
     assert (outdir / "coverage_histogram.tsv").exists()
     assert (outdir / "composition.tsv").exists()
     assert (outdir / "growth_curves.tsv").exists()
+    assert (outdir / "pangenome_growth.png").exists()
+    assert (outdir / "pangenome_coverage.png").exists()
+    assert (outdir / "pangenome_composition.png").exists()
     data = json.loads((outdir / "pangenome.json").read_text())
     assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
+    assert "pangenome_growth.png" in data["outputs"]
 
 
 def test_pangenome_cli_accepts_target_and_offtarget_list_files(tmp_path: Path) -> None:
@@ -70,3 +74,29 @@ def test_pangenome_cli_accepts_target_and_offtarget_list_files(tmp_path: Path) -
     rows = read_tsv(outdir / "feature_summary.tsv")
     s2_target = next(row for row in rows if row["feature_id"] == "s2_target")
     assert s2_target["target_private"] == "True"
+
+
+def test_pangenome_cli_can_skip_plots(tmp_path: Path) -> None:
+    outdir = tmp_path / "pangenome-no-plots"
+    result = runner.invoke(
+        app,
+        [
+            "pangenome",
+            "--gfa",
+            str(GFA_PATH),
+            "--targets",
+            "T1",
+            "--targets",
+            "T2",
+            "--permutations",
+            "1",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not (outdir / "pangenome_growth.png").exists()
+    data = json.loads((outdir / "pangenome.json").read_text())
+    assert data["parameters"]["write_plots"] is False

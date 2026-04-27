@@ -211,6 +211,49 @@ privy scan \
 This writes VCF discovery outputs to `results/vcf/`, graph discovery outputs to
 `results/gfa/`, and reconciliation outputs to `results/compare/`.
 
+## Analyze The Pangenome
+
+Use `privy pangenome` when you want to summarize the whole input pangenome and
+then ask how the target and off-target sub-pangenomes differ. This is separate
+from `privy scan`: a scan looks for target-private candidates, while pangenome
+analysis describes the feature space those candidates come from.
+
+The first implementation analyzes GFA segments as pangenome features. VCF
+alleles will use the same feature-matrix model in a later adapter, so the same
+tables and plots can be reused for graph and variant inputs.
+
+```bash
+privy pangenome \
+  --gfa pangenome.gfa \
+  --targets T1 T2 T3 \
+  --outdir results/pangenome/
+```
+
+If you provide targets but omit off-targets, Panex Privus treats every other
+sample in the GFA as off-target. You can also use list files:
+
+```bash
+privy pangenome \
+  --gfa pangenome.gfa \
+  --targets-file targets.txt \
+  --off-targets-file off_targets.txt \
+  --permutations 100 \
+  --outdir results/pangenome/
+```
+
+Pangenome outputs:
+
+- `feature_summary.tsv`: one row per feature with full, target, and off-target
+  presence counts
+- `coverage_histogram.tsv`: number of features and bp present in 0, 1, 2, ...
+  samples for each group
+- `composition.tsv`: core, accessory, private, and absent feature counts
+- `growth_curves.tsv`: permutation-based pangenome growth data
+- `pangenome_growth.png`: full, target, and off-target growth curves
+- `pangenome_coverage.png`: feature coverage distribution
+- `pangenome_composition.png`: stacked composition summary
+- `pangenome.json`: run metadata, resolved groups, and output list
+
 ## Compare Existing Scan Outputs
 
 If you ran VCF and GFA discovery separately, compare their hits tables directly:
