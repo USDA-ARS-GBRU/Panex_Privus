@@ -1,0 +1,17 @@
+{
+  "tool": "privy compare",
+  "hits_a": "docs/assets/examples/workflow/scan/vcf/hits.tsv",
+  "hits_b": "docs/assets/examples/workflow/scan/gfa/hits.tsv",
+  "source_a": "vcf",
+  "source_b": "gfa",
+  "n_rows_a": 7,
+  "n_rows_b": 2,
+  "n_compare_rows": 8,
+  "config": {
+    "overlap_mode": "reciprocal",
+    "min_reciprocal_overlap": 0.5,
+    "breakpoint_tolerance_bp": 200,
+    "require_state_compatibility": false
+  },
+  "timestamp": "2026-04-27T17:12:24.759999+00:00"
+}

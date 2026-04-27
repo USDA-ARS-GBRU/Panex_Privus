@@ -1,6 +1,6 @@
 ---
 title: Figures and Tables
-description: How to interpret Panex Privus pangenome outputs and adapt them for publications.
+description: How to interpret Panex Privus outputs and adapt them for publications.
 ---
 
 # Figures and Tables
@@ -11,143 +11,103 @@ The plots and reports are interpretive summaries that help you explain
 target-private signal, VCF/GFA agreement, read-level support, annotations, and
 pangenome structure in a manuscript, report, or slide deck.
 
-## Command Outputs At A Glance
+Each command section below stands on its own. For publication use, prefer to
+report the command, input representation, target/off-target definitions, major
+thresholds, and software version or commit.
 
-| Command | Main tables | Main figures or reports | Research use |
-|---------|-------------|-------------------------|--------------|
-| `privy scan` | `hits.tsv`, `regions.tsv`, `sample_support.tsv`, `evidence.tsv`, `qc.tsv` | Input to `privy report` and `privy plot` | Candidate discovery and ranking |
-| `privy pangenome` | `feature_summary.tsv`, `coverage_histogram.tsv`, `composition.tsv`, `growth_curves.tsv` | `pangenome_growth.png`, `pangenome_coverage.png`, `pangenome_composition.png` | Full, target, and off-target pangenome summaries |
-| `privy compare` | `compare.tsv`, `compare_summary.tsv` | `compare_summary.png` through `privy plot` | VCF/GFA or run-to-run concordance |
-| `privy report` | `summary.tsv`, `ranked_hits.tsv`, `strictness_summary.tsv` | `report.md`, `report.html` | Shareable candidate summaries |
-| `privy plot` | Reads scan/compare TSVs | `locus_panel.png`, `strictness_bar.png`, `score_distribution.png`, `support_bar.png`, `compare_summary.png` | Diagnostic and presentation figures |
-| `privy annotate` | `annotated_hits.tsv`, `annotation_summary.tsv` | Input to downstream figures/tables | Gene-context interpretation |
-| `privy export` | `hits.bed/gff3`, `regions.bed/gff3` | Genome browser tracks | IGV, JBrowse, bedtools, and genome-browser workflows |
+## `privy scan`
 
-## Scan Tables
+`privy scan` is the discovery step. It asks which VCF alleles or GFA graph
+segments are present in the target cohort and absent from off-target genomes.
+Its tables are the foundation for the rest of the workflow.
 
-`privy scan` is the discovery step. It asks which alleles or graph segments are
-present in the target group and absent from off-target genomes.
+Example command:
 
-The most publication-relevant scan table is `hits.tsv`. Each row is one
-candidate private locus. For a manuscript or supplement, useful columns include:
+```bash
+privy scan \
+  --vcf variants.vcf.gz \
+  --targets T1 T2 \
+  --off-targets O1 O2 O3 \
+  --outdir results/
+```
 
-| Column | How to use it |
-|--------|---------------|
-| `locus_id` | Stable identifier for cross-referencing figures and supplements |
-| `contig`, `start`, `end` | Genomic interval; coordinates are 0-based half-open |
-| `variant_type` | Distinguishes SNP, indel, SV, or graph-region candidates |
-| `allele_key` | Source-specific allele or graph-segment identifier |
-| `target_support_n`, `offtarget_support_n` | Cohort support counts |
-| `target_missing_n`, `offtarget_missing_n` | Missingness counts to report uncertainty |
-| `strictness_class` | Missingness-aware confidence category |
-| `final_score` | Ranking score for prioritization |
+### Table: Ranked Candidate Loci (`hits.tsv`)
 
-**Table caption example.** Ranked target-private candidate loci discovered by
-Panex Privus. Candidate intervals are reported in 0-based half-open
-coordinates. `target_support_n` and `offtarget_support_n` give the number of
-samples supporting the allele or graph segment in each cohort, while
-`target_missing_n` and `offtarget_missing_n` preserve missing or uninformative
-data separately from biological absence. Candidates are sorted by `final_score`.
+| locus_id | contig | start | end | variant_type | allele_key | target_support_n | offtarget_support_n | strictness_class | final_score |
+|----------|--------|-------|-----|--------------|------------|------------------|---------------------|------------------|-------------|
+| `PPX00000001` | `chr1` | 99 | 100 | `snp` | `chr1:100:A:T` | 2 | 0 | `strict_complete` | 1.283333 |
+| `PPX00000003` | `chr1` | 299 | 300 | `snp` | `chr1:300:A:T` | 2 | 0 | `strict_offtarget_missing` | 1.003333 |
+| `PPX00000004` | `chr1` | 399 | 400 | `snp` | `chr1:400:A:T` | 1 | 0 | `strict_both_missing` | 0.843333 |
 
-`regions.tsv` is better for locus clusters. Use it when nearby candidate hits
-should be discussed as one candidate interval rather than many individual
-alleles or graph segments.
+**Table title.** Ranked target-private candidate loci.
 
-**Table caption example.** Candidate private regions produced by merging nearby
-passing loci. Each region records the number of constituent loci, dominant
-strictness class, target consistency, off-target exclusion, and maximum or
-representative ranking score.
+**Caption.** Candidate private loci discovered from a multisample VCF. Intervals
+use 0-based half-open coordinates. Support and missingness are reported
+separately so biological absence is not conflated with missing or uninformative
+data. Rows are sorted by `final_score`.
 
-## Compare Tables
+### Table: Candidate Regions (`regions.tsv`)
 
-`privy compare` reconciles two scan outputs, usually one VCF run and one GFA
-run. The goal is not to force the two sources to agree perfectly, but to make
-agreement, partial agreement, and source-specific discoveries explicit.
+| region_id | contig | start | end | n_loci | variant_types | dominant_strictness_class | target_consistency | offtarget_exclusion | final_score |
+|-----------|--------|-------|-----|--------|---------------|---------------------------|--------------------|---------------------|-------------|
+| `REGION000000` | `chr1` | 99 | 100 | 1 | `snp` | `strict_complete` | 1.0 | 1.0 | 1.283333 |
+| `REGION000001` | `chr1` | 199 | 200 | 1 | `snp` | `strict_target_missing` | 0.0 | 1.0 | 0.923333 |
 
-Key `compare.tsv` columns:
+**Table title.** Merged candidate private regions.
 
-| Column | How to use it |
-|--------|---------------|
-| `locus_id_a`, `locus_id_b` | Candidate IDs from the two input scans |
-| `source_a`, `source_b` | Labels such as `vcf` and `gfa` |
-| `coordinate_overlap` | How much the two intervals overlap |
-| `match_class` | `supported`, `partially_supported`, `contradicted`, `source_specific`, `uninformative`, or `missing_data` |
-| `state_compatibility` | Whether the cohort-support states are compatible |
-| `comparison_score` | Summary score for agreement |
+**Caption.** Candidate regions produced by merging nearby passing loci. Each row
+summarizes the number of constituent loci, dominant strictness class, target
+consistency, off-target exclusion, and ranking score for a candidate interval.
 
-**Table caption example.** Concordance between VCF-derived and graph-derived
-target-private candidates. Candidate pairs were matched by reciprocal
-coordinate overlap and classified by match class. Source-specific rows indicate
-candidates detected in one input representation but not matched in the other.
+### Table: Evidence Records (`evidence.tsv`)
 
-`compare_summary.tsv` is useful in the main text because it reduces many locus
-pairs to counts and percentages by match class.
+| locus_id | source_type | evidence_class | metric_name | metric_value | details |
+|----------|-------------|----------------|-------------|--------------|---------|
+| `PPX00000001` | `vcf` | `support` | `allele_pattern` | 1.283333 | all targets support; all off-targets confidently absent |
+| `PPX00000002` | `vcf` | `support` | `allele_pattern` | 0.923333 | passes with missingness |
 
-## Plot Diagnostics
+**Table title.** Evidence supporting candidate private loci.
 
-`privy plot` turns scan and compare outputs into quick figures. These are meant
-as diagnostic and presentation-ready starting points; for formal publication,
-export SVG or PDF and adjust labels, typography, or panel layout as needed.
+**Caption.** Per-locus evidence records emitted during scanning. VCF and GFA
+records describe the discovery evidence; optional BAM records add read-level
+support, absence, ambiguity, or contradiction.
 
-Common plot outputs:
+### Table: Per-Sample Support (`sample_support.tsv`)
 
-| Plot | Best use | Caption focus |
-|------|----------|---------------|
-| `locus_panel.png` | Show top-ranked candidates | Ranking by `final_score`; color by strictness class |
-| `strictness_bar.png` | Summarize confidence classes | Counts of strict, relaxed, missing, and contradicted candidates |
-| `score_distribution.png` | Inspect ranking distribution | Score range and class-specific score patterns |
-| `support_bar.png` | Summarize evidence records | BAM/VCF/GFA support, absence, ambiguity, contradiction |
-| `compare_summary.png` | Present VCF/GFA concordance | Match-class distribution between sources |
+| locus_id | sample_id | cohort_role | genotype | allele_supported | evidence_class |
+|----------|-----------|-------------|----------|------------------|----------------|
+| `PPX00000001` | `T1` | `target` | `0/1` | `true` | `support` |
+| `PPX00000001` | `T2` | `target` | `0/1` | `true` | `support` |
+| `PPX00000001` | `O1` | `off_target` | `0/0` | `false` | `absence` |
 
-**Figure caption example.** Diagnostic summary of Panex Privus candidate loci.
-The locus panel shows top-ranked candidates by final score, with colors
-indicating strictness class. Strictness and score-distribution panels summarize
-confidence and ranking behavior across all emitted loci.
+**Table title.** Sample-level support for private-locus candidates.
 
-## Report Tables
+**Caption.** Genotype and evidence state for each sample at each candidate
+locus. This table is useful for auditing candidate calls, explaining missingness,
+and selecting loci for follow-up validation.
 
-`privy report` packages scan outputs into collaborator-friendly Markdown or HTML.
-Use it for lab notebooks, supplemental summaries, and review handoffs. The
-report is not a replacement for the raw TSVs; it is a readable layer over them.
+### Table: Scan Metrics (`qc.tsv`)
 
-Publication-useful report outputs:
+| metric | value | description |
+|--------|-------|-------------|
+| `records_evaluated` | 9 | Total VCF records processed |
+| `alleles_passed` | 7 | Alleles passing discovery criteria |
+| `alleles_contradicted` | 1 | Alleles where off-targets also carry the allele |
+| `loci_emitted` | 7 | Loci written to `hits.tsv` |
 
-- `summary.tsv`: run-level counts and top-locus metadata
-- `ranked_hits.tsv`: top candidates with explicit rank values
-- `strictness_summary.tsv`: counts and percentages by strictness class
-- `support_summary.tsv`: evidence class counts when evidence is supplied
-- `contradiction_summary.tsv`: contradiction metrics from QC and compare inputs
+**Table title.** Scan quality-control summary.
 
-**Table caption example.** Summary of Panex Privus scan results, including the
-number of candidate loci, merged candidate regions, evaluated records, top-ranked
-locus, and strictness-class distribution.
+**Caption.** Run-level counts for evaluated records, filtered records, passing
+alleles, contradicted alleles, emitted loci, and merged regions. Include these
+metrics in methods or supplements to make filtering and discovery yield clear.
 
-## Annotation And Export Tables
-
-`privy annotate` connects candidate loci to a GFF3 annotation. Use
-`annotated_hits.tsv` when you need to prioritize candidates by gene context.
-
-**Table caption example.** Target-private candidate loci annotated against the
-reference gene model. Annotation classes distinguish coding sequence, UTR,
-exonic, intronic, and intergenic candidates, with gene identifiers reported for
-overlapping genic features.
-
-`privy export` writes BED or GFF3 files for genome browsers and interval tools.
-These are usually not final manuscript tables, but they are useful for manual
-inspection, figure panel preparation, and downstream intersection analyses.
-
-**Track caption example.** BED track of Panex Privus candidate private loci,
-scaled by final score and displayed against the reference genome annotation.
-
-## Pangenome Tables And Plots
+## `privy pangenome`
 
 `privy pangenome` describes the full pangenome and the target/off-target
-sub-pangenomes. It complements `privy scan`: the scan finds candidate
-target-private loci, while pangenome analysis describes the feature space those
-candidates come from.
+sub-pangenomes. It complements `privy scan`: scan finds candidate private loci,
+while pangenome analysis describes the feature space those candidates come from.
 
-The examples below were generated from the small test fixtures included in the
-repository:
+Example commands:
 
 ```bash
 privy pangenome \
@@ -165,130 +125,320 @@ privy pangenome \
   --outdir docs/assets/examples/pangenome-vcf
 ```
 
-In both examples, `T1` and `T2` are the target samples. Because no off-targets
-are specified, every other sample in the input becomes off-target.
+In both examples, `T1` and `T2` are target samples. Because no off-targets are
+specified, every other sample in the input becomes off-target.
 
-## Feature Summary
-
-`feature_summary.tsv` is the main feature-level table. For GFA input, each row
-is a graph segment. For VCF input, each row is one alternate allele.
-
-Small GFA example:
+### Table: Feature Summary (`feature_summary.tsv`)
 
 | feature_id | source_type | feature_type | total_present_n | target_present_n | offtarget_present_n | target_category | offtarget_category | target_private |
 |------------|-------------|--------------|-----------------|------------------|---------------------|-----------------|--------------------|----------------|
 | `s1` | `gfa` | `segment` | 5 | 2 | 3 | `core` | `core` | `False` |
 | `s2_target` | `gfa` | `segment` | 2 | 2 | 0 | `core` | `absent` | `True` |
 | `s4_target` | `gfa` | `segment` | 1 | 1 | 0 | `private` | `absent` | `True` |
-| `s5` | `gfa` | `segment` | 4 | 1 | 3 | `private` | `core` | `False` |
-
-Small VCF example:
-
-| feature_id | source_type | feature_type | total_present_n | target_present_n | offtarget_present_n | target_category | offtarget_category | target_private |
-|------------|-------------|--------------|-----------------|------------------|---------------------|-----------------|--------------------|----------------|
 | `chr1:100:A:T` | `vcf` | `snp` | 2 | 2 | 0 | `core` | `absent` | `True` |
-| `chr1:500:A:T` | `vcf` | `snp` | 3 | 2 | 1 | `core` | `private` | `False` |
-| `chr1:800:A:G` | `vcf` | `snp` | 0 | 0 | 0 | `absent` | `absent` | `False` |
-| `chr1:900:AGG:A` | `vcf` | `indel` | 2 | 2 | 0 | `core` | `absent` | `True` |
 
-Use this table when you need to report specific graph segments or VCF alleles.
-For publication methods, state the feature type: GFA segments and VCF alleles
-are analyzed through the same matrix, but they are not biologically identical
-objects.
+**Table title.** Pangenome feature presence by cohort.
 
-## Composition
+**Caption.** Feature-level pangenome summary. For GFA input, each feature is a
+graph segment; for VCF input, each feature is an alternate allele. Categories
+are assigned independently for the full, target, and off-target groups.
 
-`composition.tsv` summarizes feature categories for each group.
+### Table: Coverage Histogram (`coverage_histogram.tsv`)
+
+| group | coverage | n_features | n_bp |
+|-------|----------|------------|------|
+| `full` | 1 | 1 | 7 |
+| `full` | 2 | 1 | 10 |
+| `full` | 3 | 2 | 17 |
+| `full` | 5 | 2 | 16 |
+
+**Table title.** Feature coverage histogram.
+
+**Caption.** Number of features and total feature bp observed at each sample
+coverage level. This table supports coverage-distribution plots and helps
+separate singleton-rich datasets from datasets dominated by shared features.
+
+### Table: Composition (`composition.tsv`)
 
 | group | category | n_features | n_bp |
 |-------|----------|------------|------|
 | `full` | `private` | 1 | 7 |
 | `full` | `accessory` | 4 | 35 |
 | `full` | `core` | 2 | 16 |
-| `target` | `absent` | 2 | 17 |
-| `target` | `private` | 2 | 15 |
 | `target` | `core` | 3 | 26 |
 
-Interpretation:
+**Table title.** Pangenome composition by group.
 
-- `core`: present in every sample in that group.
-- `private`: present in exactly one sample in that group.
-- `accessory`: present in more than one sample but not all samples.
-- `absent`: not present in that group.
+**Caption.** Core, accessory, private, and absent feature counts for the full,
+target, and off-target groups. A feature can be target-core and off-target-absent,
+which is the strongest pangenome-level pattern for target-private signal.
 
-For target/off-target analysis, `target_private=True` in `feature_summary.tsv`
-is often the most direct flag. The composition plot is broader: it describes
-the shape of each group’s pangenome, not only candidate target-private signal.
+### Table: Growth Curves (`growth_curves.tsv`)
 
-## Pangenome Growth
+| group | trial | n | sample_added | features | new_features | singleton_features |
+|-------|-------|---|--------------|----------|--------------|--------------------|
+| `full` | 1 | 1 | `T1` | 5 | 5 | 5 |
+| `full` | 1 | 2 | `O2` | 7 | 2 | 4 |
+| `full` | 1 | 3 | `O3` | 7 | 0 | 2 |
+
+**Table title.** Pangenome growth permutations.
+
+**Caption.** Rarefaction data from deterministic sample-order permutations.
+Each row records the number of observed features after adding one sample, plus
+new and singleton feature counts. Plotted growth curves summarize this table.
+
+### Figure: Pangenome Growth
 
 ![Pangenome growth example](assets/examples/pangenome-gfa/pangenome_growth.png)
 
-**Figure caption example.** Pangenome growth curves for the full cohort, target
-sub-pangenome, and off-target sub-pangenome. Curves show the mean number of
-observed GFA segment features as samples are added across 25 deterministic
-permutations. Shaded intervals show the 2.5th to 97.5th percentile range across
-permutations. The target and off-target curves are computed independently from
-the same graph-derived feature matrix.
+**Figure title.** Full, target, and off-target pangenome growth.
 
-Use this figure to show whether the feature set is still expanding as more
-samples are added. A curve that continues rising steeply suggests additional
-sampling may reveal more features. A curve approaching a plateau suggests the
-observed cohort is closer to saturating the feature space under the chosen input
-representation.
+**Caption.** Mean number of observed GFA segment features as samples are added
+across 25 deterministic permutations. Shaded intervals show the 2.5th to 97.5th
+percentile range. The target and off-target curves are computed independently
+from the same graph-derived feature matrix.
 
-## Coverage Distribution
+### Figure: Coverage Distribution
 
 ![Pangenome coverage example](assets/examples/pangenome-gfa/pangenome_coverage.png)
 
-**Figure caption example.** Feature coverage distribution for full, target, and
-off-target groups. The x-axis gives the number of samples containing a feature,
-and the y-axis gives the number of features at that coverage level. In GFA
-analysis, features are graph segments; in VCF analysis, features are alternate
-alleles.
+**Figure title.** Feature coverage distribution by group.
 
-Use this figure to distinguish singleton/private-rich datasets from datasets
-dominated by features shared across many samples. For larger cohorts, this plot
-is useful for spotting heavy private-feature tails, highly conserved cores, or
-unexpected representation imbalance between groups.
+**Caption.** Number of features present in 0, 1, 2, or more samples for the
+full, target, and off-target groups. In GFA analysis, features are graph
+segments; in VCF analysis, features are alternate alleles.
 
-## Pangenome Composition
+### Figure: Pangenome Composition
 
 ![Pangenome composition example](assets/examples/pangenome-gfa/pangenome_composition.png)
 
-**Figure caption example.** Core, accessory, private, and absent feature counts
-for the full cohort, target sub-pangenome, and off-target sub-pangenome.
-Categories are assigned independently within each group. A feature can therefore
-be target-core and off-target-absent, which is the strongest pangenome-level
-pattern for target-private signal.
+**Figure title.** Core, accessory, private, and absent feature composition.
 
-Use this figure to communicate the structure of each group’s pangenome. It is
-especially useful when the target group has a distinct sub-pangenome profile
-relative to the background group.
+**Caption.** Feature-category counts for the full cohort, target sub-pangenome,
+and off-target sub-pangenome. Categories are assigned independently within each
+group, so the same feature can be core in one group and absent in another.
 
-## Reporting Pangenome Analyses In Methods
+## `privy compare`
 
-A reproducible methods paragraph should include:
+`privy compare` reconciles two scan outputs, usually one VCF run and one GFA
+run. The goal is not to force the sources to agree perfectly, but to make
+agreement, partial agreement, and source-specific discoveries explicit.
 
-- input source: GFA graph segments, VCF alternate alleles, or both
-- sample counts and names or cohort-definition file
-- whether off-targets were provided explicitly or inferred from remaining input
-  samples
-- number of permutations and random seed used for growth curves
-- software version or commit
-- any upstream filtering performed before creating the GFA or VCF
+Example command:
 
-Example language:
+```bash
+privy compare \
+  --hits-a results/vcf/hits.tsv \
+  --hits-b results/gfa/hits.tsv \
+  --outdir results/compare/
+```
 
-> We summarized pangenome composition with Panex Privus using graph segments as
-> features. Target samples were `T1` and `T2`; all remaining graph samples were
-> treated as off-targets. Growth curves were estimated from 25 deterministic
-> sample-order permutations with seed 42. Features were classified as core,
-> accessory, private, or absent independently for the full, target, and
-> off-target groups.
+### Table: Source Concordance (`compare.tsv`)
 
-For VCF analyses, replace "graph segments" with "alternate alleles from the
-multisample VCF."
+| compare_id | locus_id_a | locus_id_b | source_a | source_b | contig | match_class | coordinate_overlap | state_compatibility | comparison_score |
+|------------|------------|------------|----------|----------|--------|-------------|--------------------|---------------------|------------------|
+| `CMP000001` | `PPX00000001` | `GPX00000002` | `vcf` | `gfa` | `chr1` | `source_specific` | 0.0000 | `True` | 0.3 |
+| `CMP000006` | `PPX00000002` | `GPX00000002` | `vcf` | `gfa` | `chr1` | `source_specific` | 0.0000 | `True` | 0.3 |
+
+**Table title.** Concordance between VCF and GFA private-locus scans.
+
+**Caption.** Candidate pairs matched by coordinate overlap and cohort-state
+compatibility. Source-specific rows indicate candidates detected in one input
+representation but not matched in the other.
+
+### Table: Match-Class Summary (`compare_summary.tsv`)
+
+| match_class | n_loci | pct_total | mean_overlap | mean_score |
+|-------------|--------|-----------|--------------|------------|
+| `supported` | 0 | 0.0 | `NA` | `NA` |
+| `source_specific` | 8 | 100.0 | 0.0000 | 0.3000 |
+| `contradicted` | 0 | 0.0 | `NA` | `NA` |
+
+**Table title.** Summary of scan concordance classes.
+
+**Caption.** Counts and percentages of candidate loci by comparison match class.
+This table is often easier to report in the main text than the full pairwise
+`compare.tsv`.
+
+### Figure: Compare Summary
+
+![Compare summary example](assets/examples/workflow/plots/compare_summary.png)
+
+**Figure title.** VCF/GFA match-class distribution.
+
+**Caption.** Distribution of comparison match classes between VCF-derived and
+GFA-derived candidate private loci. Source-specific calls can reflect true
+representation differences, filtering differences, or incomplete coordinate
+overlap between input sources.
+
+## `privy plot`
+
+`privy plot` turns scan and compare outputs into diagnostic figures. These
+figures are useful for presentations and reports, and can be exported as SVG or
+PDF for publication layout work.
+
+Example command:
+
+```bash
+privy plot \
+  --hits results/vcf/hits.tsv \
+  --evidence results/vcf/evidence.tsv \
+  --compare results/compare/compare.tsv \
+  --plot-type all \
+  --outdir results/plots/
+```
+
+### Figure: Locus Panel
+
+![Locus panel example](assets/examples/workflow/plots/locus_panel.png)
+
+**Figure title.** Top-ranked candidate private loci.
+
+**Caption.** Ranked lollipop plot of candidate loci by `final_score`. Point
+color indicates strictness class, allowing high-ranking loci with missingness or
+contradiction penalties to be distinguished from strict-complete candidates.
+
+### Figure: Strictness Bar
+
+![Strictness bar example](assets/examples/workflow/plots/strictness_bar.png)
+
+**Figure title.** Strictness-class distribution.
+
+**Caption.** Counts of emitted candidate loci by missingness-aware strictness
+class. This plot summarizes how much of the candidate set is strict-complete
+versus affected by target missingness, off-target missingness, both missingness,
+or relaxed thresholds.
+
+### Figure: Score Distribution
+
+![Score distribution example](assets/examples/workflow/plots/score_distribution.png)
+
+**Figure title.** Candidate score distribution by strictness class.
+
+**Caption.** Distribution of `final_score` values across emitted candidate loci,
+colored by strictness class. This plot helps identify score separation,
+candidate-ranking tails, and whether missingness penalties dominate the ranking.
+
+### Figure: Support Bar
+
+![Support bar example](assets/examples/workflow/plots/support_bar.png)
+
+**Figure title.** Evidence class distribution by source.
+
+**Caption.** Counts of support, absence, ambiguity, contradiction, and
+uninformative evidence records by source type. When BAM evidence is supplied,
+this figure helps summarize read-level support and contradiction across loci.
+
+## `privy report`
+
+`privy report` packages scan outputs into collaborator-friendly Markdown or
+HTML. Use it for lab notebooks, supplemental summaries, and review handoffs.
+The report is a readable layer over the raw TSVs, not a replacement for them.
+
+Example command:
+
+```bash
+privy report \
+  --hits results/vcf/hits.tsv \
+  --regions results/vcf/regions.tsv \
+  --evidence results/vcf/evidence.tsv \
+  --qc results/vcf/qc.tsv \
+  --compare results/compare/compare.tsv \
+  --format both \
+  --outdir results/report/
+```
+
+### Table: Run Summary (`summary.tsv`)
+
+| metric | value | description |
+|--------|-------|-------------|
+| `project_name` | `privy_run` | Project name from configuration |
+| `n_hits` | 7 | Total loci in `hits.tsv` |
+| `n_regions` | 7 | Total candidate regions in `regions.tsv` |
+| `top_locus_id` | `PPX00000001` | Locus ID with highest `final_score` |
+
+**Table title.** Panex Privus run summary.
+
+**Caption.** Run-level summary of candidate loci, merged regions, evaluated
+records, and top-ranked locus. This table is useful for supplements and
+analysis handoffs.
+
+### Table: Ranked Hits (`ranked_hits.tsv`)
+
+| rank | locus_id | contig | start | end | variant_type | strictness_class | final_score |
+|------|----------|--------|-------|-----|--------------|------------------|-------------|
+| 1 | `PPX00000001` | `chr1` | 99 | 100 | `snp` | `strict_complete` | 1.283333 |
+| 2 | `PPX00000006` | `chr1` | 799 | 800 | `snp` | `strict_complete` | 1.283333 |
+| 5 | `PPX00000003` | `chr1` | 299 | 300 | `snp` | `strict_offtarget_missing` | 1.003333 |
+
+**Table title.** Ranked candidate private loci.
+
+**Caption.** Top candidate loci with explicit rank values. This table is a
+compact supplement-ready view of the highest-priority candidates.
+
+### Table: Strictness Summary (`strictness_summary.tsv`)
+
+| strictness_class | n_loci | pct_hits |
+|------------------|--------|----------|
+| `strict_complete` | 4 | 57.1 |
+| `strict_target_missing` | 1 | 14.3 |
+| `strict_offtarget_missing` | 1 | 14.3 |
+| `strict_both_missing` | 1 | 14.3 |
+
+**Table title.** Candidate confidence-class summary.
+
+**Caption.** Number and percentage of emitted loci in each missingness-aware
+strictness class. Report this table when describing the confidence structure of
+the candidate set.
+
+### Table: Support Summary (`support_summary.tsv`)
+
+| source_type | evidence_class | n_records | pct_of_source |
+|-------------|----------------|-----------|---------------|
+| `vcf` | `support` | 7 | 100.0 |
+
+**Table title.** Evidence class summary by source.
+
+**Caption.** Counts and percentages of evidence classes grouped by source type.
+When BAM support is included, this table shows how many read-level observations
+support, contradict, or fail to inform candidate loci.
+
+### Table: Contradiction Summary (`contradiction_summary.tsv`)
+
+| metric | value | description |
+|--------|-------|-------------|
+| `alleles_contradicted` | 1 | Alleles where off-targets also carry the allele |
+| `compare_contradicted_loci` | 0 | Loci classified as contradicted in compare output |
+
+**Table title.** Contradiction summary.
+
+**Caption.** Summary of contradictions observed during discovery and comparison.
+Use this table to report how often candidate-private signal was challenged by
+off-target support or source incompatibility.
+
+## `privy annotate`
+
+`privy annotate` connects candidate loci to GFF3 gene models. Use
+`annotated_hits.tsv` when you need to prioritize candidates by gene context.
+
+**Table title.** Annotated target-private candidate loci.
+
+**Caption.** Candidate loci classified by gene-context overlap, such as CDS,
+UTR, exonic, intronic, or intergenic. Gene identifiers and strand information
+are reported for overlapping genic features.
+
+## `privy export`
+
+`privy export` writes BED or GFF3 files for genome browsers and interval tools.
+These files are usually not final manuscript tables, but they are useful for
+manual inspection, figure panel preparation, and downstream intersection
+analyses.
+
+**Track title.** Panex Privus candidate private loci.
+
+**Caption.** BED or GFF3 track of candidate private loci and merged candidate
+regions for genome-browser inspection. BED scores are scaled to the standard
+0-1000 range.
 
 ## General Interpretation Caveats
 

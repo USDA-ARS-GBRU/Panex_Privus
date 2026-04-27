@@ -1,0 +1,3 @@
+metric	value	description
+alleles_contradicted	1	Alleles where off-targets also carry the allele
+compare_contradicted_loci	0	Loci classified as contradicted in privy compare output

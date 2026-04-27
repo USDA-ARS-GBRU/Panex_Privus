@@ -11,6 +11,9 @@ you begin with a VCF or a graph: define the group you care about, define the
 comparison group, ask Panex Privus what is private to the target group, then add
 supporting evidence and summaries around the candidates.
 
+For example tables, figure titles, and publication-style captions, see
+[Figures and Tables](figures-and-tables.md).
+
 ## Where the Inputs Come From
 
 Panex Privus does not build the VCF, graph, or read alignments itself. It starts
@@ -95,6 +98,9 @@ Key scan options:
 | `--contig TEXT` | Restrict to one contig |
 | `--merge-distance INT` | Merge nearby hits into regions |
 
+See [Figures and Tables](figures-and-tables.md#privy-scan) for example scan
+tables and captions.
+
 ## GFA Scan
 
 Use a GFA scan when your discovery question is based on a pangenome graph rather
@@ -125,6 +131,9 @@ Key GFA options:
 | `--min-segment-length INT` | Minimum GFA segment length |
 | `--region TEXT` | Restrict to `contig:start-end` |
 | `--contig TEXT` | Restrict to one contig |
+
+See [Figures and Tables](figures-and-tables.md#privy-scan) for example scan
+tables and captions.
 
 ## Add BAM Evidence
 
@@ -308,6 +317,9 @@ Key compare options:
 | `--breakpoint-tolerance-bp INT` | Gap tolerance for near misses |
 | `--require-state-compatibility` | Require strictness compatibility |
 
+See [Figures and Tables](figures-and-tables.md#privy-compare) for example
+compare tables, a compare-summary figure, and captions.
+
 ## Generate a Report
 
 Use `privy report` when you want a compact, shareable summary of a scan. The
@@ -334,6 +346,9 @@ Report outputs:
 - `contradiction_summary.tsv`: contradiction metrics from QC and compare inputs
 - `report.md`: human-readable Markdown report
 - `report.html`: browser-friendly HTML report when `--format html` or `both`
+
+See [Figures and Tables](figures-and-tables.md#privy-report) for example report
+tables and captions.
 
 ## Plot Diagnostics
 
@@ -370,6 +385,9 @@ Plot types:
 Use `--output-format svg` or `--output-format pdf` if you want vector graphics
 for editing or publication layouts.
 
+See [Figures and Tables](figures-and-tables.md#privy-plot) for example plot
+titles and captions.
+
 ## Annotate Hits
 
 Use `privy annotate` when you want to connect candidate private loci to gene
@@ -393,6 +411,9 @@ Annotation outputs:
 If your hit contig names differ from the GFF3 contig names, use a two-column
 contig alias file with `--contig-alias`.
 
+See [Figures and Tables](figures-and-tables.md#privy-annotate) for annotation
+table caption guidance.
+
 ## Export Intervals
 
 Use `privy export` when you want to move candidates into genome browsers or
@@ -415,3 +436,6 @@ Export outputs:
 
 Use `--format bed` for BED output. Use `--kind hits`, `--kind regions`, or
 `--kind both` to control which interval sets are exported.
+
+See [Figures and Tables](figures-and-tables.md#privy-export) for export track
+caption guidance.

@@ -1,0 +1,3 @@
+region_id	contig	start	end	n_loci	variant_types	dominant_strictness_class	target_consistency	offtarget_exclusion	final_score
+GFAR000000	chr1	8	18	1	graph_region	strict_complete	1.0	1.0	1.2
+GFAR000001	chr1	60	67	1	graph_region	strict_target_missing	0.0	1.0	0.84

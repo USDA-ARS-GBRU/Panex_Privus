@@ -1,0 +1,3 @@
+locus_id	contig	start	end	variant_type	allele_key	target_support_n	target_total_n	offtarget_support_n	offtarget_total_n	target_missing_n	offtarget_missing_n	strictness_class	discovery_score	support_score	penalty_score	final_score
+GPX00000001	chr1	8	18	graph_region	chr1:9:SEG:s2_target	2	2	0	3	0	0	strict_complete	1.2	0.0	0.0	1.2
+GPX00000002	chr1	60	67	graph_region	chr1:61:SEG:s4_target	1	2	0	3	1	0	strict_target_missing	1.0	0.0	0.16	0.84

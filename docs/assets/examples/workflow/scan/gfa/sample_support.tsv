@@ -1,0 +1,11 @@
+locus_id	sample_id	cohort_role	genotype	allele_supported	depth	allele_fraction	evidence_class
+GPX00000001	T1	target	traverses	true	NA	NA	support
+GPX00000001	T2	target	traverses	true	NA	NA	support
+GPX00000001	O1	off_target	absent	false	NA	NA	absence
+GPX00000001	O2	off_target	absent	false	NA	NA	absence
+GPX00000001	O3	off_target	absent	false	NA	NA	absence
+GPX00000002	T1	target	traverses	true	NA	NA	support
+GPX00000002	T2	target	missing	false	NA	NA	uninformative
+GPX00000002	O1	off_target	absent	false	NA	NA	absence
+GPX00000002	O2	off_target	absent	false	NA	NA	absence
+GPX00000002	O3	off_target	absent	false	NA	NA	absence

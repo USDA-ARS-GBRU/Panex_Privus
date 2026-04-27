@@ -1,0 +1,3 @@
+locus_id	source_type	sample_id	evidence_class	metric_name	metric_value	details
+GPX00000001	gfa		support	segment_pattern	1.2	all targets support; all off-targets confidently absent; no missing data
+GPX00000002	gfa		support	segment_pattern	0.84	passes with missingness: target_missing=1, offtarget_missing=0

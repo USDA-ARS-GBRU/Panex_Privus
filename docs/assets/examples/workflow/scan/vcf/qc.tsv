@@ -1,0 +1,19 @@
+metric	value	description
+records_evaluated	9	Total VCF records processed
+records_skipped_filter	1	Records skipped: FILTER != PASS
+records_skipped_qual	0	Records skipped: QUAL below threshold
+records_skipped_multiallelic	0	Records skipped: multiallelic (when allow_multiallelic=False)
+alleles_evaluated	9	Alternate alleles evaluated for private-allele status
+alleles_passed	7	Alleles passing discovery criteria
+alleles_contradicted	1	Alleles classified as contradicted
+loci_emitted	7	Loci written to hits.tsv
+regions_emitted	7	Regions written to regions.tsv
+n_target_samples	2	Target samples found in VCF header
+n_offtarget_samples	3	Off-target samples found in VCF header
+n_contigs_scanned	1	Contigs visited during scan
+strictness_contradicted	1	Passing loci classified as contradicted
+strictness_relaxed_threshold	1	Passing loci classified as relaxed_threshold
+strictness_strict_both_missing	1	Passing loci classified as strict_both_missing
+strictness_strict_complete	4	Passing loci classified as strict_complete
+strictness_strict_offtarget_missing	1	Passing loci classified as strict_offtarget_missing
+strictness_strict_target_missing	1	Passing loci classified as strict_target_missing

@@ -1,0 +1,9 @@
+compare_id	locus_id_a	locus_id_b	source_a	source_b	contig	start_a	end_a	start_b	end_b	match_class	coordinate_overlap	state_compatibility	strictness_a	strictness_b	support_summary	contradiction_summary	comparison_score
+CMP000001	PPX00000001	GPX00000002	vcf	gfa	chr1	99	100	60	67	source_specific	0.0000	True	strict_complete	strict_target_missing	NA	NA	0.3
+CMP000002	PPX00000006	NA	vcf	NA	chr1	799	800	NA	NA	source_specific	0.0000	False	strict_complete	NA	NA	NA	0.3
+CMP000003	PPX00000007	NA	vcf	NA	chr1	899	902	NA	NA	source_specific	0.0000	False	strict_complete	NA	NA	NA	0.3
+CMP000004	PPX00000005	NA	vcf	NA	chr1	699	700	NA	NA	source_specific	0.0000	False	strict_complete	NA	NA	NA	0.3
+CMP000005	PPX00000003	NA	vcf	NA	chr1	299	300	NA	NA	source_specific	0.0000	False	strict_offtarget_missing	NA	NA	NA	0.3
+CMP000006	PPX00000002	GPX00000002	vcf	gfa	chr1	199	200	60	67	source_specific	0.0000	True	strict_target_missing	strict_target_missing	NA	NA	0.3
+CMP000007	PPX00000004	NA	vcf	NA	chr1	399	400	NA	NA	source_specific	0.0000	False	strict_both_missing	NA	NA	NA	0.3
+CMP000008	NA	GPX00000001	NA	gfa	chr1	NA	NA	8	18	source_specific	0.0000	False	NA	strict_complete	NA	NA	0.3

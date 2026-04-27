@@ -1,0 +1,8 @@
+locus_id	source_type	sample_id	evidence_class	metric_name	metric_value	details
+PPX00000001	vcf		support	allele_pattern	1.283333	all targets support; all off-targets confidently absent; no missing data
+PPX00000002	vcf		support	allele_pattern	0.923333	passes with missingness: target_missing=1, offtarget_missing=0
+PPX00000003	vcf		support	allele_pattern	1.003333	passes with missingness: target_missing=0, offtarget_missing=1
+PPX00000004	vcf		support	allele_pattern	0.843333	passes with missingness: target_missing=1, offtarget_missing=1
+PPX00000005	vcf		support	allele_pattern	1.208333	all targets support; all off-targets confidently absent; no missing data
+PPX00000006	vcf		support	allele_pattern	1.283333	all targets support; all off-targets confidently absent; no missing data
+PPX00000007	vcf		support	allele_pattern	1.283333	all targets support; all off-targets confidently absent; no missing data

@@ -1,0 +1,8 @@
+locus_id	contig	start	end	variant_type	allele_key	target_support_n	target_total_n	offtarget_support_n	offtarget_total_n	target_missing_n	offtarget_missing_n	strictness_class	discovery_score	support_score	penalty_score	final_score
+PPX00000001	chr1	99	100	snp	chr1:100:A:T	2	2	0	3	0	0	strict_complete	1.283333	0.0	0.0	1.283333
+PPX00000006	chr1	799	800	snp	chr1:800:A:T	2	2	0	3	0	0	strict_complete	1.283333	0.0	0.0	1.283333
+PPX00000007	chr1	899	902	indel	chr1:900:AGG:A	2	2	0	3	0	0	strict_complete	1.283333	0.0	0.0	1.283333
+PPX00000005	chr1	699	700	snp	chr1:700:A:T	2	2	0	3	0	0	strict_complete	1.208333	0.0	0.0	1.208333
+PPX00000003	chr1	299	300	snp	chr1:300:A:T	2	2	0	3	0	1	strict_offtarget_missing	1.083333	0.0	0.08	1.003333
+PPX00000002	chr1	199	200	snp	chr1:200:A:T	1	2	0	3	1	0	strict_target_missing	1.083333	0.0	0.16	0.923333
+PPX00000004	chr1	399	400	snp	chr1:400:A:T	1	2	0	3	1	1	strict_both_missing	1.083333	0.0	0.24	0.843333

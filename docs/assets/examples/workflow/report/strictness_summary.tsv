@@ -1,0 +1,6 @@
+strictness_class	n_loci	pct_hits
+strict_complete	4	57.1
+strict_target_missing	1	14.3
+strict_offtarget_missing	1	14.3
+strict_both_missing	1	14.3
+relaxed_threshold	0	0.0

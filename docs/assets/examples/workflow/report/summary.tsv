@@ -1,0 +1,9 @@
+metric	value	description
+project_name	privy_run	Project name from configuration
+n_hits	7	Total loci in hits.tsv
+n_regions	7	Total candidate regions in regions.tsv
+top_locus_id	PPX00000001	Locus ID with highest final_score
+top_final_score	1.283333	Highest final_score among all hits
+records_evaluated	9	From qc.tsv: records evaluated
+alleles_passed	7	From qc.tsv: alleles passed
+alleles_contradicted	1	From qc.tsv: alleles contradicted

@@ -1,0 +1,8 @@
+region_id	contig	start	end	n_loci	variant_types	dominant_strictness_class	target_consistency	offtarget_exclusion	final_score
+REGION000000	chr1	99	100	1	snp	strict_complete	1.0	1.0	1.283333
+REGION000001	chr1	199	200	1	snp	strict_target_missing	0.0	1.0	0.923333
+REGION000002	chr1	299	300	1	snp	strict_offtarget_missing	1.0	1.0	1.003333
+REGION000003	chr1	399	400	1	snp	strict_both_missing	0.0	1.0	0.843333
+REGION000004	chr1	699	700	1	snp	strict_complete	1.0	1.0	1.208333
+REGION000005	chr1	799	800	1	snp	strict_complete	1.0	1.0	1.283333
+REGION000006	chr1	899	902	1	indel	strict_complete	1.0	1.0	1.283333

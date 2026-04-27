@@ -1,0 +1,7 @@
+match_class	n_loci	pct_total	mean_overlap	mean_score
+supported	0	0.0	NA	NA
+partially_supported	0	0.0	NA	NA
+contradicted	0	0.0	NA	NA
+source_specific	8	100.0	0.0000	0.3000
+uninformative	0	0.0	NA	NA
+missing_data	0	0.0	NA	NA
