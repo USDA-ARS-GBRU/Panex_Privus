@@ -84,11 +84,11 @@ def pangenome(
     if gfa is None and vcf is None:
         typer.echo("[error] Provide at least one input: --gfa or --vcf.", err=True)
         raise typer.Exit(code=1)
-    if vcf is not None and gfa is None:
-        typer.echo("[error] VCF pangenome analysis is not implemented yet.", err=True)
-        raise typer.Exit(code=2)
     if gfa is not None and not gfa.exists():
         typer.echo(f"[error] GFA file not found: {gfa}", err=True)
+        raise typer.Exit(code=1)
+    if vcf is not None and not vcf.exists():
+        typer.echo(f"[error] VCF file not found: {vcf}", err=True)
         raise typer.Exit(code=1)
 
     target_list = _merge_sample_flags(targets, targets_file)
@@ -106,21 +106,60 @@ def pangenome(
         raise typer.Exit(code=1)
 
     try:
-        if gfa is None:
-            raise NotImplementedError("VCF pangenome analysis is not implemented yet.")
-        from privy.backends.pangenome import run_pangenome_gfa  # noqa: PLC0415
-
-        run_pangenome_gfa(
-            gfa=gfa,
-            targets=target_list,
-            off_targets=off_target_list or None,
-            ignored_samples=ignored_list,
-            outdir=effective_outdir,
-            permutations=permutations,
-            seed=seed,
-            write_plots=write_plots,
-            plot_format=plot_format,
+        from privy.backends.pangenome import (  # noqa: PLC0415
+            run_pangenome_gfa,
+            run_pangenome_vcf,
         )
+
+        if gfa is not None and vcf is not None:
+            gfa_outdir = effective_outdir / "gfa"
+            vcf_outdir = effective_outdir / "vcf"
+            run_pangenome_gfa(
+                gfa=gfa,
+                targets=target_list,
+                off_targets=off_target_list or None,
+                ignored_samples=ignored_list,
+                outdir=gfa_outdir,
+                permutations=permutations,
+                seed=seed,
+                write_plots=write_plots,
+                plot_format=plot_format,
+            )
+            run_pangenome_vcf(
+                vcf=vcf,
+                targets=target_list,
+                off_targets=off_target_list or None,
+                ignored_samples=ignored_list,
+                outdir=vcf_outdir,
+                permutations=permutations,
+                seed=seed,
+                write_plots=write_plots,
+                plot_format=plot_format,
+            )
+        elif gfa is not None:
+            run_pangenome_gfa(
+                gfa=gfa,
+                targets=target_list,
+                off_targets=off_target_list or None,
+                ignored_samples=ignored_list,
+                outdir=effective_outdir,
+                permutations=permutations,
+                seed=seed,
+                write_plots=write_plots,
+                plot_format=plot_format,
+            )
+        elif vcf is not None:
+            run_pangenome_vcf(
+                vcf=vcf,
+                targets=target_list,
+                off_targets=off_target_list or None,
+                ignored_samples=ignored_list,
+                outdir=effective_outdir,
+                permutations=permutations,
+                seed=seed,
+                write_plots=write_plots,
+                plot_format=plot_format,
+            )
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(f"[error] {exc}", err=True)
         raise typer.Exit(code=1) from exc

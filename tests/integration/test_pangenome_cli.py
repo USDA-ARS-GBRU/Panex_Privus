@@ -100,3 +100,67 @@ def test_pangenome_cli_can_skip_plots(tmp_path: Path) -> None:
     assert not (outdir / "pangenome_growth.png").exists()
     data = json.loads((outdir / "pangenome.json").read_text())
     assert data["parameters"]["write_plots"] is False
+
+
+def test_pangenome_cli_runs_vcf_with_inferred_offtargets(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "vcf-pangenome-out"
+    result = runner.invoke(
+        app,
+        [
+            "pangenome",
+            "--vcf",
+            str(indexed_vcf),
+            "--targets",
+            "T1",
+            "--targets",
+            "T2",
+            "--permutations",
+            "2",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (outdir / "feature_summary.tsv").exists()
+    assert (outdir / "pangenome_growth.png").exists()
+    rows = read_tsv(outdir / "feature_summary.tsv")
+    assert len(rows) == 10
+    first = next(row for row in rows if row["feature_id"] == "chr1:100:A:T")
+    assert first["source_type"] == "vcf"
+    assert first["target_private"] == "True"
+
+
+def test_pangenome_cli_runs_vcf_and_gfa_to_source_subdirs(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "combined-pangenome-out"
+    result = runner.invoke(
+        app,
+        [
+            "pangenome",
+            "--vcf",
+            str(indexed_vcf),
+            "--gfa",
+            str(GFA_PATH),
+            "--targets",
+            "T1",
+            "--targets",
+            "T2",
+            "--permutations",
+            "1",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (outdir / "vcf" / "feature_summary.tsv").exists()
+    assert (outdir / "gfa" / "feature_summary.tsv").exists()
+    vcf_data = json.loads((outdir / "vcf" / "pangenome.json").read_text())
+    gfa_data = json.loads((outdir / "gfa" / "pangenome.json").read_text())
+    assert vcf_data["source_type"] == "vcf"
+    assert gfa_data["source_type"] == "gfa"

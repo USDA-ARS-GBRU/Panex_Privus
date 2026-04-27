@@ -20,6 +20,7 @@ from privy.pangenome import (
     build_feature_summary_rows,
     build_gfa_feature_matrix,
     build_growth_curve_rows,
+    build_vcf_feature_matrix,
     resolve_pangenome_groups,
 )
 from privy.pangenome.model import FeatureMatrix, PangenomeGroups
@@ -93,6 +94,42 @@ def run_pangenome_gfa(
         groups=groups,
         outdir=outdir,
         input_path=gfa,
+        permutations=permutations,
+        seed=seed,
+        write_plots=write_plots,
+        plot_format=plot_format,
+    )
+
+
+def run_pangenome_vcf(
+    vcf: Path,
+    targets: list[str],
+    outdir: Path,
+    off_targets: list[str] | None = None,
+    ignored_samples: list[str] | None = None,
+    permutations: int = 100,
+    seed: int = 42,
+    write_plots: bool = True,
+    plot_format: str = "png",
+) -> None:
+    """Run VCF allele-level pangenome analysis."""
+    if not vcf.exists():
+        raise FileNotFoundError(f"VCF file not found: {vcf}")
+
+    outdir.mkdir(parents=True, exist_ok=True)
+    log.info("Parsing VCF for pangenome analysis: %s", vcf)
+    matrix = build_vcf_feature_matrix(vcf)
+    groups = resolve_pangenome_groups(
+        all_samples=matrix.samples,
+        targets=targets,
+        off_targets=off_targets,
+        ignored_samples=ignored_samples,
+    )
+    write_pangenome_outputs(
+        matrix=matrix,
+        groups=groups,
+        outdir=outdir,
+        input_path=vcf,
         permutations=permutations,
         seed=seed,
         write_plots=write_plots,

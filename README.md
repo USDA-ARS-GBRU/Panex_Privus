@@ -105,6 +105,15 @@ privy pangenome \
   --outdir results/pangenome/
 ```
 
+Run the same pangenome summaries from VCF alleles:
+
+```bash
+privy pangenome \
+  --vcf cohort.vcf.gz \
+  --targets Benning Harosoy Clark \
+  --outdir results/pangenome/
+```
+
 Compare two scan outputs:
 
 ```bash

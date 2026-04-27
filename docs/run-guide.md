@@ -218,9 +218,8 @@ then ask how the target and off-target sub-pangenomes differ. This is separate
 from `privy scan`: a scan looks for target-private candidates, while pangenome
 analysis describes the feature space those candidates come from.
 
-The first implementation analyzes GFA segments as pangenome features. VCF
-alleles will use the same feature-matrix model in a later adapter, so the same
-tables and plots can be reused for graph and variant inputs.
+GFA segments and VCF alternate alleles both use the same feature-matrix model,
+so the same tables and plots are available for graph and variant inputs.
 
 ```bash
 privy pangenome \
@@ -229,8 +228,17 @@ privy pangenome \
   --outdir results/pangenome/
 ```
 
+For a VCF, each alternate allele is treated as one pangenome feature:
+
+```bash
+privy pangenome \
+  --vcf variants.vcf.gz \
+  --targets T1 T2 T3 \
+  --outdir results/pangenome/
+```
+
 If you provide targets but omit off-targets, Panex Privus treats every other
-sample in the GFA as off-target. You can also use list files:
+sample in the GFA or VCF as off-target. You can also use list files:
 
 ```bash
 privy pangenome \
@@ -240,6 +248,19 @@ privy pangenome \
   --permutations 100 \
   --outdir results/pangenome/
 ```
+
+If you provide both a GFA and VCF, Panex Privus writes separate source
+directories under the chosen output directory:
+
+```bash
+privy pangenome \
+  --gfa pangenome.gfa \
+  --vcf variants.vcf.gz \
+  --targets-file targets.txt \
+  --outdir results/pangenome/
+```
+
+This writes `results/pangenome/gfa/` and `results/pangenome/vcf/`.
 
 Pangenome outputs:
 

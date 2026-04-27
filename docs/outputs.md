@@ -77,14 +77,14 @@ Match classes include `supported`, `partially_supported`, `contradicted`,
 ## Pangenome Outputs
 
 `feature_summary.tsv` uses a shared feature model. In the GFA adapter, each
-feature is a graph segment. In the planned VCF adapter, each feature will be an
-analyzed variant allele.
+feature is a graph segment. In the VCF adapter, each feature is one alternate
+allele from a variant record.
 
 | Column | Meaning |
 |--------|---------|
 | `feature_id` | Source-specific feature identifier |
-| `source_type` | Input source, currently `gfa` |
-| `feature_type` | Feature kind, currently `segment` |
+| `source_type` | Input source, `gfa` or `vcf` |
+| `feature_type` | Feature kind, such as `segment`, `snp`, `indel`, or `sv` |
 | `contig`, `start`, `end` | Coordinates when available |
 | `length` | Feature length used for bp-weighted summaries |
 | `total_present_n` | Number of active samples containing the feature |

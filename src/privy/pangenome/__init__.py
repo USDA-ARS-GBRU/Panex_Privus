@@ -13,6 +13,7 @@ from privy.pangenome.model import (
     PangenomeGroups,
     resolve_pangenome_groups,
 )
+from privy.pangenome.vcf import build_vcf_feature_matrix
 
 __all__ = [
     "FeatureMatrix",
@@ -22,6 +23,7 @@ __all__ = [
     "build_coverage_histogram_rows",
     "build_feature_summary_rows",
     "build_gfa_feature_matrix",
+    "build_vcf_feature_matrix",
     "build_growth_curve_rows",
     "resolve_pangenome_groups",
 ]

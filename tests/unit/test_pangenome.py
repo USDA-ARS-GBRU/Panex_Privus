@@ -13,6 +13,7 @@ from privy.pangenome import (
     build_feature_summary_rows,
     build_gfa_feature_matrix,
     build_growth_curve_rows,
+    build_vcf_feature_matrix,
     resolve_pangenome_groups,
 )
 
@@ -47,6 +48,28 @@ def test_build_gfa_feature_matrix_uses_segments_as_features() -> None:
     assert set(matrix.samples) == {"T1", "T2", "O1", "O2", "O3"}
     assert matrix.samples_for_feature("s2_target") == frozenset({"T1", "T2"})
     assert matrix.samples_for_feature("s2_offt") == frozenset({"O1", "O2", "O3"})
+
+
+def test_build_vcf_feature_matrix_uses_alt_alleles_as_features(indexed_vcf: Path) -> None:
+    matrix = build_vcf_feature_matrix(indexed_vcf)
+
+    assert matrix.source_type == "vcf"
+    assert len(matrix.features) == 10
+    assert set(matrix.samples) == {"T1", "T2", "O1", "O2", "O3"}
+    assert matrix.samples_for_feature("chr1:100:A:T") == frozenset({"T1", "T2"})
+    assert matrix.samples_for_feature("chr1:500:A:T") == frozenset({"T1", "T2", "O1"})
+    assert matrix.samples_for_feature("chr1:800:A:G") == frozenset()
+
+
+def test_vcf_feature_summary_marks_target_private_alleles(indexed_vcf: Path) -> None:
+    matrix = build_vcf_feature_matrix(indexed_vcf)
+    groups = resolve_pangenome_groups(matrix.samples, targets=["T1", "T2"])
+    rows = build_feature_summary_rows(matrix, groups)
+
+    by_id = {str(row["feature_id"]): row for row in rows}
+    assert by_id["chr1:100:A:T"]["target_private"] is True
+    assert by_id["chr1:500:A:T"]["target_private"] is False
+    assert by_id["chr1:800:A:G"]["full_category"] == "absent"
 
 
 def test_feature_summary_marks_target_private_segments() -> None:
