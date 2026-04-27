@@ -7,7 +7,9 @@ The HTML includes minimal inline CSS for readability without external resources.
 
 from __future__ import annotations
 
+from importlib import import_module
 from pathlib import Path
+from typing import Any, cast
 
 
 def render_html_report(markdown_path: Path, outdir: Path) -> Path:
@@ -21,7 +23,7 @@ def render_html_report(markdown_path: Path, outdir: Path) -> Path:
     Returns:
         Path to the written ``report.html``.
     """
-    import markdown  # type: ignore[import-untyped]  # lazy import keeps tests light
+    markdown = cast(Any, import_module("markdown"))  # lazy import keeps tests light
 
     text = markdown_path.read_text(encoding="utf-8")
     body = markdown.markdown(text, extensions=["tables", "fenced_code"])
