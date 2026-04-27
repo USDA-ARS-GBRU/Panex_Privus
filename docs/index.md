@@ -22,6 +22,7 @@ README.
 
 - [Configuration]({{ '/configuration/' | relative_url }})
 - [Output files]({{ '/outputs/' | relative_url }})
+- [Figures and tables]({{ '/figures-and-tables/' | relative_url }})
 - [Troubleshooting]({{ '/troubleshooting/' | relative_url }})
 
 ## Project Information

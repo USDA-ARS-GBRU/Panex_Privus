@@ -80,6 +80,9 @@ Match classes include `supported`, `partially_supported`, `contradicted`,
 feature is a graph segment. In the VCF adapter, each feature is one alternate
 allele from a variant record.
 
+For example snippets and publication-style captions for the pangenome tables
+and plots, see [Figures and Tables]({{ '/figures-and-tables/' | relative_url }}).
+
 | Column | Meaning |
 |--------|---------|
 | `feature_id` | Source-specific feature identifier |

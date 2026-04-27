@@ -1,0 +1,8 @@
+feature_id	source_type	feature_type	contig	start	end	length	total_present_n	target_present_n	target_total_n	offtarget_present_n	offtarget_total_n	full_category	target_category	offtarget_category	target_private	offtarget_private
+s1	gfa	segment	chr1	0	8	8	5	2	2	3	3	core	core	core	False	False
+s2_offt	gfa	segment	chr1	8	18	10	3	0	2	3	3	accessory	absent	core	False	True
+s2_target	gfa	segment	chr1	8	18	10	2	2	2	0	3	accessory	core	absent	True	False
+s3	gfa	segment	chr1	18	26	8	5	2	2	3	3	core	core	core	False	False
+s4_offt	gfa	segment	chr1	60	67	7	3	0	2	3	3	accessory	absent	core	False	True
+s4_target	gfa	segment	chr1	60	67	7	1	1	2	0	3	private	private	absent	True	False
+s5	gfa	segment	chr1	80	88	8	4	1	2	3	3	accessory	private	core	False	False

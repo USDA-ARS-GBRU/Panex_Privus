@@ -1,0 +1,11 @@
+feature_id	source_type	feature_type	contig	start	end	length	total_present_n	target_present_n	target_total_n	offtarget_present_n	offtarget_total_n	full_category	target_category	offtarget_category	target_private	offtarget_private
+chr1:100:A:T	vcf	snp	chr1	99	100	1	2	2	2	0	3	accessory	core	absent	True	False
+chr1:200:A:T	vcf	snp	chr1	199	200	1	1	1	2	0	3	private	private	absent	True	False
+chr1:300:A:T	vcf	snp	chr1	299	300	1	2	2	2	0	3	accessory	core	absent	True	False
+chr1:400:A:T	vcf	snp	chr1	399	400	1	1	1	2	0	3	private	private	absent	True	False
+chr1:500:A:T	vcf	snp	chr1	499	500	1	3	2	2	1	3	accessory	core	private	False	False
+chr1:600:A:T	vcf	snp	chr1	599	600	1	2	2	2	0	3	accessory	core	absent	True	False
+chr1:700:A:T	vcf	snp	chr1	699	700	1	2	2	2	0	3	accessory	core	absent	True	False
+chr1:800:A:T	vcf	snp	chr1	799	800	1	2	2	2	0	3	accessory	core	absent	True	False
+chr1:800:A:G	vcf	snp	chr1	799	800	1	0	0	2	0	3	absent	absent	absent	False	False
+chr1:900:AGG:A	vcf	indel	chr1	899	902	3	2	2	2	0	3	accessory	core	absent	True	False

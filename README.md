@@ -146,6 +146,7 @@ links below.
 - [Documentation home](docs/index.md)
 - [Installation](docs/installation.md)
 - [Run guide](docs/run-guide.md)
+- [Figures and tables](docs/figures-and-tables.md)
 - [Core concepts](docs/concepts.md)
 - [Output files](docs/outputs.md)
 - [Configuration](docs/configuration.md)

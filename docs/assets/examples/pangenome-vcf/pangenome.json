@@ -1,0 +1,49 @@
+{
+  "analysis": "pangenome",
+  "created_at": "2026-04-27T13:09:33.358839+00:00",
+  "inputs": {
+    "vcf": "tests/data/small_cohort.vcf"
+  },
+  "outputs": [
+    "feature_summary.tsv",
+    "coverage_histogram.tsv",
+    "composition.tsv",
+    "growth_curves.tsv",
+    "pangenome_growth.png",
+    "pangenome_coverage.png",
+    "pangenome_composition.png",
+    "pangenome.json"
+  ],
+  "parameters": {
+    "permutations": 25,
+    "plot_format": "png",
+    "seed": 42,
+    "write_plots": true
+  },
+  "samples": {
+    "full": [
+      "T1",
+      "T2",
+      "O1",
+      "O2",
+      "O3"
+    ],
+    "ignored": [],
+    "off_target": [
+      "O1",
+      "O2",
+      "O3"
+    ],
+    "target": [
+      "T1",
+      "T2"
+    ]
+  },
+  "source_type": "vcf",
+  "summary": {
+    "n_features": 10,
+    "n_offtarget_samples": 3,
+    "n_samples": 5,
+    "n_target_samples": 2
+  }
+}

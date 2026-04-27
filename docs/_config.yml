@@ -27,6 +27,8 @@ nav:
     url: /concepts/
   - title: Outputs
     url: /outputs/
+  - title: Figures
+    url: /figures-and-tables/
   - title: Configuration
     url: /configuration/
   - title: Status
