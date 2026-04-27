@@ -22,7 +22,7 @@ from pathlib import Path
 import typer
 
 from privy import __version__
-from privy.cli import annotate, compare, export, plot, report, scan
+from privy.cli import annotate, compare, export, pangenome, plot, report, scan
 from privy.cli.context import get_state
 from privy.utils.logging import configure_logging
 
@@ -42,6 +42,7 @@ app = typer.Typer(
 
 app.add_typer(scan.app, name="scan")
 app.add_typer(compare.app, name="compare")
+app.add_typer(pangenome.app, name="pangenome")
 app.add_typer(report.app, name="report")
 app.add_typer(plot.app, name="plot")
 app.add_typer(annotate.app, name="annotate")
