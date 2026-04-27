@@ -183,5 +183,8 @@ Panex Privus is released under the MIT License. See [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-Panex Privus is developed for comparative genomics and plant pangenome research,
-with support from the USDA-ARS Genomics and Bioinformatics Research Unit.
+Panex Privus is developed for comparative genomics and plant pangenome research.
+
+### Funding Support
+This is a project supported by the U.S. Department of Agriculture - Agricultural Research Service (USDA-ARS) - Genomics and Bioinformatics Research Unit (GBRU) through CRIS Project No. 6066-21310-006-000-D.
+Additional project support was through <and any additional agreements or grants>.
