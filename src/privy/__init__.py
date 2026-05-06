@@ -15,6 +15,7 @@ Commands:
     privy plot      — Create focused locus and region visualizations
     privy annotate  — Intersect private loci with GFF3 gene annotations
     privy export    — Export hits and regions to downstream formats
+    privy index     — Build reusable indexes for large inputs
 """
 
 from importlib.metadata import PackageNotFoundError, version

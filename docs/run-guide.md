@@ -139,6 +139,19 @@ than called variants. This asks the same biological question, but at the level o
 graph segments: which segments are traversed by the target samples and absent
 from off-target samples?
 
+For large GFA graphs, build a reusable Privy GFA index before scanning:
+
+```bash
+privy index gfa --gfa pangenome.gfa.gz
+```
+
+This writes `pangenome.gfa.gz.privy.gfaidx` beside the GFA by default. The first
+indexing run can take time because Privy must stream the full graph and all
+sample walks. Later `privy scan --gfa pangenome.gfa.gz ...` runs auto-detect
+that sidecar index, validate that it still matches the GFA file, and skip the
+slow GFA walk-parsing step. Use `--gfa-index PATH` if the index is stored
+somewhere else.
+
 ```bash
 privy scan \
   --gfa pangenome.gfa.gz \
@@ -169,6 +182,7 @@ Key GFA options:
 | Option | Description |
 |--------|-------------|
 | `--gfa PATH` | GFA graph file, `.gfa` or `.gfa.gz` |
+| `--gfa-index PATH` | Optional prebuilt Privy GFA index; auto-detected as `<GFA>.privy.gfaidx` when present |
 | `--min-segment-length INT` | Minimum GFA segment length |
 | `--region TEXT` | Restrict to `contig:start-end` |
 | `--contig TEXT` | Restrict to one contig |

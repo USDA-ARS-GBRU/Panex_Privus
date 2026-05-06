@@ -13,6 +13,7 @@ Usage::
     privy plot      --hits results/vcf/hits.tsv --top-n 10 --outdir plots/
     privy annotate  --hits results/vcf/hits.tsv --gff annotation.gff3.gz --outdir annotated/
     privy export    --hits results/vcf/hits.tsv --regions results/vcf/regions.tsv --outdir exported/
+    privy index gfa --gfa pangenome.gfa.gz
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from pathlib import Path
 import typer
 
 from privy import __version__
-from privy.cli import annotate, compare, export, pangenome, plot, report, scan
+from privy.cli import annotate, compare, export, index, pangenome, plot, report, scan
 from privy.cli.context import get_state
 from privy.utils.logging import configure_logging
 
@@ -52,6 +53,7 @@ app.add_typer(report.app, name="report")
 app.add_typer(plot.app, name="plot")
 app.add_typer(annotate.app, name="annotate")
 app.add_typer(export.app, name="export")
+app.add_typer(index.app, name="index")
 
 
 def _version_callback(value: bool) -> None:

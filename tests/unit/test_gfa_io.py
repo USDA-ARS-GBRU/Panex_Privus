@@ -20,12 +20,15 @@ import pytest
 from privy.io.gfa import (
     GfaGraph,
     build_gfa_scan_index,
+    default_gfa_index_path,
     extract_cohort_segment_counts,
     get_gfa_samples,
     get_samples_present_at_locus,
     get_samples_traversing_segment,
+    load_gfa_scan_index,
     parse_gfa,
     query_segments_at_locus,
+    write_gfa_scan_index,
 )
 
 # ---------------------------------------------------------------------------
@@ -520,6 +523,34 @@ class TestGfaScanIndex:
         assert index.samples_seen == {"T1", "O1", "OTHER"}
         assert index.segment_sample_mask["segA"] == index.sample_mask(["T1"])
         assert index.segment_sample_mask["segB"] == index.sample_mask(["T1", "O1"])
+
+    def test_scan_index_can_index_all_samples(self) -> None:
+        index = build_gfa_scan_index(GFA_DATA, sample_names=None)
+
+        assert set(index.sample_order) == {"T1", "T2", "O1", "O2", "O3"}
+        assert index.segment_sample_mask["s2_target"] == index.sample_mask(["T1", "T2"])
+        assert index.segment_sample_mask["s2_offt"] == index.sample_mask(
+            ["O1", "O2", "O3"]
+        )
+
+    def test_gfa_scan_index_round_trips(self, tmp_path: Path) -> None:
+        index = build_gfa_scan_index(GFA_DATA, sample_names=None)
+        index_path = tmp_path / "small_cohort.gfa.privy.gfaidx"
+
+        write_gfa_scan_index(index, index_path, GFA_DATA)
+        loaded = load_gfa_scan_index(index_path, GFA_DATA)
+
+        assert loaded.sample_order == index.sample_order
+        assert loaded.segment_sample_mask["s2_target"] == index.segment_sample_mask[
+            "s2_target"
+        ]
+        assert loaded.present_mask("chr1", 8, 18) == index.present_mask("chr1", 8, 18)
+        assert loaded.metadata["source"]["size"] == GFA_DATA.stat().st_size
+
+    def test_default_gfa_index_path_uses_sidecar_suffix(self) -> None:
+        assert default_gfa_index_path(Path("graph.gfa.gz")) == Path(
+            "graph.gfa.gz.privy.gfaidx"
+        )
 
 
 # ---------------------------------------------------------------------------

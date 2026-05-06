@@ -89,6 +89,16 @@ Then run directly on the compressed minigraph-cactus graph:
 privy scan --gfa pangenome.gfa.gz --targets T1 T2 --off-targets O1 O2 --outdir results/
 ```
 
+For large graphs or repeated scans, build the reusable Privy GFA index first:
+
+```bash
+privy index gfa --gfa pangenome.gfa.gz
+privy scan --gfa pangenome.gfa.gz --targets T1 T2 --off-targets O1 O2 --outdir results/
+```
+
+`privy scan` auto-detects `pangenome.gfa.gz.privy.gfaidx` when it sits beside
+the GFA and validates that it still matches the source graph.
+
 ## BAM Support Is Uninformative
 
 Common reasons:

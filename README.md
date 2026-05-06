@@ -91,7 +91,15 @@ privy scan \
   --outdir results/
 ```
 
-Run a GFA scan:
+For large GFA graphs, build the reusable Privy GFA index first. This can take
+some time, but later scans auto-detect the sidecar index and skip the expensive
+GFA walk-parsing step:
+
+```bash
+privy index gfa --gfa pangenome.gfa.gz
+```
+
+Then run a GFA scan:
 
 ```bash
 privy scan \
@@ -101,7 +109,9 @@ privy scan \
   --outdir results/
 ```
 
-Run both discovery backends and compare them:
+Run both discovery backends and compare them. If
+`pangenome.gfa.gz.privy.gfaidx` exists beside the GFA, Privy uses it
+automatically:
 
 ```bash
 privy scan \
@@ -182,8 +192,9 @@ Operational commands:
 - `privy plot`
 - `privy annotate`
 - `privy export`
+- `privy index`
 
-The current test suite has 633 passing unit and integration tests.
+The current test suite has 639 passing unit and integration tests.
 
 ## Contact
 

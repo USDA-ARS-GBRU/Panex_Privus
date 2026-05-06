@@ -215,8 +215,15 @@ samtools sort sample.bam -o sample.sorted.bam
 samtools index sample.sorted.bam
 ```
 
-GFA scans can read plain-text `.gfa` or gzip-compressed `.gfa.gz` files and do
-not require bgzip, tabix, or a separate index. Graph segments need coordinate
+GFA scans can read plain-text `.gfa` or gzip-compressed `.gfa.gz` files. For
+large graphs, build a reusable Privy sidecar index before scanning:
+
+```bash
+privy index gfa --gfa pangenome.gfa.gz
+```
+
+This writes `pangenome.gfa.gz.privy.gfaidx`, which `privy scan --gfa
+pangenome.gfa.gz ...` auto-detects on later runs. Graph segments need coordinate
 tags such as `SN:Z:chr1`, `SO:i:1000`, and `LN:i:500` so Privy can place graph
 hits back on genomic coordinates.
 

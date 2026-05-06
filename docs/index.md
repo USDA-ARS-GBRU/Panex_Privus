@@ -36,8 +36,9 @@ README.
 ## Main Workflow
 
 1. Define target and off-target samples.
-2. Run `privy scan` on VCF or GFA input.
-3. Optionally add BAM support to VCF scans.
-4. Compare VCF and GFA scan outputs with `privy compare`.
-5. Generate reports and plots.
-6. Annotate or export candidate loci for downstream interpretation.
+2. For large GFA inputs, build the reusable sidecar index with `privy index gfa`.
+3. Run `privy scan` on VCF or GFA input.
+4. Optionally add BAM support to VCF scans.
+5. Compare VCF and GFA scan outputs with `privy compare`.
+6. Generate reports and plots.
+7. Annotate or export candidate loci for downstream interpretation.

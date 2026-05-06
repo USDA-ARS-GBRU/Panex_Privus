@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import gzip
 import logging
+import pickle
 import re
 import time
 from bisect import bisect_right
@@ -43,6 +44,8 @@ from typing import Any, TextIO
 
 log = logging.getLogger("privy.io.gfa")
 _WALK_SEGMENT_RE = re.compile(r"[><]([^><\t\r\n]+)")
+_GFA_SCAN_INDEX_MAGIC = b"PRIVY_GFA_SCAN_INDEX\0"
+_GFA_SCAN_INDEX_SCHEMA_VERSION = 1
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +198,7 @@ class GfaScanIndex:
     n_links: int = 0
     n_paths: int = 0
     n_walks: int = 0
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def sample_mask(self, samples: list[str] | tuple[str, ...]) -> int:
         """Return a bitmask for samples present in this index's sample order."""
@@ -341,9 +345,121 @@ def get_gfa_samples(gfa_path: Path) -> list[str]:
     return sorted(set(graph.sample_to_paths) | set(graph.sample_to_walks))
 
 
+def default_gfa_index_path(gfa_path: Path) -> Path:
+    """Return the sidecar Privy GFA index path for *gfa_path*."""
+    return Path(f"{gfa_path}.privy.gfaidx")
+
+
+def write_gfa_scan_index(
+    scan_index: GfaScanIndex,
+    index_path: Path,
+    gfa_path: Path,
+) -> None:
+    """Write a reusable Privy GFA scan index.
+
+    The index is a Python binary sidecar storing exactly the lightweight scan
+    structures Privy needs.  It is intended as a trusted local cache for large
+    GFA files, not as a portable interchange format.
+    """
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata = {
+        "schema_version": _GFA_SCAN_INDEX_SCHEMA_VERSION,
+        "source": _gfa_file_fingerprint(gfa_path),
+        "sample_count": len(scan_index.sample_order),
+        "coordinate_segments": len(scan_index.segments),
+        "contigs": len(scan_index.contig_segments),
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+    }
+    scan_index.metadata = metadata
+    payload: dict[str, Any] = {
+        "schema_version": _GFA_SCAN_INDEX_SCHEMA_VERSION,
+        "metadata": metadata,
+        "index": scan_index,
+    }
+    with open(index_path, "wb") as fh:
+        fh.write(_GFA_SCAN_INDEX_MAGIC)
+        pickle.dump(payload, fh, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def load_gfa_scan_index(
+    index_path: Path,
+    gfa_path: Path | None = None,
+) -> GfaScanIndex:
+    """Load a reusable Privy GFA scan index and optionally validate its source."""
+    if not index_path.exists():
+        raise FileNotFoundError(f"GFA index file not found: {index_path}")
+
+    with open(index_path, "rb") as fh:
+        magic = fh.read(len(_GFA_SCAN_INDEX_MAGIC))
+        if magic != _GFA_SCAN_INDEX_MAGIC:
+            raise ValueError(
+                f"{index_path} is not a Privy GFA scan index. "
+                "Rebuild it with 'privy index gfa'."
+            )
+        payload = pickle.load(fh)  # noqa: S301 - trusted local cache file
+
+    if not isinstance(payload, dict):
+        raise ValueError(f"{index_path} has an invalid Privy GFA index payload.")
+    schema_version = payload.get("schema_version")
+    if schema_version != _GFA_SCAN_INDEX_SCHEMA_VERSION:
+        raise ValueError(
+            f"{index_path} uses GFA index schema {schema_version!r}; "
+            f"this Privy version expects {_GFA_SCAN_INDEX_SCHEMA_VERSION}."
+        )
+
+    scan_index = payload.get("index")
+    if not isinstance(scan_index, GfaScanIndex):
+        raise ValueError(f"{index_path} has an invalid Privy GFA scan index object.")
+
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = {}
+    scan_index.metadata = metadata
+
+    if gfa_path is not None:
+        _validate_gfa_index_source(metadata, gfa_path, index_path)
+
+    return scan_index
+
+
+def _gfa_file_fingerprint(gfa_path: Path) -> dict[str, Any]:
+    """Return stable-enough source metadata for stale-index detection."""
+    stat = gfa_path.stat()
+    return {
+        "path": str(gfa_path),
+        "size": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+    }
+
+
+def _validate_gfa_index_source(
+    metadata: dict[str, Any],
+    gfa_path: Path,
+    index_path: Path,
+) -> None:
+    """Raise if *index_path* does not appear to match *gfa_path*."""
+    expected = metadata.get("source")
+    if not isinstance(expected, dict):
+        raise ValueError(
+            f"{index_path} does not contain source GFA metadata. "
+            "Rebuild it with 'privy index gfa'."
+        )
+
+    observed = _gfa_file_fingerprint(gfa_path)
+    if (
+        expected.get("size") != observed["size"]
+        or expected.get("mtime_ns") != observed["mtime_ns"]
+    ):
+        raise ValueError(
+            f"{index_path} does not match {gfa_path}. "
+            "The GFA file size or modification time changed; rebuild the index "
+            "with 'privy index gfa'."
+        )
+
+
 def build_gfa_scan_index(
     gfa_path: Path,
-    sample_names: list[str] | tuple[str, ...],
+    sample_names: list[str] | tuple[str, ...] | None,
     filter_contig: str | None = None,
     filter_start: int | None = None,
     filter_end: int | None = None,
@@ -358,11 +474,12 @@ def build_gfa_scan_index(
     if not gfa_path.exists():
         raise FileNotFoundError(f"GFA file not found: {gfa_path}")
 
-    sample_order = tuple(dict.fromkeys(sample_names))
-    sample_to_idx = {sample: idx for idx, sample in enumerate(sample_order)}
+    sample_order_list = list(dict.fromkeys(sample_names or ()))
+    sample_to_idx = {sample: idx for idx, sample in enumerate(sample_order_list)}
     raw_intervals: list[defaultdict[str, list[tuple[int, int]]]] = [
-        defaultdict(list) for _ in sample_order
+        defaultdict(list) for _ in sample_order_list
     ]
+    index_all_samples = sample_names is None
     segments: dict[str, GfaScanSegment] = {}
     contig_segments: dict[str, list[tuple[int, int, str]]] = {}
     contig_pool: dict[str, str] = {}
@@ -406,6 +523,16 @@ def build_gfa_scan_index(
             len(samples_seen),
             now - started_at,
         )
+
+    def sample_index_for(sample: str) -> int | None:
+        idx = sample_to_idx.get(sample)
+        if idx is not None or not index_all_samples:
+            return idx
+        idx = len(sample_order_list)
+        sample_order_list.append(sample)
+        sample_to_idx[sample] = idx
+        raw_intervals.append(defaultdict(list))
+        return idx
 
     log.info("Building streaming GFA scan index: %s", gfa_path)
 
@@ -454,7 +581,7 @@ def build_gfa_scan_index(
                 tabs = _required_tab_positions(raw_line, 6, line_num, "W")
                 sample = raw_line[tabs[0] + 1:tabs[1]]
                 samples_seen.add(sample)
-                sample_idx = sample_to_idx.get(sample)
+                sample_idx = sample_index_for(sample)
                 if sample_idx is None:
                     maybe_log_progress()
                     continue
@@ -509,7 +636,7 @@ def build_gfa_scan_index(
                 path_name = raw_line[tabs[0] + 1:tabs[1]]
                 sample, _haplotype = _parse_sample_from_path_name(path_name)
                 samples_seen.add(sample)
-                sample_idx = sample_to_idx.get(sample)
+                sample_idx = sample_index_for(sample)
                 if sample_idx is None:
                     maybe_log_progress()
                     continue
@@ -592,7 +719,7 @@ def build_gfa_scan_index(
         contig_segments=contig_segments,
         segment_sample_mask=segment_sample_mask,
         sample_intervals=sample_intervals,
-        sample_order=sample_order,
+        sample_order=tuple(sample_order_list),
         sample_to_index=sample_to_idx,
         samples_seen=samples_seen,
         n_segments=n_segments,

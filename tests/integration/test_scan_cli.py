@@ -9,9 +9,16 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from privy.cli.main import app
+from privy.io.gfa import default_gfa_index_path
 
 runner = CliRunner()
 GFA_PATH = Path(__file__).parent.parent / "data" / "small_cohort.gfa"
+
+
+def _copy_gfa(tmp_path: Path) -> Path:
+    gfa = tmp_path / "small_cohort.gfa"
+    gfa.write_bytes(GFA_PATH.read_bytes())
+    return gfa
 
 
 def test_scan_cli_runs_end_to_end(indexed_vcf: Path, tmp_path: Path) -> None:
@@ -174,6 +181,82 @@ def test_scan_cli_runs_gfa_gz_backend_end_to_end(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert (outdir / "gfa" / "hits.tsv").exists()
     assert (outdir / "gfa" / "run.json").exists()
+
+
+def test_index_gfa_cli_writes_default_sidecar(tmp_path: Path) -> None:
+    gfa = _copy_gfa(tmp_path)
+    index_path = default_gfa_index_path(gfa)
+
+    result = runner.invoke(app, ["index", "gfa", "--gfa", str(gfa)])
+
+    assert result.exit_code == 0, result.output
+    assert index_path.exists()
+    assert "coordinate segments" in result.output
+
+
+def test_scan_cli_uses_explicit_gfa_index(tmp_path: Path) -> None:
+    gfa = _copy_gfa(tmp_path)
+    index_path = tmp_path / "custom.privy.gfaidx"
+    index_result = runner.invoke(
+        app,
+        ["index", "gfa", "--gfa", str(gfa), "--out", str(index_path)],
+    )
+    assert index_result.exit_code == 0, index_result.output
+
+    outdir = tmp_path / "gfa-index-cli-out"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--gfa",
+            str(gfa),
+            "--gfa-index",
+            str(index_path),
+            "--targets",
+            "T1",
+            "T2",
+            "--off-targets",
+            "O1",
+            "O2",
+            "O3",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    run_data = json.loads((outdir / "gfa" / "run.json").read_text())
+    assert run_data["inputs"]["gfa_index"] == str(index_path)
+
+
+def test_scan_cli_auto_detects_gfa_index(tmp_path: Path) -> None:
+    gfa = _copy_gfa(tmp_path)
+    index_path = default_gfa_index_path(gfa)
+    index_result = runner.invoke(app, ["index", "gfa", "--gfa", str(gfa)])
+    assert index_result.exit_code == 0, index_result.output
+
+    outdir = tmp_path / "gfa-auto-index-cli-out"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--gfa",
+            str(gfa),
+            "--targets",
+            "T1",
+            "T2",
+            "--off-targets",
+            "O1",
+            "O2",
+            "O3",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    run_data = json.loads((outdir / "gfa" / "run.json").read_text())
+    assert run_data["inputs"]["gfa_index"] == str(index_path)
 
 
 def test_scan_cli_applies_gfa_min_segment_length_override(tmp_path: Path) -> None:

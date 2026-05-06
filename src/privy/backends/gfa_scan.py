@@ -53,6 +53,7 @@ from privy.core.scoring import (
 from privy.io.gfa import (
     GfaScanIndex,
     build_gfa_scan_index,
+    load_gfa_scan_index,
 )
 from privy.io.jsonio import write_run_json as _write_json
 from privy.io.tsv import (
@@ -126,6 +127,7 @@ def run_gfa_scan(
     write_qc: bool = True,
     write_run_json: bool = True,
     threads: int = 1,
+    gfa_index: Path | None = None,
 ) -> None:
     """Run the standalone GFA private-segment scan.
 
@@ -145,6 +147,7 @@ def run_gfa_scan(
         write_qc: Write ``qc.tsv``.
         write_run_json: Write ``run.json``.
         threads: Worker threads. Values greater than 1 currently run serially.
+        gfa_index: Optional prebuilt Privy GFA scan index.
 
     Raises:
         FileNotFoundError: If *gfa* does not exist.
@@ -174,17 +177,20 @@ def run_gfa_scan(
     elif contig is not None:
         filter_contig = contig
 
-    # ── Step 2: Build lightweight GFA scan index ─────────────────────────────
-    log.info("Indexing GFA for cohort scan: %s", gfa)
     all_targets = list(cohort.targets)
     all_offtargets = list(cohort.off_targets)
-    scan_index = build_gfa_scan_index(
-        gfa_path=gfa,
-        sample_names=all_targets + all_offtargets,
-        filter_contig=filter_contig,
-        filter_start=filter_start,
-        filter_end=filter_end,
-    )
+    if gfa_index is not None:
+        log.info("Loading GFA scan index: %s", gfa_index)
+        scan_index = load_gfa_scan_index(gfa_index, gfa_path=gfa)
+    else:
+        log.info("Indexing GFA for cohort scan: %s", gfa)
+        scan_index = build_gfa_scan_index(
+            gfa_path=gfa,
+            sample_names=all_targets + all_offtargets,
+            filter_contig=filter_contig,
+            filter_start=filter_start,
+            filter_end=filter_end,
+        )
 
     # ── Step 3: Validate samples ──────────────────────────────────────────────
     gfa_samples = scan_index.samples_seen
@@ -293,6 +299,7 @@ def run_gfa_scan(
             cohort=cohort,
             stats=stats,
             gfa_path=gfa,
+            gfa_index_path=gfa_index,
             outdir=outdir,
             start_time=start_time,
             end_time=now_iso(),
@@ -653,6 +660,7 @@ def _write_run_json_file(
     cohort: CohortDefinition,
     stats: ScanStats,
     gfa_path: Path,
+    gfa_index_path: Path | None,
     outdir: Path,
     start_time: str,
     end_time: str,
@@ -674,6 +682,7 @@ def _write_run_json_file(
         },
         "inputs": {
             "gfa": str(gfa_path),
+            "gfa_index": str(gfa_index_path) if gfa_index_path is not None else None,
         },
         "scan_stats": stats.as_summary_dict(),
         "output_dir": str(outdir),

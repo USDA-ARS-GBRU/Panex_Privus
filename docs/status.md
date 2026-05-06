@@ -17,8 +17,9 @@ Panex Privus is under active development. Current version: `0.8.0-dev`.
 - `privy plot`
 - `privy annotate`
 - `privy export` to BED and GFF3
+- `privy index gfa`
 
-The current test suite has 633 passing unit and integration tests.
+The current test suite has 639 passing unit and integration tests.
 
 ## Roadmap
 

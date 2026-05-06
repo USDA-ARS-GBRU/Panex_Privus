@@ -62,6 +62,13 @@ def scan(
         None, "--gfa", metavar="PATH",
         help="GFA graph file (.gfa or .gfa.gz); primary backend when used without --vcf.",
     ),
+    gfa_index: Path | None = typer.Option(
+        None, "--gfa-index", metavar="PATH",
+        help=(
+            "Prebuilt Privy GFA scan index. If omitted, Privy auto-detects "
+            "<GFA>.privy.gfaidx when present."
+        ),
+    ),
     bam: list[Path] | None = typer.Option(
         None, "--bam", metavar="PATH",
         help="One or more BAM files. Repeat flag for multiple files.",
@@ -329,6 +336,24 @@ def scan(
     if gfa is not None and not gfa.exists():
         typer.echo(f"[error] GFA file not found: {gfa}", err=True)
         raise typer.Exit(code=1)
+    if gfa_index is not None and gfa is None:
+        typer.echo("[error] --gfa-index requires --gfa.", err=True)
+        raise typer.Exit(code=1)
+
+    resolved_gfa_index: Path | None = None
+    if gfa is not None:
+        if gfa_index is not None:
+            if not gfa_index.exists():
+                typer.echo(f"[error] GFA index file not found: {gfa_index}", err=True)
+                raise typer.Exit(code=1)
+            resolved_gfa_index = gfa_index
+        else:
+            from privy.io.gfa import default_gfa_index_path  # noqa: PLC0415
+
+            candidate_gfa_index = default_gfa_index_path(gfa)
+            if candidate_gfa_index.exists():
+                resolved_gfa_index = candidate_gfa_index
+                log.info("Using auto-detected GFA index: %s", resolved_gfa_index)
 
     # --------------------------------------------------------------- outdir
     effective_outdir.mkdir(parents=True, exist_ok=True)
@@ -402,6 +427,7 @@ def scan(
                 write_qc=write_qc,
                 write_run_json=write_run_json,
                 threads=effective_threads,
+                gfa_index=resolved_gfa_index,
             )
             ran_gfa = True
 
