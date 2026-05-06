@@ -488,6 +488,21 @@ class TestGfaScanIndex:
         assert index.samples_seen == {"T1", "O1", "OTHER"}
         assert index.segment_sample_mask["segA"] == index.sample_mask(["T1", "O1"])
 
+    def test_scan_index_handles_w_line_before_segment(self, tmp_path: Path) -> None:
+        content = (
+            "H\tVN:Z:1.1\n"
+            "W\tT1\t1\tchr1\t0\t5\t>segA\n"
+            "W\tO1\t1\tchr1\t0\t5\t>segA\n"
+            "S\tsegA\t*\tLN:i:5\tSN:Z:chr1\tSO:i:0\n"
+        )
+        gfa = tmp_path / "walk_before_segment.gfa"
+        gfa.write_text(content)
+
+        index = build_gfa_scan_index(gfa, ["T1", "O1"])
+
+        assert "segA" in index.segments
+        assert index.segment_sample_mask["segA"] == index.sample_mask(["T1", "O1"])
+
     def test_scan_index_handles_p_lines_without_full_graph(self, tmp_path: Path) -> None:
         content = (
             "H\tVN:Z:1.0\n"

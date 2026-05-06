@@ -33,6 +33,7 @@ from __future__ import annotations
 import gzip
 import logging
 import re
+import time
 from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Iterator
@@ -344,12 +345,13 @@ def build_gfa_scan_index(
     filter_contig: str | None = None,
     filter_start: int | None = None,
     filter_end: int | None = None,
+    progress_interval_seconds: float = 30.0,
 ) -> GfaScanIndex:
     """Build a memory-conscious index for GFA scanning.
 
-    This performs two streaming passes over the GFA.  The first pass records
-    coordinate-tagged segments.  The second pass records only cohort sample
-    traversal and coverage evidence from P/W lines.
+    This performs a single streaming pass over the GFA. It records
+    coordinate-tagged segments, cohort sample traversal bitmasks, and compact
+    coverage intervals needed for missingness checks.
     """
     if not gfa_path.exists():
         raise FileNotFoundError(f"GFA file not found: {gfa_path}")
@@ -367,15 +369,63 @@ def build_gfa_scan_index(
     n_links = 0
     n_paths = 0
     n_walks = 0
+    n_cohort_paths = 0
+    n_cohort_walks = 0
+    n_cohort_segment_refs = 0
+    n_p_segment_refs_without_coords = 0
     header_tags: dict[str, str] = {}
+    full_graph_support = (
+        filter_contig is None and filter_start is None and filter_end is None
+    )
+    record_count = 0
+    uncompressed_bytes = 0
+    started_at = time.monotonic()
+    last_progress_at = started_at
+
+    def maybe_log_progress(context: str = "indexing") -> None:
+        nonlocal last_progress_at
+        if progress_interval_seconds <= 0:
+            return
+        now = time.monotonic()
+        if now - last_progress_at < progress_interval_seconds:
+            return
+        last_progress_at = now
+        log.info(
+            "GFA %s progress | records=%d | read=%.2f GB | "
+            "coordinate_segments=%d | paths=%d | walks=%d | "
+            "cohort_paths=%d | cohort_walks=%d | cohort_segment_refs=%d | "
+            "samples_seen=%d | elapsed=%.1fs",
+            context,
+            record_count,
+            uncompressed_bytes / 1_000_000_000,
+            len(segments),
+            n_paths,
+            n_walks,
+            n_cohort_paths,
+            n_cohort_walks,
+            n_cohort_segment_refs,
+            len(samples_seen),
+            now - started_at,
+        )
+
+    log.info("Building streaming GFA scan index: %s", gfa_path)
+
+    segment_sample_mask: dict[str, int] = {}
 
     with _open_gfa_text(gfa_path) as fh:
         for line_num, raw_line in enumerate(fh, 1):
             if not raw_line or raw_line.startswith("#"):
                 continue
+            record_count += 1
+            uncompressed_bytes += len(raw_line)
             rec_type = raw_line[0]
             if rec_type == "H":
                 _parse_h_line(raw_line.rstrip("\n").split("\t"), header_tags)
+                if header_tags.get("VN", "").startswith("2"):
+                    raise ValueError(
+                        f"GFA version 2 is not supported (found VN:{header_tags['VN']}). "
+                        "Only GFA1 and GFA1.1 are supported."
+                    )
             elif rec_type == "S":
                 n_segments += 1
                 parsed = _parse_scan_s_line(raw_line, line_num, contig_pool)
@@ -394,32 +444,17 @@ def build_gfa_scan_index(
                 )
             elif rec_type == "L":
                 n_links += 1
-
-    if header_tags.get("VN", "").startswith("2"):
-        raise ValueError(
-            f"GFA version 2 is not supported (found VN:{header_tags['VN']}). "
-            "Only GFA1 and GFA1.1 are supported."
-        )
-
-    for entries in contig_segments.values():
-        entries.sort()
-
-    segment_sample_mask: dict[str, int] = {}
-
-    with _open_gfa_text(gfa_path) as fh:
-        for line_num, raw_line in enumerate(fh, 1):
-            if not raw_line or raw_line.startswith("#"):
-                continue
-            rec_type = raw_line[0]
-            if rec_type == "W":
+            elif rec_type == "W":
                 n_walks += 1
                 tabs = _required_tab_positions(raw_line, 6, line_num, "W")
                 sample = raw_line[tabs[0] + 1:tabs[1]]
                 samples_seen.add(sample)
                 sample_idx = sample_to_idx.get(sample)
                 if sample_idx is None:
+                    maybe_log_progress()
                     continue
 
+                n_cohort_walks += 1
                 try:
                     walk_contig = _intern_text(
                         raw_line[tabs[2] + 1:tabs[3]], contig_pool
@@ -437,13 +472,19 @@ def build_gfa_scan_index(
                 bit = 1 << sample_idx
                 walk_field_start = tabs[5] + 1
                 walk_field_end = _next_field_end(raw_line, walk_field_start)
+                segment_refs_in_record = 0
                 for seg_name in _iter_walk_segment_names(
                     raw_line, walk_field_start, walk_field_end
                 ):
-                    if seg_name in segments:
+                    segment_refs_in_record += 1
+                    n_cohort_segment_refs += 1
+                    if full_graph_support or seg_name in segments:
                         segment_sample_mask[seg_name] = (
                             segment_sample_mask.get(seg_name, 0) | bit
-                        )
+                    )
+                    if segment_refs_in_record % 500_000 == 0:
+                        maybe_log_progress("cohort walk")
+                maybe_log_progress()
 
             elif rec_type == "P":
                 n_paths += 1
@@ -453,33 +494,75 @@ def build_gfa_scan_index(
                 samples_seen.add(sample)
                 sample_idx = sample_to_idx.get(sample)
                 if sample_idx is None:
+                    maybe_log_progress()
                     continue
 
+                n_cohort_paths += 1
                 bit = 1 << sample_idx
+                segment_refs_in_record = 0
                 for seg_name in _iter_path_segment_names(
                     raw_line, tabs[1] + 1, tabs[2]
                 ):
+                    segment_refs_in_record += 1
+                    n_cohort_segment_refs += 1
                     segment = segments.get(seg_name)
+                    if full_graph_support or segment is not None:
+                        segment_sample_mask[seg_name] = (
+                            segment_sample_mask.get(seg_name, 0) | bit
+                        )
                     if segment is None:
+                        n_p_segment_refs_without_coords += 1
+                        if segment_refs_in_record % 500_000 == 0:
+                            maybe_log_progress("cohort path")
                         continue
-                    segment_sample_mask[seg_name] = (
-                        segment_sample_mask.get(seg_name, 0) | bit
-                    )
                     raw_intervals[sample_idx][segment.contig].append(
                         (segment.start, segment.end)
                     )
+                    if segment_refs_in_record % 500_000 == 0:
+                        maybe_log_progress("cohort path")
+                maybe_log_progress()
 
+            if record_count % 100_000 == 0:
+                maybe_log_progress()
+
+    if header_tags.get("VN", "").startswith("2"):
+        raise ValueError(
+            f"GFA version 2 is not supported (found VN:{header_tags['VN']}). "
+            "Only GFA1 and GFA1.1 are supported."
+        )
+
+    log.info(
+        "Sorting GFA scan index | coordinate_segments=%d | contigs=%d",
+        len(segments),
+        len(contig_segments),
+    )
+    for entries in contig_segments.values():
+        entries.sort()
+
+    if n_p_segment_refs_without_coords:
+        log.warning(
+            "Skipped %d cohort P-line segment references while building presence "
+            "intervals because their coordinates were unavailable. This usually "
+            "means P-lines appeared before matching S-lines or those segments lack "
+            "SN/SO/LN tags.",
+            n_p_segment_refs_without_coords,
+        )
+
+    log.info("Merging GFA sample presence intervals")
     sample_intervals = [
         _merge_sample_intervals(intervals_by_contig)
         for intervals_by_contig in raw_intervals
     ]
 
     log.info(
-        "Built GFA scan index: %d coordinate segments, %d paths, %d walks, %d samples",
+        "Built GFA scan index: %d coordinate segments, %d paths, %d walks, "
+        "%d cohort segment references, %d samples, %.1fs elapsed",
         len(segments),
         n_paths,
         n_walks,
+        n_cohort_segment_refs,
         len(samples_seen),
+        time.monotonic() - started_at,
     )
 
     return GfaScanIndex(
@@ -694,32 +777,55 @@ def _parse_scan_s_line(
     sequence_start = second_tab + 1
     sequence_end = third_tab if third_tab >= 0 else line_end
     tag_text = raw_line[third_tab + 1:line_end] if third_tab >= 0 else ""
-    tags = _parse_optional_tag_text(tag_text)
+    sn, so, ln = _parse_scan_coordinate_tags(tag_text)
 
-    if "SN" not in tags or "SO" not in tags:
+    if sn is None or so is None:
         return None
 
-    if "LN" in tags:
-        length = int(tags["LN"])
+    if ln is not None:
+        length = ln
     elif raw_line[sequence_start:sequence_end] != "*":
         length = sequence_end - sequence_start
     else:
         return None
 
-    start = int(tags["SO"])
     return name, GfaScanSegment(
-        contig=_intern_text(str(tags["SN"]), contig_pool),
-        start=start,
-        end=start + length,
+        contig=_intern_text(sn, contig_pool),
+        start=so,
+        end=so + length,
         length=length,
     )
 
 
-def _parse_optional_tag_text(tag_text: str) -> dict[str, Any]:
-    """Parse tab-separated optional tag text without splitting a whole GFA line."""
-    if not tag_text:
-        return {}
-    return _parse_optional_tags(tag_text.split("\t"), 0)
+def _parse_scan_coordinate_tags(tag_text: str) -> tuple[str | None, int | None, int | None]:
+    """Parse only the S-line coordinate tags needed by the scan index."""
+    sn: str | None = None
+    so: int | None = None
+    ln: int | None = None
+    field_start = 0
+    text_len = len(tag_text)
+
+    while field_start < text_len:
+        field_end = tag_text.find("\t", field_start)
+        if field_end < 0:
+            field_end = text_len
+
+        if tag_text.startswith("SN:Z:", field_start, field_end):
+            sn = tag_text[field_start + 5:field_end]
+        elif tag_text.startswith("SO:i:", field_start, field_end):
+            try:
+                so = int(tag_text[field_start + 5:field_end])
+            except ValueError:
+                so = None
+        elif tag_text.startswith("LN:i:", field_start, field_end):
+            try:
+                ln = int(tag_text[field_start + 5:field_end])
+            except ValueError:
+                ln = None
+
+        field_start = field_end + 1
+
+    return sn, so, ln
 
 
 def _iter_walk_segment_names(

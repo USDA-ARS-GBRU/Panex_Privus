@@ -183,7 +183,7 @@ Operational commands:
 - `privy annotate`
 - `privy export`
 
-The current test suite has 632 passing unit and integration tests.
+The current test suite has 633 passing unit and integration tests.
 
 ## Contact
 

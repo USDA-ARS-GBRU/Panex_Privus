@@ -75,8 +75,8 @@ gzip -cd pangenome.gfa.gz | grep "^P" | awk '{print $2}' | cut -d'#' -f1 | sort 
 ## GFA Scan Is Killed While Parsing
 
 Update to the newest development version first. Current `privy scan --gfa`
-builds a scan-specific streaming index and does not retain full GFA sequences,
-links, walks, or paths in memory.
+builds a single-pass scan-specific streaming index, logs indexing progress, and
+does not retain full GFA sequences, links, walks, or paths in memory.
 
 ```bash
 git pull origin main

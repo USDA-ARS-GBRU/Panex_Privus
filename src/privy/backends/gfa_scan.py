@@ -96,6 +96,16 @@ class GfaHitRecord:
     rank: int = 0
 
 
+@dataclass
+class _PresenceTracker:
+    """Mutable cursor for one sample's sorted presence intervals on a contig."""
+
+    bit: int
+    starts: tuple[int, ...]
+    ends: tuple[int, ...]
+    pos: int = 0
+
+
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
@@ -211,6 +221,15 @@ def run_gfa_scan(
         len(active_targets), cohort.n_targets,
         len(active_offtargets), cohort.n_off_targets,
     )
+    log.info(
+        "Starting GFA scan | contigs=%d | coordinate_segments=%d | mode=%s | "
+        "targets=%d | off-targets=%d",
+        len(scan_index.contig_segments),
+        len(scan_index.segments),
+        mode,
+        len(active_targets),
+        len(active_offtargets),
+    )
 
     # ── Step 4: Scan segments ─────────────────────────────────────────────────
     stats = ScanStats(
@@ -317,6 +336,10 @@ def _scan_segments(
         if ctg not in scan_index.contig_segments:
             continue
         contigs_visited.add(ctg)
+        contig_hits_before = len(hits)
+        contig_evaluated_before = stats.alleles_evaluated
+        progress_next = 1_000_000
+        presence_trackers = _build_presence_trackers(scan_index, ctg)
 
         for seg_start, seg_end, seg_name in scan_index.contig_segments[ctg]:
             # Apply region filter
@@ -335,7 +358,10 @@ def _scan_segments(
             stats.alleles_evaluated += 1
 
             support_mask = scan_index.segment_sample_mask.get(seg_name, 0)
-            present_mask = scan_index.present_mask(ctg, seg_start, seg_end) | support_mask
+            present_mask = (
+                _present_mask_for_sorted_locus(presence_trackers, seg_start, seg_end)
+                | support_mask
+            )
             ts_n = (support_mask & target_mask).bit_count()
             os_n = (support_mask & offtarget_mask).bit_count()
             tm_n = (target_mask & ~present_mask).bit_count()
@@ -362,6 +388,16 @@ def _scan_segments(
             stats.increment_strictness(pattern.strictness_class.value)
             if pattern.strictness_class.value == "contradicted":
                 stats.alleles_contradicted += 1
+
+            contig_evaluated = stats.alleles_evaluated - contig_evaluated_before
+            if contig_evaluated >= progress_next:
+                log.info(
+                    "  %s: evaluated %d segments, %d hits so far",
+                    ctg,
+                    contig_evaluated,
+                    len(hits) - contig_hits_before,
+                )
+                progress_next += 1_000_000
 
             if not pattern.pattern_pass:
                 continue
@@ -396,6 +432,13 @@ def _scan_segments(
                 sample_traversal=sample_traversal,
             ))
 
+        log.info(
+            "  %s: %d hits (%d segments evaluated)",
+            ctg,
+            len(hits) - contig_hits_before,
+            stats.alleles_evaluated - contig_evaluated_before,
+        )
+
     stats.n_contigs_scanned = len(contigs_visited)
 
     if skipped_too_short:
@@ -405,6 +448,39 @@ def _scan_segments(
         )
 
     return hits
+
+
+def _build_presence_trackers(
+    scan_index: GfaScanIndex,
+    contig: str,
+) -> list[_PresenceTracker]:
+    """Build per-sample interval cursors for one sorted contig scan."""
+    trackers: list[_PresenceTracker] = []
+    for sample_idx, intervals_by_contig in enumerate(scan_index.sample_intervals):
+        intervals = intervals_by_contig.get(contig)
+        if intervals is None:
+            continue
+        trackers.append(_PresenceTracker(
+            bit=1 << sample_idx,
+            starts=intervals.starts,
+            ends=intervals.ends,
+        ))
+    return trackers
+
+
+def _present_mask_for_sorted_locus(
+    trackers: list[_PresenceTracker],
+    start: int,
+    end: int,
+) -> int:
+    """Return presence mask while advancing interval cursors for sorted loci."""
+    mask = 0
+    for tracker in trackers:
+        while tracker.pos < len(tracker.ends) and tracker.ends[tracker.pos] <= start:
+            tracker.pos += 1
+        if tracker.pos < len(tracker.starts) and tracker.starts[tracker.pos] < end:
+            mask |= tracker.bit
+    return mask
 
 
 # ---------------------------------------------------------------------------
