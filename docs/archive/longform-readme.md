@@ -643,8 +643,8 @@ privy scan --gfa PATH --targets SAMPLE [SAMPLE ...] --off-targets SAMPLE [SAMPLE
 | `--vcf PATH` | — | Indexed multisample VCF (.vcf.gz + .tbi) |
 | `--gfa PATH` | — | Pangenome graph file (GFA1 or GFA1.1, plain text) |
 | `--cohort-file PATH` | none | YAML or TSV cohort definition file |
-| `--targets TEXT` | required | Target sample names (repeat for each sample) |
-| `--off-targets TEXT` | required | Off-target sample names (repeat for each sample) |
+| `--targets TEXT [TEXT ...]` | required | Target sample names, for example `--targets S1 S2` |
+| `--off-targets TEXT [TEXT ...]` | required | Off-target sample names, for example `--off-targets S3 S4` |
 | `--outdir PATH` | `.` | Output directory |
 | `--min-target-support FLOAT` | `1.0` | Minimum fraction of called targets that must carry the allele |
 | `--max-off-target-support FLOAT` | `0.0` | Maximum fraction of called off-targets allowed to carry the allele |

@@ -75,6 +75,9 @@ privy scan \
   --outdir results/
 ```
 
+List all target samples after `--targets`, and all comparison samples after
+`--off-targets`. You do not need to repeat the flags for `privy scan`.
+
 VCF outputs are written under `results/vcf/`.
 
 Scan outputs:
@@ -91,8 +94,8 @@ Key scan options:
 | Option | Description |
 |--------|-------------|
 | `--vcf PATH` | Indexed multisample VCF |
-| `--targets TEXT` | Target samples; repeat for multiple samples |
-| `--off-targets TEXT` | Off-target samples; repeat for multiple samples |
+| `--targets TEXT [TEXT ...]` | Target sample names, for example `--targets T1 T2 T3` |
+| `--off-targets TEXT [TEXT ...]` | Off-target sample names, for example `--off-targets O1 O2 O3` |
 | `--cohort-file PATH` | YAML or TSV cohort definition |
 | `--region TEXT` | Restrict to `contig:start-end` |
 | `--contig TEXT` | Restrict to one contig |
