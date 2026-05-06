@@ -90,6 +90,22 @@ a:hover {
   text-decoration: none;
 }
 
+.repo-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent-ink);
+  background: #eef6f2;
+}
+
+.repo-link:hover {
+  background: #dceee7;
+  color: var(--accent-ink);
+}
+
 .docs-layout {
   display: grid;
   grid-template-columns: 230px minmax(0, 1fr);
@@ -121,6 +137,14 @@ a:hover {
 .sidebar__link--active {
   background: #e8f1ee;
   color: var(--accent-ink);
+}
+
+.sidebar__link--repo {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
+  color: var(--accent-ink);
+  font-weight: 650;
 }
 
 .content {

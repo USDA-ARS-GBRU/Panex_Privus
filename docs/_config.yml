@@ -3,6 +3,7 @@ description: Comparative genomics toolkit for target-private alleles and graph s
 url: "https://usda-ars-gbru.github.io"
 baseurl: "/Panex_Privus"
 repository: USDA-ARS-GBRU/Panex_Privus
+repository_url: https://github.com/USDA-ARS-GBRU/Panex_Privus
 
 markdown: kramdown
 permalink: pretty

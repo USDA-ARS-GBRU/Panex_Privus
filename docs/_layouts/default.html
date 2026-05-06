@@ -16,7 +16,7 @@
           <span class="brand__tagline">target-private genomics</span>
         </a>
         <nav class="top-nav" aria-label="Primary navigation">
-          <a href="{{ site.github.repository_url | default: 'https://github.com/USDA-ARS-GBRU/Panex_Privus' }}">GitHub</a>
+          <a class="repo-link" href="{{ site.repository_url }}">View Repository</a>
         </nav>
       </div>
     </header>
@@ -32,6 +32,9 @@
               {{ item.title }}
             </a>
           {% endfor %}
+          <a class="sidebar__link sidebar__link--repo" href="{{ site.repository_url }}">
+            GitHub Repository
+          </a>
         </nav>
       </aside>
 
@@ -43,7 +46,10 @@
     <footer class="site-footer">
       <div class="site-shell">
         <span>{{ site.title }}</span>
-        <span>Built from the <code>/docs</code> folder.</span>
+        <span>
+          Built from the <code>/docs</code> folder.
+          <a href="{{ site.repository_url }}">Back to repository</a>
+        </span>
       </div>
     </footer>
   </body>
