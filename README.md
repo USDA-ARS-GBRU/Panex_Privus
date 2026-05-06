@@ -185,6 +185,10 @@ Operational commands:
 
 The current test suite has 623 passing unit and integration tests.
 
+## Contact
+
+Roth E Conrad - roth.conrad@uga.edu
+
 ## Citation
 
 If you use Panex Privus in a publication, please cite the repository and see
