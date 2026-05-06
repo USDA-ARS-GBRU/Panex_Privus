@@ -40,7 +40,12 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-app.add_typer(scan.app, name="scan")
+app.command(
+    name="scan",
+    help=scan.SCAN_HELP,
+    context_settings=scan.SCAN_CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)(scan.scan)
 app.add_typer(compare.app, name="compare")
 app.add_typer(pangenome.app, name="pangenome")
 app.add_typer(report.app, name="report")

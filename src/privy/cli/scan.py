@@ -23,15 +23,24 @@ from privy.core.config import PrivyConfig, load_config
 
 log = logging.getLogger("privy.cli.scan")
 
+SCAN_HELP = (
+    "Discover target-private alleles and candidate private regions.\n\n"
+    "VCF and GFA are primary discovery backends. When both are supplied, "
+    "Privy runs both scans and compares their hits.\n"
+    "Missingness is reported via [italic]strictness_class[/italic] in all outputs.\n\n"
+    "[bold]Cohort syntax:[/bold] "
+    "--targets SAMPLE [SAMPLE ...] --off-targets SAMPLE [SAMPLE ...]\n\n"
+    "[bold]Outputs:[/bold] vcf/, gfa/, and compare/ subdirectories as applicable"
+)
+
+SCAN_CONTEXT_SETTINGS = {
+    "allow_extra_args": True,
+    "ignore_unknown_options": True,
+}
+
 app = typer.Typer(
     name="scan",
-    help=(
-        "Discover target-private alleles and candidate private regions.\n\n"
-        "VCF and GFA are primary discovery backends. When both are supplied, "
-        "Privy runs both scans and compares their hits.\n"
-        "Missingness is reported via [italic]strictness_class[/italic] in all outputs.\n\n"
-        "[bold]Outputs:[/bold] vcf/, gfa/, and compare/ subdirectories as applicable"
-    ),
+    help=SCAN_HELP,
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
@@ -60,19 +69,6 @@ def scan(
     bam_manifest: Path | None = typer.Option(
         None, "--bam-manifest", metavar="PATH",
         help="TSV manifest mapping BAM files to sample names/groups.",
-    ),
-    # --------------------------------------------------------------- cohort
-    targets: list[str] | None = typer.Option(
-        None, "--targets", metavar="TEXT",
-        help="Target sample names. Repeat flag for multiple samples.",
-    ),
-    off_targets: list[str] | None = typer.Option(
-        None, "--off-targets", metavar="TEXT",
-        help="Off-target sample names. Repeat flag for multiple samples.",
-    ),
-    ignore_samples: list[str] | None = typer.Option(
-        None, "--ignore-samples", metavar="TEXT",
-        help="Samples to ignore during discovery.",
     ),
     cohort_file: Path | None = typer.Option(
         None, "--cohort-file", metavar="PATH",
@@ -275,21 +271,27 @@ def scan(
     )
 
     # ----------------------------------------------------------------- cohort
+    try:
+        cohort_cli_args = _parse_grouped_cohort_args(ctx.args)
+    except ValueError as exc:
+        typer.echo(f"[error] {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
     cohort_from_file = _load_cohort_file(cohort_file) if cohort_file is not None else None
 
     # CLI cohort flags take precedence over cohort file, which takes precedence over config
     effective_targets: list[str] = (
-        targets
+        cohort_cli_args["targets"]
         or (list(cohort_from_file.targets) if cohort_from_file is not None else None)
         or list(cfg.cohorts.targets)
     )
     effective_off_targets: list[str] = (
-        off_targets
+        cohort_cli_args["off_targets"]
         or (list(cohort_from_file.off_targets) if cohort_from_file is not None else None)
         or list(cfg.cohorts.off_targets)
     )
     effective_ignored: list[str] = (
-        ignore_samples
+        cohort_cli_args["ignore_samples"]
         or (list(cohort_from_file.ignored_samples) if cohort_from_file is not None else None)
         or list(cfg.cohorts.ignored_samples)
     )
@@ -430,6 +432,72 @@ def scan(
     except NotImplementedError as exc:
         typer.echo(f"[error] Not implemented: {exc}", err=True)
         raise typer.Exit(code=2) from exc
+
+
+_GROUPED_COHORT_FLAGS = {
+    "--targets": "targets",
+    "--target": "targets",
+    "--off-targets": "off_targets",
+    "--off-target": "off_targets",
+    "--ignore-samples": "ignore_samples",
+    "--ignore-sample": "ignore_samples",
+}
+
+_GROUPED_COHORT_DISPLAY = {
+    "targets": "--targets",
+    "off_targets": "--off-targets",
+    "ignore_samples": "--ignore-samples",
+}
+
+
+def _parse_grouped_cohort_args(args: list[str]) -> dict[str, list[str] | None]:
+    """Parse cohort sample groups left over after Click parses regular options.
+
+    Typer's native ``list[str]`` option handling requires users to repeat the
+    flag for every value.  Privy's docs promise the friendlier form
+    ``--targets T1 T2 --off-targets O1 O2``, so the scan command leaves these
+    flags for a small dedicated parser.
+    """
+    values: dict[str, list[str]] = {
+        "targets": [],
+        "off_targets": [],
+        "ignore_samples": [],
+    }
+    provided: set[str] = set()
+    active_group: str | None = None
+
+    for token in args:
+        if token.startswith("--"):
+            flag, separator, inline_value = token.partition("=")
+            group = _GROUPED_COHORT_FLAGS.get(flag)
+            if group is None:
+                raise ValueError(f"No such option: {flag}")
+
+            active_group = group
+            provided.add(group)
+            if separator:
+                if not inline_value:
+                    raise ValueError(f"{flag} requires at least one sample name.")
+                values[group].append(inline_value)
+            continue
+
+        if active_group is None:
+            raise ValueError(
+                f"Unexpected argument {token!r}. Sample names must follow "
+                "--targets, --off-targets, or --ignore-samples."
+            )
+        values[active_group].append(token)
+
+    for group in provided:
+        if not values[group]:
+            raise ValueError(
+                f"{_GROUPED_COHORT_DISPLAY[group]} requires at least one sample name."
+            )
+
+    return {
+        group: values[group] if group in provided else None
+        for group in values
+    }
 
 
 def _apply_cli_overrides(

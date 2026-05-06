@@ -41,6 +41,34 @@ def test_scan_cli_runs_end_to_end(indexed_vcf: Path, tmp_path: Path) -> None:
     assert (outdir / "vcf" / "run.json").exists()
 
 
+def test_scan_cli_accepts_grouped_cohort_values(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "cli-grouped-cohort-out"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--vcf",
+            str(indexed_vcf),
+            "--targets",
+            "T1",
+            "T2",
+            "--off-targets",
+            "O1",
+            "O2",
+            "O3",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    run_data = json.loads((outdir / "vcf" / "run.json").read_text())
+    assert run_data["cohort"]["targets"] == ["T1", "T2"]
+    assert run_data["cohort"]["off_targets"] == ["O1", "O2", "O3"]
+
+
 def test_scan_cli_applies_boolean_scan_override(indexed_vcf: Path, tmp_path: Path) -> None:
     outdir = tmp_path / "vcf-no-multiallelic-out"
     result = runner.invoke(
