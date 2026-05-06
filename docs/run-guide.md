@@ -31,6 +31,34 @@ after you have generated comparative genomics inputs with upstream tools.
 The common pattern is: build or obtain VCF/GFA discovery inputs first, then use
 BAMs as read-level support for candidate loci discovered from the VCF.
 
+### Check Sample Names Before Choosing Cohorts
+
+Use the sample names printed by the input file when choosing `--targets` and
+`--off-targets`. Sample names are case-sensitive.
+
+For a VCF:
+
+```bash
+bcftools query -l variants.vcf.gz
+```
+
+For a plain-text GFA:
+
+```bash
+awk -F'\t' '$1=="W"{print $2} $1=="P"{split($2,a,"#"); print a[1]}' pangenome.gfa | sort -u
+```
+
+For a compressed GFA:
+
+```bash
+gzip -cd pangenome.gfa.gz | awk -F'\t' '$1=="W"{print $2} $1=="P"{split($2,a,"#"); print a[1]}' | sort -u
+```
+
+GFA `W` lines store the sample name directly. GFA `P` path names often look like
+`SAMPLE#HAP#CONTIG`, so the command above keeps the sample name before the first
+`#`. If you run VCF and GFA scans together, check both lists and use names that
+match the samples in the inputs you expect each backend to evaluate.
+
 ## Command Shape
 
 Global options come before the subcommand:
