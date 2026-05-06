@@ -61,8 +61,8 @@ cd Panex_Privus
 python -m pip install .
 ```
 
-See the [installation guide](docs/installation.md) for pixi, conda, pip, and
-developer install options.
+See the [installation guide](https://usda-ars-gbru.github.io/Panex_Privus/installation/)
+for pixi, conda, pip, and developer install options.
 
 ### Update to the Most Recent Version
 
@@ -150,26 +150,24 @@ privy report \
   --outdir results/report/
 ```
 
-See the [run guide](docs/run-guide.md) for the full workflow, command options,
-BAM support, VCF/GFA comparison, reports, plots, annotation, and export.
+See the [run guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/)
+for the full workflow, command options, BAM support, VCF/GFA comparison,
+reports, plots, annotation, and export.
 
 ## Documentation
 
-The detailed user guide lives in `docs/`. It is structured for future GitHub
-Pages publishing; while the repository remains private, use the repository docs
-links below.
+The public documentation site is:
 
-- [Documentation home](docs/index.md)
-- [Installation](docs/installation.md)
-- [Run guide](docs/run-guide.md)
-- [Figures and tables](docs/figures-and-tables.md)
-- [Core concepts](docs/concepts.md)
-- [Output files](docs/outputs.md)
-- [Configuration](docs/configuration.md)
-- [Current status and roadmap](docs/status.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Architecture](docs/architecture.md)
-- [Archived longform README](docs/archive/longform-readme.md)
+- [Panex Privus documentation](https://usda-ars-gbru.github.io/Panex_Privus/)
+- [Installation](https://usda-ars-gbru.github.io/Panex_Privus/installation/)
+- [Run guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/)
+- [Figures and tables](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/)
+- [Core concepts](https://usda-ars-gbru.github.io/Panex_Privus/concepts/)
+- [Output files](https://usda-ars-gbru.github.io/Panex_Privus/outputs/)
+- [Configuration](https://usda-ars-gbru.github.io/Panex_Privus/configuration/)
+- [Current status and roadmap](https://usda-ars-gbru.github.io/Panex_Privus/status/)
+- [Troubleshooting](https://usda-ars-gbru.github.io/Panex_Privus/troubleshooting/)
+- [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/)
 - [Contributing](CONTRIBUTING.md)
 
 ## Current Status
