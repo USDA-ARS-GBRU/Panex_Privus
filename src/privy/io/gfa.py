@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any, TextIO
 
 log = logging.getLogger("privy.io.gfa")
+_WALK_SEGMENT_RE = re.compile(r"[><]([^><\t\r\n]+)")
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +146,7 @@ class GfaGraph:
     )
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class GfaScanSegment:
     """Lightweight coordinate record for scan-time GFA segment evaluation."""
 
@@ -153,6 +154,7 @@ class GfaScanSegment:
     start: int
     end: int
     length: int
+    sample_mask: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -374,9 +376,6 @@ def build_gfa_scan_index(
     n_cohort_segment_refs = 0
     n_p_segment_refs_without_coords = 0
     header_tags: dict[str, str] = {}
-    full_graph_support = (
-        filter_contig is None and filter_start is None and filter_end is None
-    )
     record_count = 0
     uncompressed_bytes = 0
     started_at = time.monotonic()
@@ -410,7 +409,7 @@ def build_gfa_scan_index(
 
     log.info("Building streaming GFA scan index: %s", gfa_path)
 
-    segment_sample_mask: dict[str, int] = {}
+    pending_segment_sample_mask: dict[str, int] = {}
 
     with _open_gfa_text(gfa_path) as fh:
         for line_num, raw_line in enumerate(fh, 1):
@@ -433,11 +432,17 @@ def build_gfa_scan_index(
                     continue
                 seg_name, segment_record = parsed
                 if filter_contig is not None and segment_record.contig != filter_contig:
+                    pending_segment_sample_mask.pop(seg_name, None)
                     continue
                 if filter_start is not None and segment_record.end <= filter_start:
+                    pending_segment_sample_mask.pop(seg_name, None)
                     continue
                 if filter_end is not None and segment_record.start >= filter_end:
+                    pending_segment_sample_mask.pop(seg_name, None)
                     continue
+                segment_record.sample_mask = pending_segment_sample_mask.pop(
+                    seg_name, 0
+                )
                 segments[seg_name] = segment_record
                 contig_segments.setdefault(segment_record.contig, []).append(
                     (segment_record.start, segment_record.end, seg_name)
@@ -466,8 +471,17 @@ def build_gfa_scan_index(
                         f"Line {line_num}: W-line numeric field parse error: {exc}"
                     ) from exc
 
-                if filter_contig is None or walk_contig == filter_contig:
-                    raw_intervals[sample_idx][walk_contig].append((walk_start, walk_end))
+                if filter_contig is not None and walk_contig != filter_contig:
+                    maybe_log_progress()
+                    continue
+                if filter_start is not None and walk_end <= filter_start:
+                    maybe_log_progress()
+                    continue
+                if filter_end is not None and walk_start >= filter_end:
+                    maybe_log_progress()
+                    continue
+
+                raw_intervals[sample_idx][walk_contig].append((walk_start, walk_end))
 
                 bit = 1 << sample_idx
                 walk_field_start = tabs[5] + 1
@@ -478,10 +492,13 @@ def build_gfa_scan_index(
                 ):
                     segment_refs_in_record += 1
                     n_cohort_segment_refs += 1
-                    if full_graph_support or seg_name in segments:
-                        segment_sample_mask[seg_name] = (
-                            segment_sample_mask.get(seg_name, 0) | bit
-                    )
+                    segment = segments.get(seg_name)
+                    if segment is not None:
+                        segment.sample_mask |= bit
+                    else:
+                        pending_segment_sample_mask[seg_name] = (
+                            pending_segment_sample_mask.get(seg_name, 0) | bit
+                        )
                     if segment_refs_in_record % 500_000 == 0:
                         maybe_log_progress("cohort walk")
                 maybe_log_progress()
@@ -506,15 +523,15 @@ def build_gfa_scan_index(
                     segment_refs_in_record += 1
                     n_cohort_segment_refs += 1
                     segment = segments.get(seg_name)
-                    if full_graph_support or segment is not None:
-                        segment_sample_mask[seg_name] = (
-                            segment_sample_mask.get(seg_name, 0) | bit
-                        )
                     if segment is None:
+                        pending_segment_sample_mask[seg_name] = (
+                            pending_segment_sample_mask.get(seg_name, 0) | bit
+                        )
                         n_p_segment_refs_without_coords += 1
                         if segment_refs_in_record % 500_000 == 0:
                             maybe_log_progress("cohort path")
                         continue
+                    segment.sample_mask |= bit
                     raw_intervals[sample_idx][segment.contig].append(
                         (segment.start, segment.end)
                     )
@@ -553,6 +570,11 @@ def build_gfa_scan_index(
         _merge_sample_intervals(intervals_by_contig)
         for intervals_by_contig in raw_intervals
     ]
+    segment_sample_mask = {
+        name: segment.sample_mask
+        for name, segment in segments.items()
+        if segment.sample_mask
+    }
 
     log.info(
         "Built GFA scan index: %d coordinate segments, %d paths, %d walks, "
@@ -836,16 +858,8 @@ def _iter_walk_segment_names(
     """Yield segment names from a W-line walk string without building a list."""
     if end_idx is None:
         end_idx = len(walk)
-    start: int | None = None
-    for idx in range(start_idx, end_idx):
-        char = walk[idx]
-        if char != ">" and char != "<":
-            continue
-        if start is not None and start < idx:
-            yield walk[start:idx]
-        start = idx + 1
-    if start is not None and start < end_idx:
-        yield walk[start:end_idx]
+    for match in _WALK_SEGMENT_RE.finditer(walk, start_idx, end_idx):
+        yield match.group(1)
 
 
 def _iter_path_segment_names(

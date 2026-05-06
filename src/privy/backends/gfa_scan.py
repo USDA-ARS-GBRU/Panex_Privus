@@ -354,10 +354,13 @@ def _scan_segments(
                 skipped_too_short += 1
                 continue
 
+            support_mask = scan_index.segment_sample_mask.get(seg_name, 0)
+            if not (support_mask & target_mask):
+                continue
+
             stats.records_evaluated += 1
             stats.alleles_evaluated += 1
 
-            support_mask = scan_index.segment_sample_mask.get(seg_name, 0)
             present_mask = (
                 _present_mask_for_sorted_locus(presence_trackers, seg_start, seg_end)
                 | support_mask
