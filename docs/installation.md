@@ -112,6 +112,44 @@ python -m pip install -e ".[dev]"
 If you use mamba or conda for development, create and activate the environment
 first, then run the editable install command inside it.
 
+## Update to the Most Recent Version
+
+Users following active development can update an existing source checkout
+without recreating the environment:
+
+```bash
+conda activate privy
+cd Panex_Privus
+git pull origin main
+python -m pip install -U .
+privy --version
+```
+
+For an editable developer install, run:
+
+```bash
+conda activate privy
+cd Panex_Privus
+git pull origin main
+python -m pip install -U -e ".[dev]"
+pytest
+```
+
+On shared clusters, first make sure `python`, `pip`, and `privy` resolve inside
+the same environment:
+
+```bash
+which python
+which pip
+which privy
+python -c "import sys; print(sys.executable)"
+```
+
+If `pip` says it is defaulting to a user installation, or if paths point to a
+cluster module or `~/.local` instead of your conda environment, deactivate or
+purge conflicting modules and reactivate the `privy` environment before
+installing.
+
 ## Verify the Install
 
 After any install path, check that the command is available:

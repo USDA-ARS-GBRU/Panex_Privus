@@ -64,6 +64,21 @@ python -m pip install .
 See the [installation guide](docs/installation.md) for pixi, conda, pip, and
 developer install options.
 
+### Update to the Most Recent Version
+
+If you are following active development from a source checkout, update with:
+
+```bash
+conda activate privy
+cd Panex_Privus
+git pull origin main
+python -m pip install -U .
+privy --version
+```
+
+For an editable developer install, use `python -m pip install -U -e ".[dev]"`
+after pulling updates.
+
 ### Run a Scan
 
 Run a VCF scan:
@@ -170,7 +185,7 @@ Operational commands:
 - `privy annotate`
 - `privy export`
 
-The current test suite has 603 passing unit and integration tests.
+The current test suite has 623 passing unit and integration tests.
 
 ## Citation
 
