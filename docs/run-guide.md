@@ -141,13 +141,17 @@ from off-target samples?
 
 ```bash
 privy scan \
-  --gfa pangenome.gfa \
+  --gfa pangenome.gfa.gz \
   --targets T1 T2 T3 \
   --off-targets O1 O2 O3 \
   --outdir results/
 ```
 
 GFA outputs are written under `results/gfa/`.
+
+The `--gfa` input may be a plain-text `.gfa` file or a gzip-compressed
+`.gfa.gz` file, matching the compressed output commonly written by
+minigraph-cactus.
 
 GFA segments must have coordinate tags such as `SN:Z:chr1`, `SO:i:1000`, and
 `LN:i:500`. Minigraph-cactus output usually includes these tags. Without them,
@@ -158,7 +162,7 @@ Key GFA options:
 
 | Option | Description |
 |--------|-------------|
-| `--gfa PATH` | GFA graph file |
+| `--gfa PATH` | GFA graph file, `.gfa` or `.gfa.gz` |
 | `--min-segment-length INT` | Minimum GFA segment length |
 | `--region TEXT` | Restrict to `contig:start-end` |
 | `--contig TEXT` | Restrict to one contig |
@@ -242,7 +246,7 @@ workflow. You can provide both inputs in one command and let Panex Privus create
 ```bash
 privy scan \
   --vcf variants.vcf.gz \
-  --gfa pangenome.gfa \
+  --gfa pangenome.gfa.gz \
   --targets T1 T2 T3 \
   --off-targets O1 O2 O3 \
   --outdir results/
@@ -263,7 +267,7 @@ so the same tables and plots are available for graph and variant inputs.
 
 ```bash
 privy pangenome \
-  --gfa pangenome.gfa \
+  --gfa pangenome.gfa.gz \
   --targets T1 T2 T3 \
   --outdir results/pangenome/
 ```
@@ -282,7 +286,7 @@ sample in the GFA or VCF as off-target. You can also use list files:
 
 ```bash
 privy pangenome \
-  --gfa pangenome.gfa \
+  --gfa pangenome.gfa.gz \
   --targets-file targets.txt \
   --off-targets-file off_targets.txt \
   --permutations 100 \
@@ -294,7 +298,7 @@ directories under the chosen output directory:
 
 ```bash
 privy pangenome \
-  --gfa pangenome.gfa \
+  --gfa pangenome.gfa.gz \
   --vcf variants.vcf.gz \
   --targets-file targets.txt \
   --outdir results/pangenome/

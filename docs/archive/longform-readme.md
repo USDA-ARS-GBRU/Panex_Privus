@@ -119,7 +119,7 @@ cactus-pangenome ./js seqFile.txt \
     --vcf --giraffe --gfa
 ```
 
-This gives you `pangenome/my_pangenome.gfa` and `pangenome/my_pangenome.vcf.gz` —
+This gives you `pangenome/my_pangenome.gfa.gz` and `pangenome/my_pangenome.vcf.gz` —
 exactly the files Panex Privus expects.
 
 Follow the [minigraph-cactus installation guide](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md#installation)
@@ -221,7 +221,7 @@ This walkthrough takes you from an input file to a ranked list of candidate priv
 Two paths are shown: **VCF** (variant-level) and **GFA** (graph-level).
 
 Both inputs are most commonly produced by **minigraph-cactus** (`cactus-pangenome`).
-A typical run produces `my_pangenome.gfa` and `my_pangenome.vcf.gz` in the same output
+A typical run produces `my_pangenome.gfa.gz` and `my_pangenome.vcf.gz` in the same output
 directory, giving you both paths immediately.
 
 ### VCF scan walkthrough
@@ -641,7 +641,7 @@ privy scan --gfa PATH --targets SAMPLE [SAMPLE ...] --off-targets SAMPLE [SAMPLE
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--vcf PATH` | — | Indexed multisample VCF (.vcf.gz + .tbi) |
-| `--gfa PATH` | — | Pangenome graph file (GFA1 or GFA1.1, plain text) |
+| `--gfa PATH` | — | Pangenome graph file (GFA1 or GFA1.1, `.gfa` or `.gfa.gz`) |
 | `--cohort-file PATH` | none | YAML or TSV cohort definition file |
 | `--targets TEXT [TEXT ...]` | required | Target sample names, for example `--targets S1 S2` |
 | `--off-targets TEXT [TEXT ...]` | required | Off-target sample names, for example `--off-targets S3 S4` |
@@ -728,7 +728,7 @@ privy scan --vcf cohort.vcf.gz \
     --outdir results/vcf/
 
 # Step 2: run GFA scan
-privy scan --gfa pangenome.gfa \
+privy scan --gfa pangenome.gfa.gz \
     --targets S1 S2 --off-targets S3 S4 \
     --outdir results/gfa/
 

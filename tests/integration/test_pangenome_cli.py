@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 from pathlib import Path
 
@@ -44,6 +45,37 @@ def test_pangenome_cli_runs_gfa_with_inferred_offtargets(tmp_path: Path) -> None
     data = json.loads((outdir / "pangenome.json").read_text())
     assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
     assert "pangenome_growth.png" in data["outputs"]
+
+
+def test_pangenome_cli_runs_gfa_gz_with_inferred_offtargets(tmp_path: Path) -> None:
+    gfa_gz = tmp_path / "small_cohort.gfa.gz"
+    with gzip.open(gfa_gz, "wb") as fh:
+        fh.write(GFA_PATH.read_bytes())
+
+    outdir = tmp_path / "pangenome-gz-out"
+    result = runner.invoke(
+        app,
+        [
+            "pangenome",
+            "--gfa",
+            str(gfa_gz),
+            "--targets",
+            "T1",
+            "--targets",
+            "T2",
+            "--permutations",
+            "1",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (outdir / "feature_summary.tsv").exists()
+    data = json.loads((outdir / "pangenome.json").read_text())
+    assert data["source_type"] == "gfa"
+    assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
 
 
 def test_pangenome_cli_accepts_target_and_offtarget_list_files(tmp_path: Path) -> None:

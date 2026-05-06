@@ -45,10 +45,13 @@ acceptable.
 
 ## GFA Scan Produces No Hits
 
+The examples below assume a compressed `pangenome.gfa.gz`. For plain `.gfa`,
+replace `gzip -cd pangenome.gfa.gz` with `cat pangenome.gfa`.
+
 Check that GFA segments have coordinate tags:
 
 ```bash
-grep "^S" pangenome.gfa | head -3
+gzip -cd pangenome.gfa.gz | grep "^S" | head -3
 ```
 
 Expected tags look like:
@@ -60,13 +63,13 @@ SN:Z:chr1  SO:i:1000  LN:i:500
 Also verify sample names from W-lines:
 
 ```bash
-grep "^W" pangenome.gfa | awk '{print $2}' | sort -u
+gzip -cd pangenome.gfa.gz | grep "^W" | awk '{print $2}' | sort -u
 ```
 
 For P-lines:
 
 ```bash
-grep "^P" pangenome.gfa | awk '{print $2}' | cut -d'#' -f1 | sort -u
+gzip -cd pangenome.gfa.gz | grep "^P" | awk '{print $2}' | cut -d'#' -f1 | sort -u
 ```
 
 ## BAM Support Is Uninformative

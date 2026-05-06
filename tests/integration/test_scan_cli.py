@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 from pathlib import Path
 
@@ -135,6 +136,35 @@ def test_scan_cli_runs_gfa_backend_end_to_end(tmp_path: Path) -> None:
             "--off-targets",
             "O2",
             "--off-targets",
+            "O3",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (outdir / "gfa" / "hits.tsv").exists()
+    assert (outdir / "gfa" / "run.json").exists()
+
+
+def test_scan_cli_runs_gfa_gz_backend_end_to_end(tmp_path: Path) -> None:
+    gfa_gz = tmp_path / "small_cohort.gfa.gz"
+    with gzip.open(gfa_gz, "wb") as fh:
+        fh.write(GFA_PATH.read_bytes())
+
+    outdir = tmp_path / "gfa-gz-cli-out"
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--gfa",
+            str(gfa_gz),
+            "--targets",
+            "T1",
+            "T2",
+            "--off-targets",
+            "O1",
+            "O2",
             "O3",
             "--outdir",
             str(outdir),

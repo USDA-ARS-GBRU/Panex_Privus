@@ -60,7 +60,7 @@ def scan(
     ),
     gfa: Path | None = typer.Option(
         None, "--gfa", metavar="PATH",
-        help="GFA graph file; primary backend when used without --vcf.",
+        help="GFA graph file (.gfa or .gfa.gz); primary backend when used without --vcf.",
     ),
     bam: list[Path] | None = typer.Option(
         None, "--bam", metavar="PATH",

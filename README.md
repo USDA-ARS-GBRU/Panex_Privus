@@ -95,7 +95,7 @@ Run a GFA scan:
 
 ```bash
 privy scan \
-  --gfa pangenome.gfa \
+  --gfa pangenome.gfa.gz \
   --targets Benning Harosoy Clark \
   --off-targets Jack Lee Minsoy \
   --outdir results/
@@ -106,7 +106,7 @@ Run both discovery backends and compare them:
 ```bash
 privy scan \
   --vcf cohort.vcf.gz \
-  --gfa pangenome.gfa \
+  --gfa pangenome.gfa.gz \
   --targets Benning Harosoy Clark \
   --off-targets Jack Lee Minsoy \
   --outdir results/
@@ -116,7 +116,7 @@ Analyze the graph pangenome and target/off-target sub-pangenomes:
 
 ```bash
 privy pangenome \
-  --gfa pangenome.gfa \
+  --gfa pangenome.gfa.gz \
   --targets Benning Harosoy Clark \
   --outdir results/pangenome/
 ```
@@ -183,7 +183,7 @@ Operational commands:
 - `privy annotate`
 - `privy export`
 
-The current test suite has 623 passing unit and integration tests.
+The current test suite has 627 passing unit and integration tests.
 
 ## Contact
 

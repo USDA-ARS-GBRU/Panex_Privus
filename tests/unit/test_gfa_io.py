@@ -12,6 +12,7 @@ Fixture layout (small_cohort.gfa):
 
 from __future__ import annotations
 
+import gzip
 from pathlib import Path
 
 import pytest
@@ -109,6 +110,16 @@ class TestParsing:
         # T2 has no walk with seq_id==chr1 and seq_start >= 57
         t2_walks = [w for w in graph.walks if w.sample == "T2"]
         assert all(w.seq_end <= 26 for w in t2_walks)
+
+    def test_gzip_compressed_gfa(self, tmp_path: Path) -> None:
+        compressed = tmp_path / "small_cohort.gfa.gz"
+        with gzip.open(compressed, "wb") as fh:
+            fh.write(GFA_DATA.read_bytes())
+
+        g = parse_gfa(compressed)
+
+        assert len(g.segments) == 7
+        assert {w.sample for w in g.walks} == {"T1", "T2", "O1", "O2", "O3"}
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +227,15 @@ class TestGetGfaSamples:
     def test_returns_sorted_list(self) -> None:
         samples = get_gfa_samples(GFA_DATA)
         assert samples == sorted(samples)
+
+    def test_returns_samples_from_gzip_compressed_gfa(self, tmp_path: Path) -> None:
+        compressed = tmp_path / "small_cohort.gfa.gz"
+        with gzip.open(compressed, "wb") as fh:
+            fh.write(GFA_DATA.read_bytes())
+
+        samples = get_gfa_samples(compressed)
+
+        assert samples == ["O1", "O2", "O3", "T1", "T2"]
 
     def test_file_not_found(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):

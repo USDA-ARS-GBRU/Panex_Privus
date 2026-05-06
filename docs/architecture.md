@@ -624,7 +624,7 @@ USAGE:
 
 PRIMARY INPUT OPTIONS:
   --vcf PATH                 Indexed multisample VCF (.vcf.gz + .tbi/.csi)
-  --gfa PATH                 GFA graph file; primary backend when used without --vcf
+  --gfa PATH                 GFA graph file (.gfa or .gfa.gz); primary backend when used without --vcf
   --bam PATH [PATH ...]      One or more BAM files mapped to the same reference
   --bam-manifest PATH        TSV manifest mapping BAM files to sample names/groups
 

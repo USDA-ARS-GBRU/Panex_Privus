@@ -26,7 +26,7 @@ app = typer.Typer(
 def pangenome(
     gfa: Path | None = typer.Option(
         None, "--gfa", metavar="PATH",
-        help="GFA graph file to analyze.",
+        help="GFA graph file (.gfa or .gfa.gz) to analyze.",
     ),
     vcf: Path | None = typer.Option(
         None, "--vcf", metavar="PATH",

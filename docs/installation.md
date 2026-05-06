@@ -215,15 +215,16 @@ samtools sort sample.bam -o sample.sorted.bam
 samtools index sample.sorted.bam
 ```
 
-GFA scans do not require bgzip or tabix, but graph segments need coordinate tags
-such as `SN:Z:chr1`, `SO:i:1000`, and `LN:i:500` so Privy can place graph hits
-back on genomic coordinates.
+GFA scans can read plain-text `.gfa` or gzip-compressed `.gfa.gz` files and do
+not require bgzip, tabix, or a separate index. Graph segments need coordinate
+tags such as `SN:Z:chr1`, `SO:i:1000`, and `LN:i:500` so Privy can place graph
+hits back on genomic coordinates.
 
 ## Upstream Pangenome Inputs
 
 Panex Privus works well with outputs from
 [minigraph-cactus](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md).
-A typical run can produce both a `.gfa` and a `.vcf.gz`:
+A typical run can produce both a `.gfa.gz` and a `.vcf.gz`:
 
 ```bash
 cactus-pangenome ./js seqFile.txt \
@@ -237,7 +238,7 @@ Those outputs can be scanned separately or together:
 ```bash
 privy scan \
   --vcf pangenome/my_pangenome.vcf.gz \
-  --gfa pangenome/my_pangenome.gfa \
+  --gfa pangenome/my_pangenome.gfa.gz \
   --targets T1 T2 T3 \
   --off-targets O1 O2 O3 \
   --outdir results/

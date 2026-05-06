@@ -30,11 +30,12 @@ W-lines carry the sample name as a separate field, so no parsing is needed.
 
 from __future__ import annotations
 
+import gzip
 import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 log = logging.getLogger("privy.io.gfa")
 
@@ -149,11 +150,11 @@ def parse_gfa(gfa_path: Path) -> GfaGraph:
     """Parse a GFA1 or GFA1.1 file and return a fully indexed :class:`GfaGraph`.
 
     Reads S, L, P, W, and H lines.  Unknown line types (J, C, E, F) are
-    silently skipped.  Compressed GFA (.gfa.gz) is not supported — decompress
-    first.
+    silently skipped.  Plain-text ``.gfa`` and gzip-compressed ``.gfa.gz``
+    inputs are supported.
 
     Args:
-        gfa_path: Path to a GFA file.
+        gfa_path: Path to a GFA or GFA.GZ file.
 
     Returns:
         A :class:`GfaGraph` with all inverted indices built.
@@ -171,7 +172,7 @@ def parse_gfa(gfa_path: Path) -> GfaGraph:
     walks: list[GfaWalk] = []
     header_tags: dict[str, str] = {}
 
-    with open(gfa_path) as fh:
+    with _open_gfa_text(gfa_path) as fh:
         for line_num, raw_line in enumerate(fh, 1):
             line = raw_line.rstrip("\n")
             if not line or line.startswith("#"):
@@ -219,6 +220,13 @@ def parse_gfa(gfa_path: Path) -> GfaGraph:
     return graph
 
 
+def _open_gfa_text(gfa_path: Path) -> TextIO:
+    """Open a plain or gzip-compressed GFA path as text."""
+    if gfa_path.suffix.lower() == ".gz":
+        return gzip.open(gfa_path, "rt", encoding="utf-8")
+    return open(gfa_path, encoding="utf-8")
+
+
 def get_gfa_samples(gfa_path: Path) -> list[str]:
     """Return a sorted list of sample names present in a GFA file.
 
@@ -227,7 +235,7 @@ def get_gfa_samples(gfa_path: Path) -> list[str]:
     - W-line ``sample_id`` fields.
 
     Args:
-        gfa_path: Path to a GFA1/1.1 file.
+        gfa_path: Path to a GFA1/1.1 file, plain-text or gzip-compressed.
 
     Returns:
         Sorted list of unique sample name strings.
