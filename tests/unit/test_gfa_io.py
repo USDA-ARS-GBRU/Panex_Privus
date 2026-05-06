@@ -19,6 +19,7 @@ import pytest
 
 from privy.io.gfa import (
     GfaGraph,
+    build_gfa_scan_index,
     extract_cohort_segment_counts,
     get_gfa_samples,
     get_samples_present_at_locus,
@@ -417,6 +418,93 @@ class TestExtractCohortSegmentCounts:
         )
         assert ts == 1
         assert tm == 0   # T2 not detected as missing without coords
+
+
+# ---------------------------------------------------------------------------
+# TestGfaScanIndex
+# ---------------------------------------------------------------------------
+
+
+class TestGfaScanIndex:
+    def test_scan_index_matches_bubble1_support(
+        self, targets: list[str], offtargets: list[str]
+    ) -> None:
+        index = build_gfa_scan_index(GFA_DATA, targets + offtargets)
+        target_mask = index.sample_mask(targets)
+        offtarget_mask = index.sample_mask(offtargets)
+        support_mask = index.segment_sample_mask["s2_target"]
+        present_mask = index.present_mask("chr1", 8, 18)
+
+        assert set(index.segments) == {
+            "s1", "s2_target", "s2_offt", "s3", "s4_target", "s4_offt", "s5",
+        }
+        assert index.samples_seen == {"T1", "T2", "O1", "O2", "O3"}
+        assert support_mask & target_mask == target_mask
+        assert support_mask & offtarget_mask == 0
+        assert present_mask == index.sample_mask(targets + offtargets)
+        assert index.mask_to_statuses(
+            support_mask=support_mask,
+            present_mask=present_mask,
+            samples=["T1", "O1", "GHOST"],
+        ) == {"T1": "traverses", "O1": "absent", "GHOST": "missing"}
+
+    def test_scan_index_tracks_missing_sample(
+        self, targets: list[str], offtargets: list[str]
+    ) -> None:
+        index = build_gfa_scan_index(GFA_DATA, targets + offtargets)
+        support_mask = index.segment_sample_mask["s4_target"]
+        present_mask = index.present_mask("chr1", 60, 67)
+
+        assert index.mask_to_statuses(
+            support_mask=support_mask,
+            present_mask=present_mask,
+            samples=["T1", "T2", "O1"],
+        ) == {"T1": "traverses", "T2": "missing", "O1": "absent"}
+
+    def test_scan_index_accepts_gzip_compressed_gfa(
+        self, tmp_path: Path, targets: list[str], offtargets: list[str]
+    ) -> None:
+        compressed = tmp_path / "small_cohort.gfa.gz"
+        with gzip.open(compressed, "wb") as fh:
+            fh.write(GFA_DATA.read_bytes())
+
+        index = build_gfa_scan_index(compressed, targets + offtargets)
+
+        assert index.segment_sample_mask["s2_target"] == index.sample_mask(targets)
+
+    def test_scan_index_handles_w_line_optional_tags(self, tmp_path: Path) -> None:
+        content = (
+            "H\tVN:Z:1.1\n"
+            "S\tsegA\t*\tLN:i:5\tSN:Z:chr1\tSO:i:0\n"
+            "W\tT1\t1\tchr1\t0\t5\t>segA\tXX:Z:tag\n"
+            "W\tO1\t1\tchr1\t0\t5\t>segA\n"
+            "W\tOTHER\t1\tchr1\t0\t5\t>segA\n"
+        )
+        gfa = tmp_path / "optional_tags.gfa"
+        gfa.write_text(content)
+
+        index = build_gfa_scan_index(gfa, ["T1", "O1"])
+
+        assert index.samples_seen == {"T1", "O1", "OTHER"}
+        assert index.segment_sample_mask["segA"] == index.sample_mask(["T1", "O1"])
+
+    def test_scan_index_handles_p_lines_without_full_graph(self, tmp_path: Path) -> None:
+        content = (
+            "H\tVN:Z:1.0\n"
+            "S\tsegA\t*\tLN:i:5\tSN:Z:chr1\tSO:i:0\n"
+            "S\tsegB\t*\tLN:i:5\tSN:Z:chr1\tSO:i:5\n"
+            "P\tT1#1#chr1\tsegA+,segB+\t*\tXX:Z:tag\n"
+            "P\tO1#1#chr1\tsegB+\t*\n"
+            "P\tOTHER#1#chr1\tsegA+\t*\n"
+        )
+        gfa = tmp_path / "paths.gfa"
+        gfa.write_text(content)
+
+        index = build_gfa_scan_index(gfa, ["T1", "O1"])
+
+        assert index.samples_seen == {"T1", "O1", "OTHER"}
+        assert index.segment_sample_mask["segA"] == index.sample_mask(["T1"])
+        assert index.segment_sample_mask["segB"] == index.sample_mask(["T1", "O1"])
 
 
 # ---------------------------------------------------------------------------

@@ -72,6 +72,23 @@ For P-lines:
 gzip -cd pangenome.gfa.gz | grep "^P" | awk '{print $2}' | cut -d'#' -f1 | sort -u
 ```
 
+## GFA Scan Is Killed While Parsing
+
+Update to the newest development version first. Current `privy scan --gfa`
+builds a scan-specific streaming index and does not retain full GFA sequences,
+links, walks, or paths in memory.
+
+```bash
+git pull origin main
+python -m pip install -U .
+```
+
+Then run directly on the compressed minigraph-cactus graph:
+
+```bash
+privy scan --gfa pangenome.gfa.gz --targets T1 T2 --off-targets O1 O2 --outdir results/
+```
+
 ## BAM Support Is Uninformative
 
 Common reasons:

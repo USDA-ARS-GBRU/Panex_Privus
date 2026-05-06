@@ -51,9 +51,8 @@ from privy.core.scoring import (
     rank_scored_hits,
 )
 from privy.io.gfa import (
-    GfaGraph,
-    extract_cohort_segment_counts,
-    parse_gfa,
+    GfaScanIndex,
+    build_gfa_scan_index,
 )
 from privy.io.jsonio import write_run_json as _write_json
 from privy.io.tsv import (
@@ -155,12 +154,30 @@ def run_gfa_scan(
     if not gfa.exists():
         raise FileNotFoundError(f"GFA file not found: {gfa}")
 
-    # ── Step 1: Parse GFA ─────────────────────────────────────────────────────
-    log.info("Parsing GFA: %s", gfa)
-    graph = parse_gfa(gfa)
+    # ── Step 1: Parse region / contig filter ─────────────────────────────────
+    filter_contig: str | None = None
+    filter_start: int | None = None
+    filter_end: int | None = None
 
-    # ── Step 2: Validate samples ──────────────────────────────────────────────
-    gfa_samples = set(graph.sample_to_paths) | set(graph.sample_to_walks)
+    if region is not None:
+        filter_contig, filter_start, filter_end = _parse_region(region)
+    elif contig is not None:
+        filter_contig = contig
+
+    # ── Step 2: Build lightweight GFA scan index ─────────────────────────────
+    log.info("Indexing GFA for cohort scan: %s", gfa)
+    all_targets = list(cohort.targets)
+    all_offtargets = list(cohort.off_targets)
+    scan_index = build_gfa_scan_index(
+        gfa_path=gfa,
+        sample_names=all_targets + all_offtargets,
+        filter_contig=filter_contig,
+        filter_start=filter_start,
+        filter_end=filter_end,
+    )
+
+    # ── Step 3: Validate samples ──────────────────────────────────────────────
+    gfa_samples = scan_index.samples_seen
 
     active_targets = [s for s in cohort.targets if s in gfa_samples]
     active_offtargets = [s for s in cohort.off_targets if s in gfa_samples]
@@ -195,26 +212,14 @@ def run_gfa_scan(
         len(active_offtargets), cohort.n_off_targets,
     )
 
-    # ── Step 3: Parse region / contig filter ──────────────────────────────────
-    filter_contig: str | None = None
-    filter_start: int | None = None
-    filter_end: int | None = None
-
-    if region is not None:
-        filter_contig, filter_start, filter_end = _parse_region(region)
-    elif contig is not None:
-        filter_contig = contig
-
     # ── Step 4: Scan segments ─────────────────────────────────────────────────
     stats = ScanStats(
         n_target_samples=len(active_targets),
         n_offtarget_samples=len(active_offtargets),
     )
-    all_targets = list(cohort.targets)
-    all_offtargets = list(cohort.off_targets)
 
     hit_records = _scan_segments(
-        graph=graph,
+        scan_index=scan_index,
         all_targets=all_targets,
         all_offtargets=all_offtargets,
         cfg=cfg,
@@ -283,7 +288,7 @@ def run_gfa_scan(
 
 
 def _scan_segments(
-    graph: GfaGraph,
+    scan_index: GfaScanIndex,
     all_targets: list[str],
     all_offtargets: list[str],
     cfg: PrivyConfig,
@@ -297,29 +302,27 @@ def _scan_segments(
     locus_n = 0
     skipped_too_short = 0
     min_len = cfg.gfa.min_segment_length
+    target_mask = scan_index.sample_mask(all_targets)
+    offtarget_mask = scan_index.sample_mask(all_offtargets)
 
     # Determine contigs to scan
     if filter_contig is not None:
         contigs = [filter_contig]
     else:
-        contigs = sorted(graph._contig_segments.keys())
+        contigs = sorted(scan_index.contig_segments.keys())
 
     contigs_visited: set[str] = set()
 
     for ctg in contigs:
-        if ctg not in graph._contig_segments:
+        if ctg not in scan_index.contig_segments:
             continue
         contigs_visited.add(ctg)
 
-        for seg_start, seg_end, seg_name in graph._contig_segments[ctg]:
+        for seg_start, seg_end, seg_name in scan_index.contig_segments[ctg]:
             # Apply region filter
             if filter_start is not None and seg_end <= filter_start:
                 continue
             if filter_end is not None and seg_start >= filter_end:
-                continue
-
-            seg = graph.segments.get(seg_name)
-            if seg is None:
                 continue
 
             # Minimum segment length filter
@@ -331,15 +334,14 @@ def _scan_segments(
             stats.records_evaluated += 1
             stats.alleles_evaluated += 1
 
-            ts_n, tt_n, os_n, ot_n, tm_n, om_n = extract_cohort_segment_counts(
-                graph=graph,
-                seg_name=seg_name,
-                seg_contig=ctg,
-                seg_start=seg_start,
-                seg_end=seg_end,
-                target_samples=all_targets,
-                offtarget_samples=all_offtargets,
-            )
+            support_mask = scan_index.segment_sample_mask.get(seg_name, 0)
+            present_mask = scan_index.present_mask(ctg, seg_start, seg_end) | support_mask
+            ts_n = (support_mask & target_mask).bit_count()
+            os_n = (support_mask & offtarget_mask).bit_count()
+            tm_n = (target_mask & ~present_mask).bit_count()
+            om_n = (offtarget_mask & ~present_mask).bit_count()
+            tt_n = len(all_targets)
+            ot_n = len(all_offtargets)
 
             allele_key = _format_segment_allele_key(ctg, seg_start, seg_name)
 
@@ -379,9 +381,10 @@ def _scan_segments(
                 metadata={"segment": seg_name},
             )
 
-            sample_traversal = _build_traversal_map(
-                graph, seg_name, ctg, seg_start, seg_end,
-                all_targets, all_offtargets,
+            sample_traversal = scan_index.mask_to_statuses(
+                support_mask=support_mask,
+                present_mask=present_mask,
+                samples=all_targets + all_offtargets,
             )
 
             hits.append(GfaHitRecord(
@@ -402,32 +405,6 @@ def _scan_segments(
         )
 
     return hits
-
-
-def _build_traversal_map(
-    graph: GfaGraph,
-    seg_name: str,
-    contig: str,
-    seg_start: int,
-    seg_end: int,
-    all_targets: list[str],
-    all_offtargets: list[str],
-) -> dict[str, str]:
-    """Build a sample → traversal-status map for ``sample_support.tsv``."""
-    from privy.io.gfa import get_samples_present_at_locus, get_samples_traversing_segment
-
-    traversing = get_samples_traversing_segment(graph, seg_name)
-    present = get_samples_present_at_locus(graph, contig, seg_start, seg_end)
-
-    result: dict[str, str] = {}
-    for sample in all_targets + all_offtargets:
-        if sample in traversing:
-            result[sample] = "traverses"
-        elif sample in present:
-            result[sample] = "absent"
-        else:
-            result[sample] = "missing"
-    return result
 
 
 # ---------------------------------------------------------------------------

@@ -33,6 +33,9 @@ from __future__ import annotations
 import gzip
 import logging
 import re
+from bisect import bisect_right
+from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TextIO
@@ -141,6 +144,97 @@ class GfaGraph:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class GfaScanSegment:
+    """Lightweight coordinate record for scan-time GFA segment evaluation."""
+
+    contig: str
+    start: int
+    end: int
+    length: int
+
+
+@dataclass(frozen=True, slots=True)
+class GfaPresenceIntervals:
+    """Merged half-open intervals for one sample on one contig."""
+
+    starts: tuple[int, ...]
+    ends: tuple[int, ...]
+
+    def overlaps(self, start: int, end: int) -> bool:
+        """Return True when any stored interval overlaps ``[start, end)``."""
+        idx = bisect_right(self.starts, start) - 1
+        if idx >= 0 and self.ends[idx] > start:
+            return True
+
+        next_idx = idx + 1
+        return next_idx < len(self.starts) and self.starts[next_idx] < end
+
+
+@dataclass(slots=True)
+class GfaScanIndex:
+    """Memory-conscious GFA index for private-segment scans.
+
+    Unlike :class:`GfaGraph`, this object does not retain sequences, links, full
+    walks, or full paths.  It keeps only the information needed by the GFA scan:
+    coordinate-tagged segments, cohort-sample traversal bitmasks, and compact
+    per-sample coverage intervals for missingness checks.
+    """
+
+    segments: dict[str, GfaScanSegment]
+    contig_segments: dict[str, list[tuple[int, int, str]]]
+    segment_sample_mask: dict[str, int]
+    sample_intervals: list[dict[str, GfaPresenceIntervals]]
+    sample_order: tuple[str, ...]
+    sample_to_index: dict[str, int]
+    samples_seen: set[str]
+    n_segments: int = 0
+    n_links: int = 0
+    n_paths: int = 0
+    n_walks: int = 0
+
+    def sample_mask(self, samples: list[str] | tuple[str, ...]) -> int:
+        """Return a bitmask for samples present in this index's sample order."""
+        mask = 0
+        for sample in samples:
+            idx = self.sample_to_index.get(sample)
+            if idx is not None:
+                mask |= 1 << idx
+        return mask
+
+    def present_mask(self, contig: str, start: int, end: int) -> int:
+        """Return a cohort-sample bitmask for samples with coverage at a locus."""
+        mask = 0
+        for idx, intervals_by_contig in enumerate(self.sample_intervals):
+            intervals = intervals_by_contig.get(contig)
+            if intervals is not None and intervals.overlaps(start, end):
+                mask |= 1 << idx
+        return mask
+
+    def mask_to_statuses(
+        self,
+        support_mask: int,
+        present_mask: int,
+        samples: list[str] | tuple[str, ...],
+    ) -> dict[str, str]:
+        """Return sample → ``traverses``/``absent``/``missing`` statuses."""
+        statuses: dict[str, str] = {}
+        for sample in samples:
+            idx = self.sample_to_index.get(sample)
+            if idx is None:
+                statuses[sample] = "missing"
+                continue
+
+            bit = 1 << idx
+            if support_mask & bit:
+                statuses[sample] = "traverses"
+            elif present_mask & bit:
+                statuses[sample] = "absent"
+            else:
+                statuses[sample] = "missing"
+        return statuses
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -242,6 +336,165 @@ def get_gfa_samples(gfa_path: Path) -> list[str]:
     """
     graph = parse_gfa(gfa_path)
     return sorted(set(graph.sample_to_paths) | set(graph.sample_to_walks))
+
+
+def build_gfa_scan_index(
+    gfa_path: Path,
+    sample_names: list[str] | tuple[str, ...],
+    filter_contig: str | None = None,
+    filter_start: int | None = None,
+    filter_end: int | None = None,
+) -> GfaScanIndex:
+    """Build a memory-conscious index for GFA scanning.
+
+    This performs two streaming passes over the GFA.  The first pass records
+    coordinate-tagged segments.  The second pass records only cohort sample
+    traversal and coverage evidence from P/W lines.
+    """
+    if not gfa_path.exists():
+        raise FileNotFoundError(f"GFA file not found: {gfa_path}")
+
+    sample_order = tuple(dict.fromkeys(sample_names))
+    sample_to_idx = {sample: idx for idx, sample in enumerate(sample_order)}
+    raw_intervals: list[defaultdict[str, list[tuple[int, int]]]] = [
+        defaultdict(list) for _ in sample_order
+    ]
+    segments: dict[str, GfaScanSegment] = {}
+    contig_segments: dict[str, list[tuple[int, int, str]]] = {}
+    contig_pool: dict[str, str] = {}
+    samples_seen: set[str] = set()
+    n_segments = 0
+    n_links = 0
+    n_paths = 0
+    n_walks = 0
+    header_tags: dict[str, str] = {}
+
+    with _open_gfa_text(gfa_path) as fh:
+        for line_num, raw_line in enumerate(fh, 1):
+            if not raw_line or raw_line.startswith("#"):
+                continue
+            rec_type = raw_line[0]
+            if rec_type == "H":
+                _parse_h_line(raw_line.rstrip("\n").split("\t"), header_tags)
+            elif rec_type == "S":
+                n_segments += 1
+                parsed = _parse_scan_s_line(raw_line, line_num, contig_pool)
+                if parsed is None:
+                    continue
+                seg_name, segment_record = parsed
+                if filter_contig is not None and segment_record.contig != filter_contig:
+                    continue
+                if filter_start is not None and segment_record.end <= filter_start:
+                    continue
+                if filter_end is not None and segment_record.start >= filter_end:
+                    continue
+                segments[seg_name] = segment_record
+                contig_segments.setdefault(segment_record.contig, []).append(
+                    (segment_record.start, segment_record.end, seg_name)
+                )
+            elif rec_type == "L":
+                n_links += 1
+
+    if header_tags.get("VN", "").startswith("2"):
+        raise ValueError(
+            f"GFA version 2 is not supported (found VN:{header_tags['VN']}). "
+            "Only GFA1 and GFA1.1 are supported."
+        )
+
+    for entries in contig_segments.values():
+        entries.sort()
+
+    segment_sample_mask: dict[str, int] = {}
+
+    with _open_gfa_text(gfa_path) as fh:
+        for line_num, raw_line in enumerate(fh, 1):
+            if not raw_line or raw_line.startswith("#"):
+                continue
+            rec_type = raw_line[0]
+            if rec_type == "W":
+                n_walks += 1
+                tabs = _required_tab_positions(raw_line, 6, line_num, "W")
+                sample = raw_line[tabs[0] + 1:tabs[1]]
+                samples_seen.add(sample)
+                sample_idx = sample_to_idx.get(sample)
+                if sample_idx is None:
+                    continue
+
+                try:
+                    walk_contig = _intern_text(
+                        raw_line[tabs[2] + 1:tabs[3]], contig_pool
+                    )
+                    walk_start = int(raw_line[tabs[3] + 1:tabs[4]])
+                    walk_end = int(raw_line[tabs[4] + 1:tabs[5]])
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Line {line_num}: W-line numeric field parse error: {exc}"
+                    ) from exc
+
+                if filter_contig is None or walk_contig == filter_contig:
+                    raw_intervals[sample_idx][walk_contig].append((walk_start, walk_end))
+
+                bit = 1 << sample_idx
+                walk_field_start = tabs[5] + 1
+                walk_field_end = _next_field_end(raw_line, walk_field_start)
+                for seg_name in _iter_walk_segment_names(
+                    raw_line, walk_field_start, walk_field_end
+                ):
+                    if seg_name in segments:
+                        segment_sample_mask[seg_name] = (
+                            segment_sample_mask.get(seg_name, 0) | bit
+                        )
+
+            elif rec_type == "P":
+                n_paths += 1
+                tabs = _required_tab_positions(raw_line, 3, line_num, "P")
+                path_name = raw_line[tabs[0] + 1:tabs[1]]
+                sample, _haplotype = _parse_sample_from_path_name(path_name)
+                samples_seen.add(sample)
+                sample_idx = sample_to_idx.get(sample)
+                if sample_idx is None:
+                    continue
+
+                bit = 1 << sample_idx
+                for seg_name in _iter_path_segment_names(
+                    raw_line, tabs[1] + 1, tabs[2]
+                ):
+                    segment = segments.get(seg_name)
+                    if segment is None:
+                        continue
+                    segment_sample_mask[seg_name] = (
+                        segment_sample_mask.get(seg_name, 0) | bit
+                    )
+                    raw_intervals[sample_idx][segment.contig].append(
+                        (segment.start, segment.end)
+                    )
+
+    sample_intervals = [
+        _merge_sample_intervals(intervals_by_contig)
+        for intervals_by_contig in raw_intervals
+    ]
+
+    log.info(
+        "Built GFA scan index: %d coordinate segments, %d paths, %d walks, %d samples",
+        len(segments),
+        n_paths,
+        n_walks,
+        len(samples_seen),
+    )
+
+    return GfaScanIndex(
+        segments=segments,
+        contig_segments=contig_segments,
+        segment_sample_mask=segment_sample_mask,
+        sample_intervals=sample_intervals,
+        sample_order=sample_order,
+        sample_to_index=sample_to_idx,
+        samples_seen=samples_seen,
+        n_segments=n_segments,
+        n_links=n_links,
+        n_paths=n_paths,
+        n_walks=n_walks,
+    )
 
 
 def query_segments_at_locus(
@@ -419,6 +672,173 @@ def extract_cohort_segment_counts(
             om_n += 1
 
     return ts_n, len(target_samples), os_n, len(offtarget_samples), tm_n, om_n
+
+
+def _parse_scan_s_line(
+    raw_line: str,
+    line_num: int,
+    contig_pool: dict[str, str],
+) -> tuple[str, GfaScanSegment] | None:
+    """Parse the coordinate fields needed for scan-time segment indexing."""
+    first_tab = raw_line.find("\t")
+    second_tab = raw_line.find("\t", first_tab + 1)
+    if first_tab < 0 or second_tab < 0:
+        raise ValueError(
+            f"Line {line_num}: S-line requires at least 3 tab-separated fields, "
+            "but fewer were found"
+        )
+    third_tab = raw_line.find("\t", second_tab + 1)
+
+    line_end = _line_text_end(raw_line)
+    name = raw_line[first_tab + 1:second_tab]
+    sequence_start = second_tab + 1
+    sequence_end = third_tab if third_tab >= 0 else line_end
+    tag_text = raw_line[third_tab + 1:line_end] if third_tab >= 0 else ""
+    tags = _parse_optional_tag_text(tag_text)
+
+    if "SN" not in tags or "SO" not in tags:
+        return None
+
+    if "LN" in tags:
+        length = int(tags["LN"])
+    elif raw_line[sequence_start:sequence_end] != "*":
+        length = sequence_end - sequence_start
+    else:
+        return None
+
+    start = int(tags["SO"])
+    return name, GfaScanSegment(
+        contig=_intern_text(str(tags["SN"]), contig_pool),
+        start=start,
+        end=start + length,
+        length=length,
+    )
+
+
+def _parse_optional_tag_text(tag_text: str) -> dict[str, Any]:
+    """Parse tab-separated optional tag text without splitting a whole GFA line."""
+    if not tag_text:
+        return {}
+    return _parse_optional_tags(tag_text.split("\t"), 0)
+
+
+def _iter_walk_segment_names(
+    walk: str,
+    start_idx: int = 0,
+    end_idx: int | None = None,
+) -> Iterator[str]:
+    """Yield segment names from a W-line walk string without building a list."""
+    if end_idx is None:
+        end_idx = len(walk)
+    start: int | None = None
+    for idx in range(start_idx, end_idx):
+        char = walk[idx]
+        if char != ">" and char != "<":
+            continue
+        if start is not None and start < idx:
+            yield walk[start:idx]
+        start = idx + 1
+    if start is not None and start < end_idx:
+        yield walk[start:end_idx]
+
+
+def _iter_path_segment_names(
+    path_segments: str,
+    start_idx: int = 0,
+    end_idx: int | None = None,
+) -> Iterator[str]:
+    """Yield segment names from a P-line segment list without building a list."""
+    if end_idx is None:
+        end_idx = len(path_segments)
+    start = start_idx
+    for idx in range(start_idx, end_idx):
+        if path_segments[idx] != ",":
+            continue
+        if start < idx:
+            yield _strip_path_orientation(path_segments[start:idx])
+        start = idx + 1
+    if start < end_idx:
+        yield _strip_path_orientation(path_segments[start:end_idx])
+
+
+def _strip_path_orientation(segment: str) -> str:
+    segment = segment.strip()
+    if segment.endswith("+") or segment.endswith("-"):
+        return segment[:-1]
+    return segment
+
+
+def _merge_sample_intervals(
+    raw: dict[str, list[tuple[int, int]]],
+) -> dict[str, GfaPresenceIntervals]:
+    """Sort and merge raw per-contig intervals for one sample."""
+    merged_by_contig: dict[str, GfaPresenceIntervals] = {}
+    for contig, intervals in raw.items():
+        if not intervals:
+            continue
+
+        merged: list[tuple[int, int]] = []
+        for start, end in sorted(intervals):
+            if end <= start:
+                continue
+            if not merged or start > merged[-1][1]:
+                merged.append((start, end))
+            else:
+                prev_start, prev_end = merged[-1]
+                merged[-1] = (prev_start, max(prev_end, end))
+
+        if merged:
+            starts, ends = zip(*merged, strict=False)
+            merged_by_contig[contig] = GfaPresenceIntervals(
+                starts=tuple(starts),
+                ends=tuple(ends),
+            )
+    return merged_by_contig
+
+
+def _required_tab_positions(
+    raw_line: str,
+    n_tabs: int,
+    line_num: int,
+    record_type: str,
+) -> list[int]:
+    """Return positions for the first ``n_tabs`` tabs or raise a parse error."""
+    tabs: list[int] = []
+    pos = -1
+    for _ in range(n_tabs):
+        pos = raw_line.find("\t", pos + 1)
+        if pos < 0:
+            raise ValueError(
+                f"Line {line_num}: {record_type}-line requires at least "
+                f"{n_tabs + 1} tab-separated fields"
+            )
+        tabs.append(pos)
+    return tabs
+
+
+def _next_field_end(raw_line: str, field_start: int) -> int:
+    """Return the exclusive end index of a tab-delimited field."""
+    tab = raw_line.find("\t", field_start)
+    if tab >= 0:
+        return tab
+    return _line_text_end(raw_line)
+
+
+def _line_text_end(raw_line: str) -> int:
+    """Return line length excluding trailing newline characters."""
+    end = len(raw_line)
+    while end > 0 and raw_line[end - 1] in {"\n", "\r"}:
+        end -= 1
+    return end
+
+
+def _intern_text(value: str, pool: dict[str, str]) -> str:
+    """Reuse repeated small strings, mainly contig names, in large GFA indices."""
+    existing = pool.get(value)
+    if existing is not None:
+        return existing
+    pool[value] = value
+    return value
 
 
 # ---------------------------------------------------------------------------

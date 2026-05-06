@@ -153,6 +153,11 @@ The `--gfa` input may be a plain-text `.gfa` file or a gzip-compressed
 `.gfa.gz` file, matching the compressed output commonly written by
 minigraph-cactus.
 
+For large pangenome graphs, `privy scan --gfa` builds a scan-specific streaming
+index instead of retaining full segment sequences, links, walks, and paths in
+memory. You can point `--gfa` directly at the minigraph-cactus `.gfa.gz` output;
+you do not need to decompress it first.
+
 GFA segments must have coordinate tags such as `SN:Z:chr1`, `SO:i:1000`, and
 `LN:i:500`. Minigraph-cactus output usually includes these tags. Without them,
 Panex Privus cannot place graph segments back onto genomic coordinates for
