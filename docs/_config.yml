@@ -24,8 +24,62 @@ nav:
     url: /installation/
   - title: Run Guide
     url: /run-guide/
+    children:
+      - title: Inputs
+        url: /run-guide/#where-the-inputs-come-from
+      - title: Command shape
+        url: /run-guide/#command-shape
+      - title: VCF scan
+        url: /run-guide/#vcf-scan
+      - title: GFA scan
+        url: /run-guide/#gfa-scan
+      - title: BAM evidence
+        url: /run-guide/#add-bam-evidence
+      - title: VCF + GFA together
+        url: /run-guide/#run-vcf-and-gfa-together
+      - title: Pangenome
+        url: /run-guide/#analyze-the-pangenome
+      - title: Landscapes
+        url: /run-guide/#explore-vcf-landscapes
+      - title: Compare
+        url: /run-guide/#compare-existing-scan-outputs
+      - title: Report
+        url: /run-guide/#generate-a-report
+      - title: Plot
+        url: /run-guide/#plot-diagnostics
+      - title: Annotate
+        url: /run-guide/#annotate-hits
+      - title: Export
+        url: /run-guide/#export-intervals
   - title: Concepts
     url: /concepts/
+    children:
+      - title: Analysis contract
+        url: /concepts/#analysis-contract
+      - title: Command map
+        url: /concepts/#command-map
+      - title: Key vocabulary
+        url: /concepts/#key-vocabulary
+      - title: Cohorts
+        url: /concepts/#cohorts-and-sample-roles
+      - title: Private signals
+        url: /concepts/#what-private-means
+      - title: Coordinates
+        url: /concepts/#coordinates-and-intervals
+      - title: Evidence layers
+        url: /concepts/#primary-inputs-and-evidence-layers
+      - title: Missingness
+        url: /concepts/#missingness-and-strictness
+      - title: privy scan
+        url: /concepts/#privy-scan
+      - title: privy compare
+        url: /concepts/#privy-compare
+      - title: privy pangenome
+        url: /concepts/#privy-pangenome
+      - title: privy landscape
+        url: /concepts/#privy-landscape
+      - title: Results
+        url: /concepts/#reading-results-without-treating-them-as-a-black-box
   - title: Outputs
     url: /outputs/
   - title: Figures
