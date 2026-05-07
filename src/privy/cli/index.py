@@ -66,6 +66,6 @@ def index_gfa(
     write_gfa_scan_index(scan_index=scan_index, index_path=index_path, gfa_path=gfa)
     typer.echo(
         f"Wrote {index_path} "
-        f"({len(scan_index.segments)} coordinate segments, "
+        f"({scan_index.coordinate_segment_count()} coordinate segments, "
         f"{len(scan_index.sample_order)} samples)"
     )

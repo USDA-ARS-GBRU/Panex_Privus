@@ -230,8 +230,8 @@ def run_gfa_scan(
     log.info(
         "Starting GFA scan | contigs=%d | coordinate_segments=%d | mode=%s | "
         "targets=%d | off-targets=%d",
-        len(scan_index.contig_segments),
-        len(scan_index.segments),
+        len(scan_index.contig_names()),
+        scan_index.coordinate_segment_count(),
         mode,
         len(active_targets),
         len(active_offtargets),
@@ -335,12 +335,12 @@ def _scan_segments(
     if filter_contig is not None:
         contigs = [filter_contig]
     else:
-        contigs = sorted(scan_index.contig_segments.keys())
+        contigs = sorted(scan_index.contig_names())
 
     contigs_visited: set[str] = set()
 
     for ctg in contigs:
-        if ctg not in scan_index.contig_segments:
+        if not scan_index.has_contig(ctg):
             continue
         contigs_visited.add(ctg)
         contig_hits_before = len(hits)
@@ -348,7 +348,7 @@ def _scan_segments(
         progress_next = 1_000_000
         presence_trackers = _build_presence_trackers(scan_index, ctg)
 
-        for seg_start, seg_end, seg_name in scan_index.contig_segments[ctg]:
+        for seg_start, seg_end, seg_name, support_mask in scan_index.iter_contig_segments(ctg):
             # Apply region filter
             if filter_start is not None and seg_end <= filter_start:
                 continue
@@ -361,7 +361,6 @@ def _scan_segments(
                 skipped_too_short += 1
                 continue
 
-            support_mask = scan_index.segment_sample_mask.get(seg_name, 0)
             if not (support_mask & target_mask):
                 continue
 

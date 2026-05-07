@@ -152,6 +152,12 @@ that sidecar index, validate that it still matches the GFA file, and skip the
 slow GFA walk-parsing step. Use `--gfa-index PATH` if the index is stored
 somewhere else.
 
+If the index was built with an older development version, rebuild it once:
+
+```bash
+privy index gfa --gfa pangenome.gfa.gz --force
+```
+
 ```bash
 privy scan \
   --gfa pangenome.gfa.gz \

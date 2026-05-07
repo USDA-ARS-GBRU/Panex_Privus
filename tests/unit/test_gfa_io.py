@@ -541,11 +541,18 @@ class TestGfaScanIndex:
         loaded = load_gfa_scan_index(index_path, GFA_DATA)
 
         assert loaded.sample_order == index.sample_order
-        assert loaded.segment_sample_mask["s2_target"] == index.segment_sample_mask[
+        assert loaded.support_mask_for_segment("s2_target") == index.segment_sample_mask[
             "s2_target"
         ]
         assert loaded.present_mask("chr1", 8, 18) == index.present_mask("chr1", 8, 18)
         assert loaded.metadata["source"]["size"] == GFA_DATA.stat().st_size
+
+    def test_legacy_pickle_scan_index_asks_for_rebuild(self, tmp_path: Path) -> None:
+        index_path = tmp_path / "legacy.gfa.privy.gfaidx"
+        index_path.write_bytes(b"PRIVY_GFA_SCAN_INDEX\0legacy")
+
+        with pytest.raises(ValueError, match="legacy pickle-based"):
+            load_gfa_scan_index(index_path, GFA_DATA)
 
     def test_default_gfa_index_path_uses_sidecar_suffix(self) -> None:
         assert default_gfa_index_path(Path("graph.gfa.gz")) == Path(

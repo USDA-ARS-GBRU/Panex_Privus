@@ -34,6 +34,7 @@ import gzip
 import logging
 import pickle
 import re
+import sqlite3
 import time
 from bisect import bisect_right
 from collections import defaultdict
@@ -44,8 +45,10 @@ from typing import Any, TextIO
 
 log = logging.getLogger("privy.io.gfa")
 _WALK_SEGMENT_RE = re.compile(r"[><]([^><\t\r\n]+)")
-_GFA_SCAN_INDEX_MAGIC = b"PRIVY_GFA_SCAN_INDEX\0"
-_GFA_SCAN_INDEX_SCHEMA_VERSION = 1
+_SQLITE_HEADER = b"SQLite format 3\0"
+_LEGACY_GFA_SCAN_INDEX_MAGIC = b"PRIVY_GFA_SCAN_INDEX\0"
+_GFA_SCAN_INDEX_SCHEMA_VERSION = 2
+_SQLITE_INSERT_BATCH_SIZE = 100_000
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +197,9 @@ class GfaScanIndex:
     sample_order: tuple[str, ...]
     sample_to_index: dict[str, int]
     samples_seen: set[str]
+    sqlite_index_path: Path | None = None
+    sqlite_contigs: tuple[str, ...] = ()
+    sqlite_contig_counts: dict[str, int] = field(default_factory=dict)
     n_segments: int = 0
     n_links: int = 0
     n_paths: int = 0
@@ -240,6 +246,57 @@ class GfaScanIndex:
             else:
                 statuses[sample] = "missing"
         return statuses
+
+    def coordinate_segment_count(self) -> int:
+        """Return the number of coordinate-tagged segments available to scan."""
+        if self.sqlite_contig_counts:
+            return sum(self.sqlite_contig_counts.values())
+        return sum(len(entries) for entries in self.contig_segments.values())
+
+    def contig_names(self) -> tuple[str, ...]:
+        """Return contigs with coordinate-tagged segments."""
+        if self.sqlite_contigs:
+            return self.sqlite_contigs
+        return tuple(self.contig_segments.keys())
+
+    def has_contig(self, contig: str) -> bool:
+        """Return True when *contig* has coordinate-tagged segments."""
+        if self.sqlite_contig_counts:
+            return contig in self.sqlite_contig_counts
+        return contig in self.contig_segments
+
+    def iter_contig_segments(self, contig: str) -> Iterator[tuple[int, int, str, int]]:
+        """Yield ``(start, end, segment_name, sample_mask)`` rows for *contig*."""
+        if self.sqlite_index_path is not None:
+            with _connect_gfa_scan_index_db(self.sqlite_index_path, readonly=True) as conn:
+                rows = conn.execute(
+                    "SELECT start, end, name, sample_mask FROM segments "
+                    "WHERE contig = ? ORDER BY start, end, name",
+                    (contig,),
+                )
+                for start, end, name, mask_blob in rows:
+                    yield int(start), int(end), str(name), _decode_sample_mask(mask_blob)
+            return
+
+        for entry in self.contig_segments.get(contig, []):
+            start, end, seg_name = entry
+            yield start, end, seg_name, self.segment_sample_mask.get(seg_name, 0)
+
+    def support_mask_for_segment(self, segment_name: str) -> int:
+        """Return the traversal mask for one segment name."""
+        mask = self.segment_sample_mask.get(segment_name)
+        if mask is not None:
+            return mask
+        if self.sqlite_index_path is None:
+            return 0
+        with _connect_gfa_scan_index_db(self.sqlite_index_path, readonly=True) as conn:
+            row = conn.execute(
+                "SELECT sample_mask FROM segments WHERE name = ? LIMIT 1",
+                (segment_name,),
+            ).fetchone()
+        if row is None:
+            return 0
+        return _decode_sample_mask(row[0])
 
 
 # ---------------------------------------------------------------------------
@@ -357,28 +414,98 @@ def write_gfa_scan_index(
 ) -> None:
     """Write a reusable Privy GFA scan index.
 
-    The index is a Python binary sidecar storing exactly the lightweight scan
-    structures Privy needs.  It is intended as a trusted local cache for large
-    GFA files, not as a portable interchange format.
+    The index is a SQLite sidecar storing exactly the scan structures Privy
+    needs. Segment rows are streamed by contig during ``privy scan`` so large
+    indexes do not need to be deserialized into memory all at once.
     """
     index_path.parent.mkdir(parents=True, exist_ok=True)
     metadata = {
         "schema_version": _GFA_SCAN_INDEX_SCHEMA_VERSION,
         "source": _gfa_file_fingerprint(gfa_path),
         "sample_count": len(scan_index.sample_order),
-        "coordinate_segments": len(scan_index.segments),
-        "contigs": len(scan_index.contig_segments),
+        "coordinate_segments": scan_index.coordinate_segment_count(),
+        "contigs": len(scan_index.contig_names()),
+        "n_segments": scan_index.n_segments,
+        "n_links": scan_index.n_links,
+        "n_paths": scan_index.n_paths,
+        "n_walks": scan_index.n_walks,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     }
     scan_index.metadata = metadata
-    payload: dict[str, Any] = {
-        "schema_version": _GFA_SCAN_INDEX_SCHEMA_VERSION,
-        "metadata": metadata,
-        "index": scan_index,
-    }
-    with open(index_path, "wb") as fh:
-        fh.write(_GFA_SCAN_INDEX_MAGIC)
-        pickle.dump(payload, fh, protocol=pickle.HIGHEST_PROTOCOL)
+    if index_path.exists():
+        index_path.unlink()
+
+    log.info("Writing SQLite GFA scan index: %s", index_path)
+    with _connect_gfa_scan_index_db(index_path, readonly=False) as conn:
+        _init_gfa_scan_index_db(conn)
+        conn.execute(
+            "INSERT INTO metadata(key, value) VALUES (?, ?)",
+            ("metadata", sqlite3.Binary(_pickle_payload(metadata))),
+        )
+        conn.executemany(
+            "INSERT INTO samples(sample_idx, sample) VALUES (?, ?)",
+            enumerate(scan_index.sample_order),
+        )
+        conn.executemany(
+            "INSERT INTO samples_seen(sample) VALUES (?)",
+            ((sample,) for sample in sorted(scan_index.samples_seen)),
+        )
+
+        interval_rows: list[tuple[int, str, sqlite3.Binary]] = []
+        for sample_idx, intervals_by_contig in enumerate(scan_index.sample_intervals):
+            for contig, intervals in intervals_by_contig.items():
+                interval_rows.append((
+                    sample_idx,
+                    contig,
+                    sqlite3.Binary(_pickle_payload(intervals)),
+                ))
+        conn.executemany(
+            "INSERT INTO sample_intervals(sample_idx, contig, payload) VALUES (?, ?, ?)",
+            interval_rows,
+        )
+
+        written_segments = 0
+        for contig, entries in scan_index.contig_segments.items():
+            conn.execute(
+                "INSERT INTO contigs(contig, n_segments) VALUES (?, ?)",
+                (contig, len(entries)),
+            )
+            batch: list[tuple[str, int, int, str, sqlite3.Binary]] = []
+            contig_written = 0
+            for start, end, seg_name in entries:
+                batch.append((
+                    contig,
+                    start,
+                    end,
+                    seg_name,
+                    sqlite3.Binary(_encode_sample_mask(
+                        scan_index.segment_sample_mask.get(seg_name, 0)
+                    )),
+                ))
+                if len(batch) >= _SQLITE_INSERT_BATCH_SIZE:
+                    batch_size = len(batch)
+                    _insert_segment_batch(conn, batch)
+                    contig_written += batch_size
+                    written_segments += batch_size
+                    batch.clear()
+            if batch:
+                batch_size = len(batch)
+                _insert_segment_batch(conn, batch)
+                contig_written += batch_size
+                written_segments += batch_size
+
+            log.info(
+                "  indexed %s: %d segments (%d total written)",
+                contig,
+                contig_written,
+                written_segments,
+            )
+
+        conn.execute(
+            "CREATE INDEX segments_contig_start_idx "
+            "ON segments(contig, start, end, name)"
+        )
+        conn.commit()
 
 
 def load_gfa_scan_index(
@@ -390,36 +517,160 @@ def load_gfa_scan_index(
         raise FileNotFoundError(f"GFA index file not found: {index_path}")
 
     with open(index_path, "rb") as fh:
-        magic = fh.read(len(_GFA_SCAN_INDEX_MAGIC))
-        if magic != _GFA_SCAN_INDEX_MAGIC:
+        header = fh.read(max(len(_SQLITE_HEADER), len(_LEGACY_GFA_SCAN_INDEX_MAGIC)))
+        if header.startswith(_LEGACY_GFA_SCAN_INDEX_MAGIC):
+            raise ValueError(
+                f"{index_path} is a legacy pickle-based Privy GFA index. "
+                "Rebuild it with 'privy index gfa --gfa <GFA> --force' to "
+                "create the SQLite-backed index used by this Privy version."
+            )
+        if not header.startswith(_SQLITE_HEADER):
             raise ValueError(
                 f"{index_path} is not a Privy GFA scan index. "
                 "Rebuild it with 'privy index gfa'."
             )
-        payload = pickle.load(fh)  # noqa: S301 - trusted local cache file
 
-    if not isinstance(payload, dict):
-        raise ValueError(f"{index_path} has an invalid Privy GFA index payload.")
-    schema_version = payload.get("schema_version")
-    if schema_version != _GFA_SCAN_INDEX_SCHEMA_VERSION:
-        raise ValueError(
-            f"{index_path} uses GFA index schema {schema_version!r}; "
-            f"this Privy version expects {_GFA_SCAN_INDEX_SCHEMA_VERSION}."
-        )
+    with _connect_gfa_scan_index_db(index_path, readonly=True) as conn:
+        metadata_row = conn.execute(
+            "SELECT value FROM metadata WHERE key = 'metadata'"
+        ).fetchone()
+        if metadata_row is None:
+            raise ValueError(f"{index_path} has an invalid Privy GFA index payload.")
+        metadata = _unpickle_payload(metadata_row[0])
 
-    scan_index = payload.get("index")
-    if not isinstance(scan_index, GfaScanIndex):
-        raise ValueError(f"{index_path} has an invalid Privy GFA scan index object.")
+        if not isinstance(metadata, dict):
+            raise ValueError(f"{index_path} has an invalid Privy GFA index payload.")
 
-    metadata = payload.get("metadata")
-    if not isinstance(metadata, dict):
-        metadata = {}
-    scan_index.metadata = metadata
+        schema_version = metadata.get("schema_version")
+        if schema_version != _GFA_SCAN_INDEX_SCHEMA_VERSION:
+            raise ValueError(
+                f"{index_path} uses GFA index schema {schema_version!r}; "
+                f"this Privy version expects {_GFA_SCAN_INDEX_SCHEMA_VERSION}. "
+                "Rebuild it with 'privy index gfa --gfa <GFA> --force'."
+            )
+
+        sample_rows = conn.execute(
+            "SELECT sample_idx, sample FROM samples ORDER BY sample_idx"
+        ).fetchall()
+        sample_order = tuple(str(row[1]) for row in sample_rows)
+        sample_to_index = {sample: idx for idx, sample in enumerate(sample_order)}
+        samples_seen = {
+            str(row[0]) for row in conn.execute("SELECT sample FROM samples_seen")
+        }
+        sample_intervals: list[dict[str, GfaPresenceIntervals]] = [
+            {} for _ in sample_order
+        ]
+        for sample_idx, contig, payload in conn.execute(
+            "SELECT sample_idx, contig, payload FROM sample_intervals"
+        ):
+            intervals = _unpickle_payload(payload)
+            if not isinstance(intervals, GfaPresenceIntervals):
+                raise ValueError(
+                    f"{index_path} has invalid sample interval data for {contig!r}."
+                )
+            sample_intervals[int(sample_idx)][str(contig)] = intervals
+
+        contig_counts = {
+            str(contig): int(n_segments)
+            for contig, n_segments in conn.execute(
+                "SELECT contig, n_segments FROM contigs"
+            )
+        }
 
     if gfa_path is not None:
         _validate_gfa_index_source(metadata, gfa_path, index_path)
 
-    return scan_index
+    return GfaScanIndex(
+        segments={},
+        contig_segments={},
+        segment_sample_mask={},
+        sample_intervals=sample_intervals,
+        sample_order=sample_order,
+        sample_to_index=sample_to_index,
+        samples_seen=samples_seen,
+        sqlite_index_path=index_path,
+        sqlite_contigs=tuple(sorted(contig_counts)),
+        sqlite_contig_counts=contig_counts,
+        n_segments=int(metadata.get("n_segments", 0) or 0),
+        n_links=int(metadata.get("n_links", 0) or 0),
+        n_paths=int(metadata.get("n_paths", 0) or 0),
+        n_walks=int(metadata.get("n_walks", 0) or 0),
+        metadata=metadata,
+    )
+
+
+def _connect_gfa_scan_index_db(index_path: Path, *, readonly: bool) -> sqlite3.Connection:
+    if readonly:
+        return sqlite3.connect(f"file:{index_path}?mode=ro", uri=True)
+
+    conn = sqlite3.connect(index_path)
+    conn.execute("PRAGMA journal_mode=OFF")
+    conn.execute("PRAGMA synchronous=OFF")
+    conn.execute("PRAGMA temp_store=MEMORY")
+    return conn
+
+
+def _init_gfa_scan_index_db(conn: sqlite3.Connection) -> None:
+    conn.executescript(
+        """
+        CREATE TABLE metadata (
+            key TEXT PRIMARY KEY,
+            value BLOB NOT NULL
+        );
+        CREATE TABLE samples (
+            sample_idx INTEGER PRIMARY KEY,
+            sample TEXT NOT NULL
+        );
+        CREATE TABLE samples_seen (
+            sample TEXT PRIMARY KEY
+        );
+        CREATE TABLE sample_intervals (
+            sample_idx INTEGER NOT NULL,
+            contig TEXT NOT NULL,
+            payload BLOB NOT NULL,
+            PRIMARY KEY (sample_idx, contig)
+        );
+        CREATE TABLE contigs (
+            contig TEXT PRIMARY KEY,
+            n_segments INTEGER NOT NULL
+        );
+        CREATE TABLE segments (
+            contig TEXT NOT NULL,
+            start INTEGER NOT NULL,
+            end INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            sample_mask BLOB NOT NULL
+        );
+        """
+    )
+
+
+def _insert_segment_batch(
+    conn: sqlite3.Connection,
+    batch: list[tuple[str, int, int, str, sqlite3.Binary]],
+) -> None:
+    conn.executemany(
+        "INSERT INTO segments(contig, start, end, name, sample_mask) "
+        "VALUES (?, ?, ?, ?, ?)",
+        batch,
+    )
+
+
+def _encode_sample_mask(mask: int) -> bytes:
+    n_bytes = max(1, (mask.bit_length() + 7) // 8)
+    return mask.to_bytes(n_bytes, "little")
+
+
+def _decode_sample_mask(mask_blob: bytes) -> int:
+    return int.from_bytes(mask_blob, "little")
+
+
+def _pickle_payload(payload: Any) -> bytes:
+    return pickle.dumps(payload, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def _unpickle_payload(payload: bytes) -> Any:
+    return pickle.loads(payload)  # noqa: S301 - trusted local cache file
 
 
 def _gfa_file_fingerprint(gfa_path: Path) -> dict[str, Any]:
