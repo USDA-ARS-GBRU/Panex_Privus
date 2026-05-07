@@ -528,12 +528,18 @@ def build_candidate_introgression_blocks(
                 current["n_windows"] = int(str(current["n_windows"])) + 1
                 current["_last_window_index"] = window_index
 
-            donor_values.append(float(row["donor_similarity"]))
-            if row["nearest_target_similarity"] is not None:
-                target_values.append(float(row["nearest_target_similarity"]))
-            if row["similarity_delta"] is not None:
-                delta_values.append(float(row["similarity_delta"]))
-            missing_values.append(float(row["missing_rate_float"]))
+            donor_similarity = _to_optional_float(row["donor_similarity"])
+            target_similarity = _to_optional_float(row["nearest_target_similarity"])
+            similarity_delta = _to_optional_float(row["similarity_delta"])
+            missing_rate = _to_optional_float(row["missing_rate_float"])
+            if donor_similarity is not None:
+                donor_values.append(donor_similarity)
+            if target_similarity is not None:
+                target_values.append(target_similarity)
+            if similarity_delta is not None:
+                delta_values.append(similarity_delta)
+            if missing_rate is not None:
+                missing_values.append(missing_rate)
             private_rate = _to_optional_float(row["private_alt_rate"])
             nonref_rate = _to_optional_float(row["nonref_rate"])
             if private_rate is not None:
