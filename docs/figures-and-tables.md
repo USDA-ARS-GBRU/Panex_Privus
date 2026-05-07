@@ -254,6 +254,11 @@ privy landscape \
   --outdir results/landscape/
 ```
 
+The example landscape figures below are generated from
+`docs/assets/examples/landscape/example_landscape.vcf`, a small synthetic VCF
+with target-private windows, missingness spikes, and donor-like local
+background blocks.
+
 ### Table: Sample Windows (`sample_windows.tsv`)
 
 | window_id | contig | start | end | sample | cohort_role | missing_rate | private_alt_rate | nearest_background | nearest_similarity |
@@ -309,6 +314,8 @@ introgression calls.
 
 ### Figure: Missingness Heatmap
 
+![Missingness heatmap example](assets/examples/landscape/missingness_heatmap.png)
+
 **Figure title.** Windowed genotype missingness across samples.
 
 **Caption.** Heatmap of sample-level missing genotype rate in sliding VCF
@@ -316,6 +323,8 @@ windows. This figure helps identify chromosome intervals where apparent
 private signal may be influenced by missing target or off-target genotypes.
 
 ### Figure: Private Burden Heatmap
+
+![Private burden heatmap example](assets/examples/landscape/private_burden_heatmap.png)
 
 **Figure title.** Windowed private ALT burden across samples.
 
@@ -326,6 +335,8 @@ than a strict 0-to-1 probability.
 
 ### Figure: Local Background Map
 
+![Local background map example](assets/examples/landscape/local_background_map.png)
+
 **Figure title.** Local nearest-background assignment by chromosome.
 
 **Caption.** Each sample is plotted across genome windows and colored by the
@@ -334,6 +345,8 @@ shared genomic background blocks. Interpret these as exploratory similarity
 segments unless a formal cross design or recombination model is supplied.
 
 ### Figure: Similarity Cluster Map
+
+![Similarity cluster map example](assets/examples/landscape/similarity_cluster_map.png)
 
 **Figure title.** Clustered local genotype-similarity map.
 

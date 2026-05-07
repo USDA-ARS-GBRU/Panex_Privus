@@ -257,6 +257,23 @@ a:hover {
   background: #f4f6f5;
 }
 
+.content img {
+  display: block;
+  width: auto;
+  max-width: min(100%, 760px);
+  height: auto;
+  margin: 1.1rem auto 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.content p > img:only-child {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 code {
   background: var(--code-bg);
   padding: 0.12rem 0.28rem;
