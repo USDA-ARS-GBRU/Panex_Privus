@@ -293,6 +293,20 @@ background remains the same and passes the similarity threshold. These blocks
 are exploratory shared-background segments, not formal recombination-rate map
 intervals.
 
+### Table: Candidate Introgression Blocks (`candidate_introgression_blocks.tsv`)
+
+| block_id | sample | contig | start | end | n_windows | candidate_donor | mean_donor_similarity | mean_similarity_delta |
+|----------|--------|--------|-------|-----|-----------|-----------------|-----------------------|-----------------------|
+| `IB00000001` | `T1` | `chr1` | 1200000 | 1800000 | 4 | `O2` | 0.912500 | 0.181250 |
+
+**Table title.** Candidate donor-like local background blocks.
+
+**Caption.** Target-sample windows are merged when the target is locally
+closest to an off-target sample and passes the configured similarity,
+missingness, delta, and minimum-window filters. Interpret these rows as
+candidate donor-like or introgressed intervals for follow-up, not definitive
+introgression calls.
+
 ### Figure: Missingness Heatmap
 
 **Figure title.** Windowed genotype missingness across samples.

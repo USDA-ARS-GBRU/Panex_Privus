@@ -92,6 +92,25 @@ BACKGROUND_BLOCK_COLUMNS = [
     "mean_similarity",
 ]
 
+CANDIDATE_INTROGRESSION_BLOCK_COLUMNS = [
+    "block_id",
+    "sample",
+    "contig",
+    "start",
+    "end",
+    "n_windows",
+    "candidate_donor",
+    "candidate_donor_role",
+    "mean_donor_similarity",
+    "mean_nearest_target_similarity",
+    "mean_similarity_delta",
+    "max_missing_rate",
+    "mean_private_alt_rate",
+    "mean_nonref_rate",
+    "evidence_class",
+    "interpretation",
+]
+
 LANDSCAPE_SIMILARITY_COLUMNS = [
     "window_id",
     "contig",
@@ -115,6 +134,7 @@ class LandscapeResult:
     sample_rows: list[dict[str, object]]
     window_rows: list[dict[str, object]]
     background_block_rows: list[dict[str, object]]
+    candidate_introgression_rows: list[dict[str, object]]
     similarity_rows: list[dict[str, object]]
 
 
@@ -160,6 +180,10 @@ def run_vcf_landscape(
     min_called_for_freq: int = 10,
     min_freq_values: int = 10,
     min_background_similarity: float = 0.65,
+    min_introgression_similarity: float | None = None,
+    min_introgression_delta: float = 0.0,
+    max_introgression_missing_rate: float = 0.5,
+    min_introgression_windows: int = 1,
 ) -> LandscapeResult:
     """Run sliding-window VCF landscape analysis.
 
@@ -185,6 +209,17 @@ def run_vcf_landscape(
         raise ValueError("min_freq_values must be non-negative.")
     if min_background_similarity < 0 or min_background_similarity > 1:
         raise ValueError("min_background_similarity must be between 0 and 1.")
+    if (
+        min_introgression_similarity is not None
+        and (min_introgression_similarity < 0 or min_introgression_similarity > 1)
+    ):
+        raise ValueError("min_introgression_similarity must be between 0 and 1.")
+    if min_introgression_delta < 0 or min_introgression_delta > 1:
+        raise ValueError("min_introgression_delta must be between 0 and 1.")
+    if max_introgression_missing_rate < 0 or max_introgression_missing_rate > 1:
+        raise ValueError("max_introgression_missing_rate must be between 0 and 1.")
+    if min_introgression_windows <= 0:
+        raise ValueError("min_introgression_windows must be positive.")
 
     samples = tuple(get_vcf_samples(vcf_path))
     groups = resolve_pangenome_groups(
@@ -271,6 +306,19 @@ def run_vcf_landscape(
         background_rows_input,
         min_background_similarity=min_background_similarity,
     )
+    introgression_rows = build_candidate_introgression_blocks(
+        sample_window_rows=background_rows_input,
+        similarity_rows=similarity_rows,
+        target_samples=groups.target,
+        min_introgression_similarity=(
+            min_background_similarity
+            if min_introgression_similarity is None
+            else min_introgression_similarity
+        ),
+        min_introgression_delta=min_introgression_delta,
+        max_introgression_missing_rate=max_introgression_missing_rate,
+        min_introgression_windows=min_introgression_windows,
+    )
     return LandscapeResult(
         samples=samples,
         groups=groups,
@@ -278,6 +326,7 @@ def run_vcf_landscape(
         sample_rows=sample_rows,
         window_rows=window_rows,
         background_block_rows=block_rows,
+        candidate_introgression_rows=introgression_rows,
         similarity_rows=similarity_rows,
     )
 
@@ -345,6 +394,220 @@ def build_background_blocks(
             block_index += 1
 
     return block_rows
+
+
+def build_candidate_introgression_blocks(
+    sample_window_rows: list[dict[str, object]],
+    similarity_rows: list[dict[str, object]],
+    target_samples: tuple[str, ...],
+    min_introgression_similarity: float = 0.65,
+    min_introgression_delta: float = 0.0,
+    max_introgression_missing_rate: float = 0.5,
+    min_introgression_windows: int = 1,
+) -> list[dict[str, object]]:
+    """Merge adjacent donor-like target windows into candidate introgression blocks.
+
+    These are exploratory local-background calls, not formal introgression tests.
+    A target window is eligible when its nearest sample is an off-target sample,
+    the nearest similarity passes the configured threshold, missingness is low
+    enough, and the off-target similarity exceeds the best target-to-target
+    similarity by at least ``min_introgression_delta`` when such a comparison is
+    available.
+    """
+    target_set = set(target_samples)
+    nearest_target_similarity = _nearest_target_similarity_by_window(
+        similarity_rows,
+        target_set,
+    )
+
+    grouped: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
+    for row in sample_window_rows:
+        sample = str(row["sample"])
+        if sample not in target_set or str(row["cohort_role"]) != "target":
+            continue
+
+        candidate_donor = str(row["nearest_background"])
+        candidate_donor_role = str(row["nearest_background_role"])
+        donor_similarity = _to_optional_float(row["nearest_similarity"])
+        missing_rate = _to_optional_float(row["missing_rate"])
+        if (
+            candidate_donor == "NA"
+            or candidate_donor_role != "off_target"
+            or donor_similarity is None
+            or donor_similarity < min_introgression_similarity
+            or missing_rate is None
+            or missing_rate > max_introgression_missing_rate
+        ):
+            continue
+
+        target_similarity = nearest_target_similarity.get((str(row["window_id"]), sample))
+        similarity_delta = (
+            None if target_similarity is None else donor_similarity - target_similarity
+        )
+        if (
+            similarity_delta is not None
+            and similarity_delta < min_introgression_delta
+        ):
+            continue
+
+        candidate = dict(row)
+        candidate["candidate_donor"] = candidate_donor
+        candidate["candidate_donor_role"] = candidate_donor_role
+        candidate["donor_similarity"] = donor_similarity
+        candidate["nearest_target_similarity"] = target_similarity
+        candidate["similarity_delta"] = similarity_delta
+        candidate["missing_rate_float"] = missing_rate
+        grouped[(sample, str(row["contig"]))].append(candidate)
+
+    block_rows: list[dict[str, object]] = []
+    block_index = 1
+    for sample_contig in sorted(grouped):
+        rows = sorted(grouped[sample_contig], key=lambda r: int(str(r["window_index"])))
+        current: dict[str, object] | None = None
+        donor_values: list[float] = []
+        target_values: list[float] = []
+        delta_values: list[float] = []
+        missing_values: list[float] = []
+        private_values: list[float] = []
+        nonref_values: list[float] = []
+
+        for row in rows:
+            window_index = int(str(row["window_index"]))
+            should_extend = (
+                current is not None
+                and current["candidate_donor"] == row["candidate_donor"]
+                and current["contig"] == row["contig"]
+                and int(str(current["_last_window_index"])) + 1 == window_index
+            )
+            if not should_extend:
+                if current is not None:
+                    _finalize_candidate_introgression_block(
+                        current=current,
+                        donor_values=donor_values,
+                        target_values=target_values,
+                        delta_values=delta_values,
+                        missing_values=missing_values,
+                        private_values=private_values,
+                        nonref_values=nonref_values,
+                        min_introgression_windows=min_introgression_windows,
+                        block_rows=block_rows,
+                    )
+                    if int(str(current["n_windows"])) >= min_introgression_windows:
+                        block_index += 1
+                current = {
+                    "block_id": f"IB{block_index:08d}",
+                    "sample": row["sample"],
+                    "contig": row["contig"],
+                    "start": row["start"],
+                    "end": row["end"],
+                    "n_windows": 1,
+                    "candidate_donor": row["candidate_donor"],
+                    "candidate_donor_role": row["candidate_donor_role"],
+                    "mean_donor_similarity": "NA",
+                    "mean_nearest_target_similarity": "NA",
+                    "mean_similarity_delta": "NA",
+                    "max_missing_rate": "NA",
+                    "mean_private_alt_rate": "NA",
+                    "mean_nonref_rate": "NA",
+                    "evidence_class": "candidate_introgression",
+                    "interpretation": (
+                        "Target sample is locally closest to an off-target sample; "
+                        "review as a candidate donor-like or introgressed block."
+                    ),
+                    "_last_window_index": window_index,
+                }
+                donor_values = []
+                target_values = []
+                delta_values = []
+                missing_values = []
+                private_values = []
+                nonref_values = []
+            else:
+                assert current is not None
+                current["end"] = row["end"]
+                current["n_windows"] = int(str(current["n_windows"])) + 1
+                current["_last_window_index"] = window_index
+
+            donor_values.append(float(row["donor_similarity"]))
+            if row["nearest_target_similarity"] is not None:
+                target_values.append(float(row["nearest_target_similarity"]))
+            if row["similarity_delta"] is not None:
+                delta_values.append(float(row["similarity_delta"]))
+            missing_values.append(float(row["missing_rate_float"]))
+            private_rate = _to_optional_float(row["private_alt_rate"])
+            nonref_rate = _to_optional_float(row["nonref_rate"])
+            if private_rate is not None:
+                private_values.append(private_rate)
+            if nonref_rate is not None:
+                nonref_values.append(nonref_rate)
+
+        if current is not None:
+            _finalize_candidate_introgression_block(
+                current=current,
+                donor_values=donor_values,
+                target_values=target_values,
+                delta_values=delta_values,
+                missing_values=missing_values,
+                private_values=private_values,
+                nonref_values=nonref_values,
+                min_introgression_windows=min_introgression_windows,
+                block_rows=block_rows,
+            )
+            if int(str(current["n_windows"])) >= min_introgression_windows:
+                block_index += 1
+
+    return block_rows
+
+
+def _nearest_target_similarity_by_window(
+    similarity_rows: list[dict[str, object]],
+    target_samples: set[str],
+) -> dict[tuple[str, str], float]:
+    nearest: dict[tuple[str, str], float] = {}
+    for row in similarity_rows:
+        sample_a = str(row["sample_a"])
+        sample_b = str(row["sample_b"])
+        if sample_a not in target_samples or sample_b not in target_samples:
+            continue
+        similarity = _to_optional_float(row["similarity"])
+        if similarity is None:
+            continue
+        window_id = str(row["window_id"])
+        for sample in (sample_a, sample_b):
+            key = (window_id, sample)
+            if key not in nearest or similarity > nearest[key]:
+                nearest[key] = similarity
+    return nearest
+
+
+def _finalize_candidate_introgression_block(
+    current: dict[str, object],
+    donor_values: list[float],
+    target_values: list[float],
+    delta_values: list[float],
+    missing_values: list[float],
+    private_values: list[float],
+    nonref_values: list[float],
+    min_introgression_windows: int,
+    block_rows: list[dict[str, object]],
+) -> None:
+    current["mean_donor_similarity"] = _fmt_optional_mean(donor_values)
+    current["mean_nearest_target_similarity"] = _fmt_optional_mean(target_values)
+    current["mean_similarity_delta"] = _fmt_optional_mean(delta_values)
+    current["max_missing_rate"] = (
+        "NA" if not missing_values else _fmt_float(max(missing_values))
+    )
+    current["mean_private_alt_rate"] = _fmt_optional_mean(private_values)
+    current["mean_nonref_rate"] = _fmt_optional_mean(nonref_values)
+
+    if not delta_values:
+        current["evidence_class"] = "donor_like_single_target"
+    elif mean(delta_values) > 0:
+        current["evidence_class"] = "offtarget_closer_than_target"
+
+    current.pop("_last_window_index", None)
+    if int(str(current["n_windows"])) >= min_introgression_windows:
+        block_rows.append(current)
 
 
 def _analyze_contig_windows(

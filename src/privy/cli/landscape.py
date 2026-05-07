@@ -96,6 +96,28 @@ def landscape(
         0.65, "--min-background-similarity", metavar="FLOAT", min=0.0, max=1.0,
         help="Minimum nearest-sample similarity for assigning local background blocks.",
     ),
+    min_introgression_similarity: float | None = typer.Option(
+        None, "--min-introgression-similarity", metavar="FLOAT", min=0.0, max=1.0,
+        help=(
+            "Minimum off-target similarity for candidate introgression blocks. "
+            "Defaults to --min-background-similarity."
+        ),
+    ),
+    min_introgression_delta: float = typer.Option(
+        0.0, "--min-introgression-delta", metavar="FLOAT", min=0.0, max=1.0,
+        help=(
+            "Minimum similarity advantage of the nearest off-target over the "
+            "nearest target sample."
+        ),
+    ),
+    max_introgression_missing_rate: float = typer.Option(
+        0.5, "--max-introgression-missing-rate", metavar="FLOAT", min=0.0, max=1.0,
+        help="Maximum target-sample missingness allowed in candidate introgression windows.",
+    ),
+    min_introgression_windows: int = typer.Option(
+        1, "--min-introgression-windows", metavar="INTEGER", min=1,
+        help="Minimum adjacent windows required to emit a candidate introgression block.",
+    ),
     write_plots: bool = typer.Option(
         True, "--plots/--no-plots",
         help="Write landscape figures alongside TSV outputs.",
@@ -153,6 +175,10 @@ def landscape(
             min_called_for_freq=min_called_for_freq,
             min_freq_values=min_freq_values,
             min_background_similarity=min_background_similarity,
+            min_introgression_similarity=min_introgression_similarity,
+            min_introgression_delta=min_introgression_delta,
+            max_introgression_missing_rate=max_introgression_missing_rate,
+            min_introgression_windows=min_introgression_windows,
             write_plots=write_plots,
             plot_format=plot_format,
         )

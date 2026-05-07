@@ -44,6 +44,7 @@ def test_landscape_cli_runs_vcf_and_writes_tables_and_plots(
     assert (outdir / "sample_windows.tsv").exists()
     assert (outdir / "windows.tsv").exists()
     assert (outdir / "background_blocks.tsv").exists()
+    assert (outdir / "candidate_introgression_blocks.tsv").exists()
     assert (outdir / "similarity.tsv").exists()
     assert (outdir / "missingness_heatmap.png").exists()
     assert (outdir / "private_burden_heatmap.png").exists()
@@ -58,6 +59,7 @@ def test_landscape_cli_runs_vcf_and_writes_tables_and_plots(
     data = json.loads((outdir / "landscape.json").read_text())
     assert data["analysis"] == "landscape"
     assert data["parameters"]["window_mode"] == "records"
+    assert "candidate_introgression_blocks.tsv" in data["outputs"]
     assert "local_background_map.png" in data["outputs"]
 
 

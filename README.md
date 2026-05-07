@@ -168,10 +168,10 @@ privy landscape \
 ```
 
 `privy landscape` complements discovery. It writes per-sample window metrics,
-per-window target/off-target summaries, local background blocks, pairwise
-similarity tables, and first-pass heatmap/background-map figures. Use
-`--window-bp` and `--step-bp` when physical base-pair windows are easier to
-interpret than fixed-record windows.
+per-window target/off-target summaries, local background blocks, candidate
+donor-like or introgressed blocks, pairwise similarity tables, and first-pass
+heatmap/background-map figures. Use `--window-bp` and `--step-bp` when
+physical base-pair windows are easier to interpret than fixed-record windows.
 
 Compare two scan outputs:
 
@@ -232,7 +232,7 @@ Operational commands:
 - `privy index`
 - `privy landscape`
 
-The current test suite has 664 passing unit and integration tests.
+The current test suite has 670 passing unit and integration tests.
 
 ## Contact
 

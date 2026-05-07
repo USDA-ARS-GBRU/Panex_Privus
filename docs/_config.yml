@@ -22,6 +22,29 @@ nav:
     url: /
   - title: Installation
     url: /installation/
+    children:
+      - title: Requirements
+        url: /installation/#requirements
+      - title: Mamba install
+        url: /installation/#option-1-mamba-install
+      - title: Pixi install
+        url: /installation/#option-2-pixi-install
+      - title: Pip install
+        url: /installation/#option-3-standard-pip-install
+      - title: Conda-friendly
+        url: /installation/#option-4-conda-friendly-install
+      - title: Developer install
+        url: /installation/#option-5-developer-install
+      - title: Update
+        url: /installation/#update-to-the-most-recent-version
+      - title: Verify
+        url: /installation/#verify-the-install
+      - title: External tools
+        url: /installation/#external-tools
+      - title: Prepare inputs
+        url: /installation/#prepare-inputs
+      - title: Pangenome inputs
+        url: /installation/#upstream-pangenome-inputs
   - title: Run Guide
     url: /run-guide/
     children:
@@ -82,16 +105,90 @@ nav:
         url: /concepts/#reading-results-without-treating-them-as-a-black-box
   - title: Outputs
     url: /outputs/
+    children:
+      - title: Hit columns
+        url: /outputs/#key-hitstsv-columns
+      - title: Report
+        url: /outputs/#report-outputs
+      - title: Compare
+        url: /outputs/#compare-outputs
+      - title: GFA segments
+        url: /outputs/#gfa-graph-segment-outputs
+      - title: Pangenome
+        url: /outputs/#pangenome-outputs
+      - title: Landscape
+        url: /outputs/#landscape-outputs
+      - title: Candidate introgression
+        url: /outputs/#candidate_introgression_blockstsv
+      - title: Annotate
+        url: /outputs/#annotate-outputs
+      - title: Export
+        url: /outputs/#export-outputs
   - title: Figures
     url: /figures-and-tables/
+    children:
+      - title: Scan
+        url: /figures-and-tables/#privy-scan
+      - title: Pangenome
+        url: /figures-and-tables/#privy-pangenome
+      - title: Landscape
+        url: /figures-and-tables/#privy-landscape
+      - title: Compare
+        url: /figures-and-tables/#privy-compare
+      - title: Plot
+        url: /figures-and-tables/#privy-plot
+      - title: Report
+        url: /figures-and-tables/#privy-report
+      - title: Annotate
+        url: /figures-and-tables/#privy-annotate
+      - title: Export
+        url: /figures-and-tables/#privy-export
+      - title: Caveats
+        url: /figures-and-tables/#general-interpretation-caveats
   - title: Configuration
     url: /configuration/
+    children:
+      - title: Example
+        url: /configuration/#example
+      - title: Cohort files
+        url: /configuration/#cohort-files
   - title: Status
     url: /status/
+    children:
+      - title: Works now
+        url: /status/#what-works-now
+      - title: Roadmap
+        url: /status/#roadmap
+      - title: Contributions
+        url: /status/#helpful-contributions
   - title: Troubleshooting
     url: /troubleshooting/
+    children:
+      - title: VCF index
+        url: /troubleshooting/#vcf-index-not-found
+      - title: Target samples
+        url: /troubleshooting/#no-target-samples-from-the-cohort-definition-were-found-in-the-vcf-header
+      - title: Empty hits
+        url: /troubleshooting/#hitstsv-is-empty
+      - title: GFA no hits
+        url: /troubleshooting/#gfa-scan-produces-no-hits
+      - title: GFA killed
+        url: /troubleshooting/#gfa-scan-is-killed-while-parsing
+      - title: BAM uninformative
+        url: /troubleshooting/#bam-support-is-uninformative
+      - title: pysam install
+        url: /troubleshooting/#pysam-installation-errors
   - title: Architecture
     url: /architecture/
+    children:
+      - title: Overview
+        url: /architecture/#overview
+      - title: Priorities
+        url: /architecture/#architectural-priorities
+      - title: Commands
+        url: /architecture/#command-architecture
+      - title: CLI surface
+        url: /architecture/#current-cli-surface
 
 exclude:
   - dev/

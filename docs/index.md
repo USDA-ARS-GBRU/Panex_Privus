@@ -11,7 +11,7 @@ target cohort and absent from off-target genomes.
 
 The package also includes VCF landscape analysis for sliding-window summaries:
 missingness, private-allele burden, local sample similarity, and local
-background blocks across chromosomes.
+background or candidate donor-like blocks across chromosomes.
 
 This documentation is organized as a user guide rather than one very long
 README.

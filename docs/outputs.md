@@ -45,6 +45,7 @@ choose with `--outdir`.
 | `sample_windows.tsv` | One row per sample per window with missingness, genotype burden, private/rare ALT burden, and nearest local background |
 | `windows.tsv` | One row per window with target/off-target summary metrics |
 | `background_blocks.tsv` | Adjacent sample windows merged by nearest local background assignment |
+| `candidate_introgression_blocks.tsv` | Target-sample blocks whose nearest local background is an off-target sample, reported as exploratory donor-like or candidate introgressed intervals |
 | `similarity.tsv` | Pairwise sample genotype similarity for each window |
 | `missingness_heatmap.png` | Sample-by-window missingness heatmap |
 | `private_burden_heatmap.png` | Sample-by-window private ALT burden heatmap |
@@ -195,6 +196,26 @@ mode and window size parameters in `landscape.json`.
 | `n_windows` | Number of windows merged into the block |
 | `nearest_background` | Assigned nearest local background, or `unassigned` |
 | `mean_similarity` | Mean nearest-background similarity across merged windows |
+
+### `candidate_introgression_blocks.tsv`
+
+This file is produced by `privy landscape`. It is an exploratory table, not a
+formal introgression test. A row means a target sample was locally closest to
+an off-target sample for one or more adjacent windows and passed the configured
+similarity, delta, missingness, and minimum-window filters.
+
+| Column | Meaning |
+|--------|---------|
+| `block_id` | Stable candidate block ID |
+| `sample` | Target sample being evaluated |
+| `contig`, `start`, `end` | Merged candidate block coordinates |
+| `n_windows` | Number of adjacent windows merged into the block |
+| `candidate_donor` | Off-target sample with highest local genotype similarity |
+| `mean_donor_similarity` | Mean similarity between the target sample and candidate donor |
+| `mean_nearest_target_similarity` | Mean best similarity to another target sample, when available |
+| `mean_similarity_delta` | Donor similarity minus nearest-target similarity |
+| `max_missing_rate` | Highest target missingness across windows in the block |
+| `evidence_class` | Exploratory evidence label for the block |
 
 ## Annotate Outputs
 

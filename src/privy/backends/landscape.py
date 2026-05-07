@@ -10,6 +10,7 @@ from typing import Any
 from privy.io.tsv import TsvWriter
 from privy.landscape import (
     BACKGROUND_BLOCK_COLUMNS,
+    CANDIDATE_INTROGRESSION_BLOCK_COLUMNS,
     LANDSCAPE_SAMPLE_WINDOW_COLUMNS,
     LANDSCAPE_SIMILARITY_COLUMNS,
     LANDSCAPE_WINDOW_COLUMNS,
@@ -37,6 +38,10 @@ def run_landscape_vcf(
     min_called_for_freq: int = 10,
     min_freq_values: int = 10,
     min_background_similarity: float = 0.65,
+    min_introgression_similarity: float | None = None,
+    min_introgression_delta: float = 0.0,
+    max_introgression_missing_rate: float = 0.5,
+    min_introgression_windows: int = 1,
     write_plots: bool = True,
     plot_format: str = "png",
 ) -> None:
@@ -59,6 +64,10 @@ def run_landscape_vcf(
         min_called_for_freq=min_called_for_freq,
         min_freq_values=min_freq_values,
         min_background_similarity=min_background_similarity,
+        min_introgression_similarity=min_introgression_similarity,
+        min_introgression_delta=min_introgression_delta,
+        max_introgression_missing_rate=max_introgression_missing_rate,
+        min_introgression_windows=min_introgression_windows,
     )
 
     with TsvWriter(outdir / "sample_windows.tsv", LANDSCAPE_SAMPLE_WINDOW_COLUMNS) as writer:
@@ -67,6 +76,11 @@ def run_landscape_vcf(
         writer.write_rows(result.window_rows)
     with TsvWriter(outdir / "background_blocks.tsv", BACKGROUND_BLOCK_COLUMNS) as writer:
         writer.write_rows(result.background_block_rows)
+    with TsvWriter(
+        outdir / "candidate_introgression_blocks.tsv",
+        CANDIDATE_INTROGRESSION_BLOCK_COLUMNS,
+    ) as writer:
+        writer.write_rows(result.candidate_introgression_rows)
     with TsvWriter(outdir / "similarity.tsv", LANDSCAPE_SIMILARITY_COLUMNS) as writer:
         writer.write_rows(result.similarity_rows)
 
@@ -106,6 +120,14 @@ def run_landscape_vcf(
             "min_called_for_freq": min_called_for_freq,
             "min_freq_values": min_freq_values,
             "min_background_similarity": min_background_similarity,
+            "min_introgression_similarity": (
+                min_background_similarity
+                if min_introgression_similarity is None
+                else min_introgression_similarity
+            ),
+            "min_introgression_delta": min_introgression_delta,
+            "max_introgression_missing_rate": max_introgression_missing_rate,
+            "min_introgression_windows": min_introgression_windows,
             "write_plots": write_plots,
             "plot_format": plot_format,
         },
@@ -120,12 +142,16 @@ def run_landscape_vcf(
             "n_windows": len(result.window_rows),
             "n_sample_window_rows": len(result.sample_rows),
             "n_background_blocks": len(result.background_block_rows),
+            "n_candidate_introgression_blocks": len(
+                result.candidate_introgression_rows
+            ),
             "n_similarity_rows": len(result.similarity_rows),
         },
         "outputs": [
             "sample_windows.tsv",
             "windows.tsv",
             "background_blocks.tsv",
+            "candidate_introgression_blocks.tsv",
             "similarity.tsv",
             *plot_paths,
             "landscape.json",

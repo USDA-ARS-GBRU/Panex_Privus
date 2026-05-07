@@ -416,6 +416,8 @@ Landscape outputs:
 - `sample_windows.tsv`: per-sample metrics for every emitted window
 - `windows.tsv`: target/off-target summary metrics for every window
 - `background_blocks.tsv`: adjacent windows merged by nearest local background
+- `candidate_introgression_blocks.tsv`: target windows merged when the nearest
+  local background is an off-target sample
 - `similarity.tsv`: per-window pairwise genotype similarity
 - `missingness_heatmap.png`: sample-by-window missingness
 - `private_burden_heatmap.png`: sample-by-window private ALT burden
@@ -438,6 +440,10 @@ Key landscape options:
 | `--rare-max-count INT` | Carrier-count threshold for rare ALT burden |
 | `--rare-max-freq FLOAT` | Carrier-frequency threshold for rare ALT burden |
 | `--min-background-similarity FLOAT` | Minimum nearest-sample similarity for assigning background blocks |
+| `--min-introgression-similarity FLOAT` | Minimum target-to-off-target similarity for candidate introgression blocks; defaults to `--min-background-similarity` |
+| `--min-introgression-delta FLOAT` | Minimum advantage over the nearest target sample |
+| `--max-introgression-missing-rate FLOAT` | Maximum target missingness allowed in candidate introgression windows |
+| `--min-introgression-windows INT` | Minimum adjacent windows needed to emit a candidate block |
 | `--plots` / `--no-plots` | Write or skip landscape figures |
 
 Interpret local background blocks as exploratory shared-genomic-background
@@ -446,6 +452,14 @@ they are not by themselves a formal recombination-rate map. For controlled
 crosses, founder panels, MAGIC populations, or pedigrees, the landscape outputs
 can help choose regions and samples for more formal recombination or
 founder-haplotype analyses.
+
+Interpret `candidate_introgression_blocks.tsv` as a prioritized donor-like
+local-background table. A block is emitted when a target sample is locally
+closest to an off-target sample and passes the configured thresholds. Shared
+ancestry, low recombination, selection, structural variation, missingness, and
+VCF representation can produce similar patterns, so these rows should be
+treated as candidate intervals for follow-up rather than definitive
+introgression calls.
 
 See [Figures and Tables](figures-and-tables.md#privy-landscape) for example
 landscape table snippets, figure titles, and caption language.

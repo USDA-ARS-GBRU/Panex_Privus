@@ -38,7 +38,7 @@ The main design rules are:
 | `privy scan` | Which loci or graph segments match the target-private pattern? | VCF or GFA, optional BAM support | `hits.tsv`, `regions.tsv`, evidence, QC, run metadata |
 | `privy index gfa` | Can a large GFA be pre-indexed for faster repeated scans? | GFA | `<GFA>.privy.gfaidx` or a user-chosen index path |
 | `privy pangenome` | What is the full, target, and off-target feature composition? | GFA segments or VCF alternate alleles | Feature summary, coverage histogram, composition, growth curves |
-| `privy landscape` | How do VCF metrics change across chromosomes in sliding windows? | Multisample VCF or BCF | Window tables, similarity tables, local background blocks, heatmaps |
+| `privy landscape` | How do VCF metrics change across chromosomes in sliding windows? | Multisample VCF or BCF | Window tables, similarity tables, local background blocks, candidate introgression blocks, heatmaps |
 | `privy compare` | Do two scan result sets support the same loci? | Two `hits.tsv` files | `compare.tsv`, summary table, metadata |
 | `privy report` | How should scan outputs be summarized for collaborators? | Scan and optional compare outputs | Ranked tables, summaries, Markdown/HTML report |
 | `privy plot` | What quick diagnostic figures summarize a run? | Scan and optional compare outputs | Locus, strictness, score, evidence, and compare plots |
@@ -64,6 +64,7 @@ These terms appear throughout the documentation and output files.
 | Local sample similarity | Pairwise genotype-match fraction between two samples within one landscape window, calculated only where both samples have called genotypes |
 | Local background | The sample most similar to a focal sample in a landscape window |
 | Local background block | Adjacent landscape windows merged when the nearest local background stays the same and passes the similarity threshold |
+| Candidate introgression block | Adjacent target-sample windows where the nearest local background is an off-target sample and configured similarity, delta, missingness, and minimum-window filters pass |
 | Sliding window | A fixed-record or fixed-base-pair interval moved along each contig to summarize local VCF patterns |
 
 In plain language, the `privy landscape` sentence:
@@ -477,6 +478,24 @@ read as:
 For controlled crosses, MAGIC populations, founder panels, or pedigrees, the
 landscape outputs can help choose regions and samples for more formal
 recombination or founder-haplotype analyses.
+
+### Candidate Introgression Blocks
+
+A candidate introgression block is a stricter target-focused view of local
+background. Panex Privus looks for adjacent windows where a target sample is
+locally closest to an off-target sample. The block must pass the configured
+minimum target-to-off-target similarity, optional similarity advantage over the
+nearest target sample, maximum missingness, and minimum-window filters.
+
+These rows are best read as:
+
+> This target sample has a local donor-like background similar to this
+> off-target sample across this chromosome interval.
+
+They are candidate intervals for follow-up. Shared ancestral variation,
+incomplete lineage sorting, low recombination, selection, structural variation,
+missingness, and VCF representation can all produce donor-like local similarity
+without recent introgression.
 
 ## `privy report`
 

@@ -428,6 +428,7 @@ Core landscape outputs
 	•	sample_windows.tsv
 	•	windows.tsv
 	•	background_blocks.tsv
+	•	candidate_introgression_blocks.tsv
 	•	similarity.tsv
 	•	landscape.json
 
@@ -444,6 +445,10 @@ genotypic neighbor stays the same and passes a similarity threshold. These
 blocks are best interpreted as shared genomic background segments. A true
 recombination map usually requires a formal cross or pedigree design and a
 genetic-map model.
+
+Candidate introgression blocks are derived from target-sample windows whose
+nearest local background is an off-target sample. They are exploratory
+donor-like intervals, not formal local ancestry calls.
 
 ⸻
 
@@ -976,12 +981,21 @@ LANDSCAPE OPTIONS:
   --rare-max-freq FLOAT      Carrier-frequency threshold for rare ALT burden
   --min-background-similarity FLOAT
                              Minimum similarity for local background assignment
+  --min-introgression-similarity FLOAT
+                             Minimum similarity for candidate introgression
+  --min-introgression-delta FLOAT
+                             Minimum off-target advantage over nearest target
+  --max-introgression-missing-rate FLOAT
+                             Maximum missingness in candidate windows
+  --min-introgression-windows INT
+                             Minimum adjacent windows per candidate block
   --plots / --no-plots       Write or skip landscape figures
 
 LANDSCAPE OUTPUTS:
   sample_windows.tsv
   windows.tsv
   background_blocks.tsv
+  candidate_introgression_blocks.tsv
   similarity.tsv
   landscape.json
   missingness_heatmap.png
