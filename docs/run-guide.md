@@ -295,7 +295,9 @@ so the same tables and plots are available for graph and variant inputs.
 ```bash
 privy pangenome \
   --gfa pangenome.gfa.gz \
-  --targets T1 T2 T3 \
+  --targets T1 \
+  --targets T2 \
+  --targets T3 \
   --outdir results/pangenome/
 ```
 
@@ -304,7 +306,9 @@ For a VCF, each alternate allele is treated as one pangenome feature:
 ```bash
 privy pangenome \
   --vcf variants.vcf.gz \
-  --targets T1 T2 T3 \
+  --targets T1 \
+  --targets T2 \
+  --targets T3 \
   --outdir results/pangenome/
 ```
 
@@ -349,6 +353,93 @@ Pangenome outputs:
 See [Figures and Tables](figures-and-tables.md) for example output snippets,
 figure captions, and guidance on using pangenome plots in research reports or
 publications.
+
+## Explore VCF Landscapes
+
+Use `privy landscape` when you want genome-wide window context around VCF
+signal. It is not the private-locus discovery step and it is not a replacement
+for specialized population-genetic tools. It is a Panex-native view of how
+missingness, non-reference burden, private/rare ALT burden, and local sample
+similarity change along chromosomes under the same target/off-target cohort
+definition used by `privy scan`.
+
+The default is fixed-record windows. This keeps the number of variants per
+window stable even when variant density changes along the chromosome:
+
+```bash
+privy landscape \
+  --vcf variants.vcf.gz \
+  --targets T1 \
+  --targets T2 \
+  --targets T3 \
+  --off-targets O1 \
+  --off-targets O2 \
+  --off-targets O3 \
+  --window-records 200 \
+  --step-records 50 \
+  --outdir results/landscape/
+```
+
+Use base-pair windows when physical coordinates are more important than a
+stable number of variants:
+
+```bash
+privy landscape \
+  --vcf variants.vcf.gz \
+  --targets T1 \
+  --targets T2 \
+  --targets T3 \
+  --off-targets O1 \
+  --off-targets O2 \
+  --off-targets O3 \
+  --window-bp 1000000 \
+  --step-bp 250000 \
+  --outdir results/landscape-bp/
+```
+
+If you provide targets but omit off-targets, every other non-ignored sample in
+the VCF becomes off-target. You can also use `--targets-file`,
+`--off-targets-file`, `--ignore-samples`, and `--ignore-samples-file`, matching
+the pangenome command style.
+
+Landscape outputs:
+
+- `sample_windows.tsv`: per-sample metrics for every emitted window
+- `windows.tsv`: target/off-target summary metrics for every window
+- `background_blocks.tsv`: adjacent windows merged by nearest local background
+- `similarity.tsv`: per-window pairwise genotype similarity
+- `missingness_heatmap.png`: sample-by-window missingness
+- `private_burden_heatmap.png`: sample-by-window private ALT burden
+- `local_background_map.png`: nearest-background assignment along chromosomes
+- `similarity_cluster_map.png`: clustered mean sample-similarity heatmap
+- `landscape.json`: run metadata, resolved samples, parameters, and outputs
+
+Key landscape options:
+
+| Option | Description |
+|--------|-------------|
+| `--vcf PATH` | Multisample VCF or BCF |
+| `--targets TEXT` | Target sample name; repeat for multiple samples |
+| `--targets-file PATH` | One target sample per line |
+| `--off-targets TEXT` | Off-target sample name; repeat for multiple samples |
+| `--window-records INT` | Number of VCF records per fixed-record window |
+| `--step-records INT` | Record step between windows |
+| `--window-bp INT` | Use base-pair windows of this size |
+| `--step-bp INT` | Base-pair step; defaults to `--window-bp` |
+| `--rare-max-count INT` | Carrier-count threshold for rare ALT burden |
+| `--rare-max-freq FLOAT` | Carrier-frequency threshold for rare ALT burden |
+| `--min-background-similarity FLOAT` | Minimum nearest-sample similarity for assigning background blocks |
+| `--plots` / `--no-plots` | Write or skip landscape figures |
+
+Interpret local background blocks as exploratory shared-genomic-background
+segments. They are useful for seeing which genomes are locally similar, but
+they are not by themselves a formal recombination-rate map. For controlled
+crosses, founder panels, MAGIC populations, or pedigrees, the landscape outputs
+can help choose regions and samples for more formal recombination or
+founder-haplotype analyses.
+
+See [Figures and Tables](figures-and-tables.md#privy-landscape) for example
+landscape table snippets, figure titles, and caption language.
 
 ## Compare Existing Scan Outputs
 

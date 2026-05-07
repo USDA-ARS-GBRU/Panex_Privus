@@ -218,6 +218,100 @@ segments; in VCF analysis, features are alternate alleles.
 and off-target sub-pangenome. Categories are assigned independently within each
 group, so the same feature can be core in one group and absent in another.
 
+## `privy landscape`
+
+`privy landscape` summarizes a multisample VCF in sliding windows using the
+same target/off-target cohort definition used elsewhere in Panex Privus. It is
+most useful for quality-control context, chromosome-scale pattern discovery,
+and exploratory local background maps.
+
+Example command:
+
+```bash
+privy landscape \
+  --vcf variants.vcf.gz \
+  --targets T1 \
+  --targets T2 \
+  --off-targets O1 \
+  --off-targets O2 \
+  --off-targets O3 \
+  --window-records 200 \
+  --step-records 50 \
+  --outdir results/landscape/
+```
+
+### Table: Sample Windows (`sample_windows.tsv`)
+
+| window_id | contig | start | end | sample | cohort_role | missing_rate | private_alt_rate | nearest_background | nearest_similarity |
+|-----------|--------|-------|-----|--------|-------------|--------------|------------------|--------------------|--------------------|
+| `LW00000001` | `chr1` | 99 | 300 | `T1` | `target` | 0.000000 | 1.000000 | `T2` | 1.000000 |
+| `LW00000001` | `chr1` | 99 | 300 | `O1` | `off_target` | 0.000000 | 0.000000 | `O2` | 1.000000 |
+
+**Table title.** Per-sample VCF landscape window metrics.
+
+**Caption.** One row is emitted for each sample in each VCF window. Columns
+summarize missingness, heterozygosity, non-reference burden, rare/private ALT
+burden, median genotype-class frequency, and nearest local background. Intervals
+use 0-based half-open coordinates.
+
+### Table: Window Summary (`windows.tsv`)
+
+| window_id | contig | start | end | n_variants | target_mean_missing_rate | target_private_alt_n | top_nearest_background |
+|-----------|--------|-------|-----|------------|--------------------------|----------------------|------------------------|
+| `LW00000001` | `chr1` | 99 | 300 | 3 | 0.166667 | 3 | `T2` |
+
+**Table title.** Target/off-target landscape summary by VCF window.
+
+**Caption.** Window-level summary of target and off-target missingness,
+non-reference burden, private ALT burden, variant density, and the most common
+nearest-background assignment.
+
+### Table: Local Background Blocks (`background_blocks.tsv`)
+
+| block_id | sample | contig | start | end | n_windows | nearest_background | mean_similarity |
+|----------|--------|--------|-------|-----|-----------|--------------------|-----------------|
+| `LB00000001` | `T1` | `chr1` | 99 | 800 | 3 | `T2` | 0.944444 |
+
+**Table title.** Local genomic background blocks.
+
+**Caption.** Adjacent windows are merged when a sample's nearest local
+background remains the same and passes the similarity threshold. These blocks
+are exploratory shared-background segments, not formal recombination-rate map
+intervals.
+
+### Figure: Missingness Heatmap
+
+**Figure title.** Windowed genotype missingness across samples.
+
+**Caption.** Heatmap of sample-level missing genotype rate in sliding VCF
+windows. This figure helps identify chromosome intervals where apparent
+private signal may be influenced by missing target or off-target genotypes.
+
+### Figure: Private Burden Heatmap
+
+**Figure title.** Windowed private ALT burden across samples.
+
+**Caption.** Heatmap of the fraction of called records where each sample carries
+an ALT allele private to its cohort. Enriched target-private burden can
+highlight candidate chromosome intervals for follow-up.
+
+### Figure: Local Background Map
+
+**Figure title.** Local nearest-background assignment by chromosome.
+
+**Caption.** Each sample is plotted across genome windows and colored by the
+sample to which it is most locally similar. Long runs of the same color suggest
+shared genomic background blocks. Interpret these as exploratory similarity
+segments unless a formal cross design or recombination model is supplied.
+
+### Figure: Similarity Cluster Map
+
+**Figure title.** Clustered local genotype-similarity map.
+
+**Caption.** Mean pairwise genotype similarity across emitted VCF windows,
+clustered by sample. This figure summarizes which genomes share local genotype
+background across the analyzed windows.
+
 ## `privy compare`
 
 `privy compare` reconciles two scan outputs, usually one VCF run and one GFA

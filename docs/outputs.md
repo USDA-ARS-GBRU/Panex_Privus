@@ -33,6 +33,21 @@ directory you choose with `--outdir`.
 | `pangenome_composition.png` | Group composition plot |
 | `pangenome.json` | Run metadata, resolved groups, parameters, and output list |
 
+`privy landscape` writes VCF sliding-window summaries to the directory you
+choose with `--outdir`.
+
+| File | Purpose |
+|------|---------|
+| `sample_windows.tsv` | One row per sample per window with missingness, genotype burden, private/rare ALT burden, and nearest local background |
+| `windows.tsv` | One row per window with target/off-target summary metrics |
+| `background_blocks.tsv` | Adjacent sample windows merged by nearest local background assignment |
+| `similarity.tsv` | Pairwise sample genotype similarity for each window |
+| `missingness_heatmap.png` | Sample-by-window missingness heatmap |
+| `private_burden_heatmap.png` | Sample-by-window private ALT burden heatmap |
+| `local_background_map.png` | Sample-by-window nearest-background map |
+| `similarity_cluster_map.png` | Clustered mean sample-similarity heatmap |
+| `landscape.json` | Run metadata, resolved groups, parameters, and output list |
+
 ## Key `hits.tsv` Columns
 
 | Column | Meaning |
@@ -96,6 +111,57 @@ and plots, see [Figures and Tables]({{ '/figures-and-tables/' | relative_url }})
 | `full_category`, `target_category`, `offtarget_category` | `absent`, `private`, `accessory`, or `core` |
 | `target_private` | `True` when present in targets and absent from off-targets |
 | `offtarget_private` | `True` when present in off-targets and absent from targets |
+
+## Landscape Outputs
+
+`privy landscape` uses 0-based half-open coordinates and reports both window
+mode and window size parameters in `landscape.json`.
+
+### `sample_windows.tsv`
+
+| Column | Meaning |
+|--------|---------|
+| `window_id` | Stable ID for the emitted landscape window |
+| `contig`, `start`, `end`, `midpoint` | Window coordinates |
+| `window_mode` | `records` or `bp` |
+| `n_variants` | Number of VCF records in the window |
+| `sample` | Sample name |
+| `cohort_role` | `target` or `off_target` |
+| `missing_rate` | Fraction of records where the sample genotype is missing |
+| `het_rate` | Fraction of called records with heterozygous genotype |
+| `nonref_rate` | Fraction of called records carrying any ALT allele |
+| `minor_genotype_rate` | Fraction of called records where the sample has a minor genotype class |
+| `rare_alt_rate` | Fraction of called records where the sample carries a rare ALT allele |
+| `private_alt_rate` | Fraction of called records where the sample carries an ALT allele private to its cohort |
+| `median_call_freq` | Median frequency of the sample's genotype class in the window |
+| `nearest_background` | Most similar sample in the same window |
+| `nearest_similarity` | Genotype-match fraction to the nearest background sample |
+
+### `windows.tsv`
+
+| Column | Meaning |
+|--------|---------|
+| `span_bp` | Physical span of the emitted window |
+| `density_variants_per_kb` | VCF record density across the window span |
+| `target_mean_missing_rate` | Mean missingness across target samples |
+| `offtarget_mean_missing_rate` | Mean missingness across off-target samples |
+| `target_mean_nonref_rate` | Mean non-reference burden across target samples |
+| `offtarget_mean_nonref_rate` | Mean non-reference burden across off-target samples |
+| `target_private_alt_n` | Number of ALT alleles carried by targets and absent from off-targets |
+| `offtarget_private_alt_n` | Number of ALT alleles carried by off-targets and absent from targets |
+| `top_nearest_background` | Most frequent nearest-background assignment in the window |
+
+### `background_blocks.tsv`
+
+| Column | Meaning |
+|--------|---------|
+| `block_id` | Stable local-background block ID |
+| `sample` | Sample being assigned |
+| `cohort_role` | Sample role |
+| `contig`, `start`, `end` | Merged block coordinates |
+| `n_windows` | Number of windows merged into the block |
+| `nearest_background` | Assigned nearest local background, or `unassigned` |
+| `mean_similarity` | Mean nearest-background similarity across merged windows |
 
 ## Annotate Outputs
 

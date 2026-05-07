@@ -18,8 +18,10 @@ Panex Privus is under active development. Current version: `0.8.0-dev`.
 - `privy annotate`
 - `privy export` to BED and GFF3
 - `privy index gfa`
+- `privy pangenome` with GFA or VCF input
+- `privy landscape` with VCF input
 
-The current test suite has 639 passing unit and integration tests.
+The current test suite has 664 passing unit and integration tests.
 
 ## Roadmap
 
@@ -33,7 +35,7 @@ The current test suite has 639 passing unit and integration tests.
 | v0.6 | `privy plot` |
 | v0.7 | `privy annotate` |
 | v0.8 | `privy export` to BED/GFF3 |
-| v0.9 | Multi-cohort batch mode |
+| v0.9 | `privy landscape` VCF sliding-window summaries and local background maps |
 | v1.0 | Polished docs, example datasets, manuscript-ready outputs, release hardening |
 
 ## Helpful Contributions
@@ -42,4 +44,6 @@ The current test suite has 639 passing unit and integration tests.
 - Worked examples for new users
 - Multi-cohort workflows
 - Annotated VCF-style export
+- Landscape examples from real VCFs, especially pangenome-derived VCFs and
+  controlled-cross/MAGIC populations
 - Documentation improvements

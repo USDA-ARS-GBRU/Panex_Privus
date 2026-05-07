@@ -56,14 +56,17 @@ The package must scale to plant pangenome datasets. Whole-file in-memory assumpt
 
 ## Command architecture
 
-Panex Privus exposes six top-level commands:
+Panex Privus exposes nine top-level commands:
 
 privy scan
 privy compare
+privy pangenome
+privy landscape
 privy report
 privy plot
 privy annotate
 privy export
+privy index
 
 privy scan
 
@@ -87,6 +90,30 @@ Responsibilities:
 	•	quantify overlap and compatibility
 	•	classify support, contradiction, or source specificity
 	•	emit comparison tables and summaries
+
+privy pangenome
+
+Whole-feature summary engine.
+
+Responsibilities:
+	•	turn GFA segments or VCF alternate alleles into a shared feature matrix
+	•	summarize full, target, and off-target feature presence
+	•	report core/accessory/private/absent composition
+	•	build feature coverage histograms and pangenome growth curves
+	•	emit pangenome tables, plots, and run metadata
+
+privy landscape
+
+Windowed VCF context engine.
+
+Responsibilities:
+	•	stream VCF records into fixed-record or base-pair windows
+	•	report per-sample missingness, heterozygosity, non-reference burden,
+	  rare/private ALT burden, and median genotype-class frequency
+	•	summarize target/off-target window-level context
+	•	compute pairwise local genotype similarity
+	•	merge adjacent nearest-background assignments into local background blocks
+	•	emit heatmaps, local background maps, similarity cluster maps, and run metadata
 
 privy report
 
@@ -128,6 +155,15 @@ Responsibilities:
 	•	write BED and GFF3 files for hits and merged regions
 	•	preserve strictness, variant class, score, and provenance details
 	•	emit export metadata
+
+privy index
+
+Reusable index builder.
+
+Responsibilities:
+	•	build reusable sidecar indexes for expensive input parsing paths
+	•	currently supports `privy index gfa`
+	•	allow repeated GFA scans without repeating the full graph walk parse
 
 ⸻
 
@@ -285,6 +321,19 @@ GFA contributes:
 	•	private graph-region candidates
 	•	missing-vs-absent classification at graph loci
 
+Landscape
+
+Windowed context evidence.
+
+Landscape contributes:
+	•	per-sample missingness and genotype-burden tracks
+	•	target/off-target private ALT burden by window
+	•	local sample-similarity matrices
+	•	local background blocks based on nearest-neighbor similarity
+
+Landscape outputs are exploratory context. They do not replace formal
+population-genetic tools, QTL/genetic-map software, or local ancestry models.
+
 ⸻
 
 Discovery architecture
@@ -356,6 +405,43 @@ Each region should summarize:
 	•	target consistency
 	•	off-target exclusion
 	•	aggregate support score
+
+⸻
+
+Landscape architecture
+
+`privy landscape` is separate from discovery. It explains genomic context around
+the VCF callset and around scan candidates, but it does not decide which loci
+are target-private candidates.
+
+Window modes
+	•	record windows: a fixed number of VCF records per window
+	•	base-pair windows: a fixed physical span per window
+
+Default record windows keep the number of variants per window stable across
+uneven variant density. Base-pair windows are easier to interpret on
+chromosome-scale coordinate plots.
+
+Core landscape outputs
+	•	sample_windows.tsv
+	•	windows.tsv
+	•	background_blocks.tsv
+	•	similarity.tsv
+	•	landscape.json
+
+Core landscape figures
+	•	missingness_heatmap
+	•	private_burden_heatmap
+	•	local_background_map
+	•	similarity_cluster_map
+
+Local background blocks
+
+A local background block is a run of adjacent windows where a sample's nearest
+genotypic neighbor stays the same and passes a similarity threshold. These
+blocks are best interpreted as shared genomic background segments. A true
+recombination map usually requires a formal cross or pedigree design and a
+genetic-map model.
 
 ⸻
 
@@ -461,8 +547,13 @@ src/privy/
 │   ├── main.py
 │   ├── scan.py
 │   ├── compare.py
+│   ├── pangenome.py
+│   ├── landscape.py
 │   ├── report.py
-│   └── plot.py
+│   ├── plot.py
+│   ├── annotate.py
+│   ├── export.py
+│   └── index.py
 ├── core/
 │   ├── cohort.py
 │   ├── locus.py
@@ -483,7 +574,15 @@ src/privy/
 │   ├── vcf_scan.py
 │   ├── bam_support.py
 │   ├── gfa_support.py
-│   └── xmfa_support.py
+│   ├── pangenome.py
+│   └── landscape.py
+├── pangenome/
+│   ├── analysis.py
+│   ├── gfa.py
+│   ├── model.py
+│   └── vcf.py
+├── landscape/
+│   └── vcf.py
 ├── compare/
 │   ├── engine.py
 │   ├── overlap.py
@@ -496,6 +595,8 @@ src/privy/
 ├── plot/
 │   ├── loci.py
 │   ├── regions.py
+│   ├── pangenome.py
+│   ├── landscape.py
 │   ├── summaries.py
 │   └── themes.py
 ├── utils/
@@ -526,6 +627,8 @@ Integration tests
 	•	VCF scan
 	•	VCF + BAM support
 	•	GFA scan
+	•	pangenome summaries
+	•	landscape window summaries
 	•	compare workflows
 	•	report, plot, and annotate workflows
 
@@ -584,9 +687,9 @@ Its architectural center is simple:
 
 # Current CLI Surface
 
-This section is a compact architecture contract for the active v0.8 command
-surface. For exhaustive flags and examples, prefer `README.md` and the live
-`privy --help` output.
+This section is a compact architecture contract for the active command surface.
+For exhaustive flags and examples, prefer `README.md` and the live `privy
+--help` output.
 
 Panex Privus
 CLI: privy
@@ -600,10 +703,13 @@ USAGE:
 COMMANDS:
   scan      Discover target-private alleles or graph segments from VCF or GFA
   compare   Reconcile two privy scan hits.tsv files
+  pangenome Summarize full, target, and off-target pangenomes
+  landscape Create VCF sliding-window landscapes and local background maps
   report    Generate ranked summaries, QC tables, and Markdown/HTML reports
   plot      Create focused summary and locus diagnostic plots
   annotate  Intersect private loci with GFF3 gene annotations
   export    Export scan hits and regions to downstream genome-tool formats
+  index     Build reusable indexes for supported inputs
 
 GLOBAL OPTIONS:
   --config PATH              Path to YAML configuration file
@@ -840,6 +946,51 @@ PLOT NOTES:
   - Focused explanatory plots, not a genome browser
   - Designed for diagnostics and publication-ready figure generation
 
+LANDSCAPE
+  Create target/off-target-aware VCF sliding-window landscapes.
+
+USAGE:
+  privy landscape [OPTIONS]
+
+INPUT OPTIONS:
+  --vcf PATH                 Multisample VCF or BCF
+
+COHORT OPTIONS:
+  --targets TEXT             Target sample name; repeat for multiple samples
+  --targets-file PATH        Text file with one target sample per line
+  --off-targets TEXT         Off-target sample name; repeat for multiple samples
+  --off-targets-file PATH    Text file with one off-target sample per line
+  --ignore-samples TEXT      Sample to exclude; repeat for multiple samples
+
+WINDOW OPTIONS:
+  --window-records INT       Records per fixed-record window; default 200
+  --step-records INT         Records advanced per fixed-record step; default 50
+  --window-bp INT            Use physical base-pair windows
+  --step-bp INT              Physical base-pair step
+
+LANDSCAPE OPTIONS:
+  --rare-max-count INT       Carrier-count threshold for rare ALT burden
+  --rare-max-freq FLOAT      Carrier-frequency threshold for rare ALT burden
+  --min-background-similarity FLOAT
+                             Minimum similarity for local background assignment
+  --plots / --no-plots       Write or skip landscape figures
+
+LANDSCAPE OUTPUTS:
+  sample_windows.tsv
+  windows.tsv
+  background_blocks.tsv
+  similarity.tsv
+  landscape.json
+  missingness_heatmap.png
+  private_burden_heatmap.png
+  local_background_map.png
+  similarity_cluster_map.png
+
+LANDSCAPE NOTES:
+  - Complements discovery; does not replace privy scan
+  - Local background blocks are exploratory shared-background segments
+  - Formal recombination maps require cross/pedigree-aware modeling
+
 
 EXAMPLES
 
@@ -881,6 +1032,19 @@ EXAMPLES
       --hits results/vcf/hits.tsv \
       --top-n 10 \
       --outdir plots/
+
+  Build a VCF landscape:
+    privy landscape \
+      --vcf cohort.vcf.gz \
+      --targets Benning \
+      --targets Harosoy \
+      --targets Clark \
+      --off-targets Jack \
+      --off-targets Lee \
+      --off-targets Minsoy \
+      --window-records 200 \
+      --step-records 50 \
+      --outdir results/landscape/
 
   Export intervals:
     privy export \

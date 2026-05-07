@@ -9,6 +9,10 @@ Panex Privus (`privy`) is a comparative genomics toolkit for discovering
 target-private genomic signal: alleles and graph segments shared within a
 target cohort and absent from off-target genomes.
 
+The package also includes VCF landscape analysis for sliding-window summaries:
+missingness, private-allele burden, local sample similarity, and local
+background blocks across chromosomes.
+
 This documentation is organized as a user guide rather than one very long
 README.
 
@@ -40,5 +44,6 @@ README.
 3. Run `privy scan` on VCF or GFA input.
 4. Optionally add BAM support to VCF scans.
 5. Compare VCF and GFA scan outputs with `privy compare`.
-6. Generate reports and plots.
-7. Annotate or export candidate loci for downstream interpretation.
+6. Run `privy landscape` when you want genome-wide VCF window context.
+7. Generate reports and plots.
+8. Annotate or export candidate loci for downstream interpretation.

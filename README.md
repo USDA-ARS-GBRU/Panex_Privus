@@ -36,6 +36,9 @@ regions, and scores results so the highest-confidence candidates surface first.
 - Scans indexed multisample **VCF** files for target-private alleles.
 - Scans **GFA** pangenome graphs for target-private graph segments.
 - Summarizes full, target, and off-target pangenomes from GFA segments or VCF alleles.
+- Builds **VCF landscape** summaries across sliding windows, including
+  missingness, private-allele burden, local sample similarity, and local
+  background blocks.
 - Keeps missing data explicit with `strictness_class` labels.
 - Adds optional **BAM** read-level support at VCF hit loci.
 - Compares VCF and GFA result sets with coordinate-aware matching.
@@ -131,7 +134,9 @@ Analyze the graph pangenome and target/off-target sub-pangenomes:
 ```bash
 privy pangenome \
   --gfa pangenome.gfa.gz \
-  --targets Benning Harosoy Clark \
+  --targets Benning \
+  --targets Harosoy \
+  --targets Clark \
   --outdir results/pangenome/
 ```
 
@@ -140,9 +145,33 @@ Run the same pangenome summaries from VCF alleles:
 ```bash
 privy pangenome \
   --vcf cohort.vcf.gz \
-  --targets Benning Harosoy Clark \
+  --targets Benning \
+  --targets Harosoy \
+  --targets Clark \
   --outdir results/pangenome/
 ```
+
+Explore genome-wide VCF landscapes with sliding windows:
+
+```bash
+privy landscape \
+  --vcf cohort.vcf.gz \
+  --targets Benning \
+  --targets Harosoy \
+  --targets Clark \
+  --off-targets Jack \
+  --off-targets Lee \
+  --off-targets Minsoy \
+  --window-records 200 \
+  --step-records 50 \
+  --outdir results/landscape/
+```
+
+`privy landscape` complements discovery. It writes per-sample window metrics,
+per-window target/off-target summaries, local background blocks, pairwise
+similarity tables, and first-pass heatmap/background-map figures. Use
+`--window-bp` and `--step-bp` when physical base-pair windows are easier to
+interpret than fixed-record windows.
 
 Compare two scan outputs:
 
@@ -201,8 +230,9 @@ Operational commands:
 - `privy annotate`
 - `privy export`
 - `privy index`
+- `privy landscape`
 
-The current test suite has 639 passing unit and integration tests.
+The current test suite has 664 passing unit and integration tests.
 
 ## Contact
 
@@ -220,6 +250,28 @@ Panex Privus is released under the MIT License. See [LICENSE](LICENSE).
 ## Acknowledgments
 
 Panex Privus is developed for comparative genomics and plant pangenome research.
+
+The `privy landscape` module is inspired by established VCF and population
+genomics tools and methods. Panex Privus focuses on target/off-target-aware
+interpretation rather than replacing these projects.
+
+Landscape inspiration and citation sources include:
+
+- [VCFtools](https://vcftools.github.io/man_latest.html) and the VCF format paper
+- [scikit-allel](https://scikit-allel.readthedocs.io/)
+- [pixy](https://pixy.readthedocs.io/)
+- [VCF-kit](https://vcf-kit.readthedocs.io/en/latest/tajima/)
+- [PopGenome](https://www.rdocumentation.org/packages/PopGenome/versions/2.7.5/topics/sliding.window.transform-methods)
+- [SnpSift Private](https://pcingola.github.io/SnpEff/snpsift/private/)
+- [Haploview](https://broadinstitute.org/haploview/blocks-and-haplotypes)
+- [LDBlockShow](https://academic.oup.com/bib/article/22/4/bbaa227/5939575)
+- [PLINK](https://www.cog-genomics.org/plink/1.9/ibd)
+- [BCFtools/RoH](https://samtools.github.io/bcftools/howtos/roh-calling.html)
+- [R/qtl2](https://pmc.ncbi.nlm.nih.gov/articles/PMC6366910/)
+- [RFMix](https://www.sciencedirect.com/science/article/pii/S0002929713002899)
+- [Loter](https://academic.oup.com/mbe/article/35/9/2318/5040668)
+- [local PCA/lostruct](https://academic.oup.com/genetics/article/211/1/289/5931130)
+- [WinPCA](https://academic.oup.com/bioinformatics/article/41/10/btaf529/8261369)
 
 ### Funding Support
 This is a project supported by the U.S. Department of Agriculture - Agricultural Research Service (USDA-ARS) - Genomics and Bioinformatics Research Unit (GBRU) through CRIS Project No. 6066-21310-006-000-D.
