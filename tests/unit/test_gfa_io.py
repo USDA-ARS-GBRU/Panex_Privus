@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+import privy.io.gfa as gfa_io
 from privy.io.gfa import (
     GfaGraph,
     build_gfa_scan_index,
@@ -443,6 +444,31 @@ class TestExtractCohortSegmentCounts:
 
 
 class TestGfaScanIndex:
+    def test_presence_interval_builder_merges_streamed_segments(self) -> None:
+        builder = gfa_io._PresenceIntervalBuilder()
+
+        for idx in range(1000):
+            builder.add(idx * 5, (idx + 1) * 5)
+
+        intervals = builder.to_presence_intervals()
+
+        assert intervals.starts == (0,)
+        assert intervals.ends == (5000,)
+        assert builder.spill == []
+
+    def test_presence_interval_builder_handles_out_of_order_segments(self) -> None:
+        builder = gfa_io._PresenceIntervalBuilder()
+
+        builder.add(20, 30)
+        builder.add(0, 10)
+        builder.add(10, 20)
+        builder.add(35, 40)
+
+        intervals = builder.to_presence_intervals()
+
+        assert intervals.starts == (0, 35)
+        assert intervals.ends == (30, 40)
+
     def test_scan_index_matches_bubble1_support(
         self, targets: list[str], offtargets: list[str]
     ) -> None:

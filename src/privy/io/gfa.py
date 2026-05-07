@@ -40,6 +40,7 @@ from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from heapq import merge
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -49,6 +50,7 @@ _SQLITE_HEADER = b"SQLite format 3\0"
 _LEGACY_GFA_SCAN_INDEX_MAGIC = b"PRIVY_GFA_SCAN_INDEX\0"
 _GFA_SCAN_INDEX_SCHEMA_VERSION = 5
 _SQLITE_INSERT_BATCH_SIZE = 100_000
+_PRESENCE_SPILL_FLUSH_SIZE = 100_000
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +180,68 @@ class GfaPresenceIntervals:
 
         next_idx = idx + 1
         return next_idx < len(self.starts) and self.starts[next_idx] < end
+
+
+@dataclass(slots=True)
+class _PresenceIntervalBuilder:
+    """Build merged presence intervals without retaining every segment visit."""
+
+    starts: list[int] = field(default_factory=list)
+    ends: list[int] = field(default_factory=list)
+    spill: list[tuple[int, int]] = field(default_factory=list)
+
+    def add(self, start: int, end: int) -> None:
+        """Add one half-open interval, merging immediately when input is sorted."""
+        if end <= start:
+            return
+        if not self.starts:
+            self.starts.append(start)
+            self.ends.append(end)
+            return
+
+        last_start = self.starts[-1]
+        last_end = self.ends[-1]
+        if start >= last_start:
+            if start <= last_end:
+                if end > last_end:
+                    self.ends[-1] = end
+            else:
+                self.starts.append(start)
+                self.ends.append(end)
+            return
+
+        self.spill.append((start, end))
+        if len(self.spill) >= _PRESENCE_SPILL_FLUSH_SIZE:
+            self.flush()
+
+    def flush(self) -> None:
+        """Merge any out-of-order intervals into the sorted interval lists."""
+        if not self.spill:
+            return
+
+        sorted_spill = sorted(self.spill)
+        merged_starts: list[int] = []
+        merged_ends: list[int] = []
+        for start, end in merge(zip(self.starts, self.ends, strict=False), sorted_spill):
+            if end <= start:
+                continue
+            if not merged_starts or start > merged_ends[-1]:
+                merged_starts.append(start)
+                merged_ends.append(end)
+            elif end > merged_ends[-1]:
+                merged_ends[-1] = end
+
+        self.starts = merged_starts
+        self.ends = merged_ends
+        self.spill.clear()
+
+    def to_presence_intervals(self) -> GfaPresenceIntervals:
+        """Return immutable intervals for storage in the scan index."""
+        self.flush()
+        return GfaPresenceIntervals(
+            starts=tuple(self.starts),
+            ends=tuple(self.ends),
+        )
 
 
 @dataclass(slots=True)
@@ -760,8 +824,8 @@ def build_gfa_scan_index(
 
     sample_order_list = list(dict.fromkeys(sample_names or ()))
     sample_to_idx = {sample: idx for idx, sample in enumerate(sample_order_list)}
-    raw_intervals: list[defaultdict[str, list[tuple[int, int]]]] = [
-        defaultdict(list) for _ in sample_order_list
+    presence_builders: list[defaultdict[str, _PresenceIntervalBuilder]] = [
+        defaultdict(_PresenceIntervalBuilder) for _ in sample_order_list
     ]
     index_all_samples = sample_names is None
     segments: dict[str, GfaScanSegment] = {}
@@ -815,7 +879,7 @@ def build_gfa_scan_index(
         idx = len(sample_order_list)
         sample_order_list.append(sample)
         sample_to_idx[sample] = idx
-        raw_intervals.append(defaultdict(list))
+        presence_builders.append(defaultdict(_PresenceIntervalBuilder))
         return idx
 
     log.info("Building streaming GFA scan index: %s", gfa_path)
@@ -824,11 +888,12 @@ def build_gfa_scan_index(
     pending_segment_presence_mask: dict[str, int] = {}
 
     def append_presence_interval(mask: int, contig: str, start: int, end: int) -> None:
-        if not mask:
-            return
-        for sample_idx in range(len(sample_order_list)):
-            if mask & (1 << sample_idx):
-                raw_intervals[sample_idx][contig].append((start, end))
+        while mask:
+            bit = mask & -mask
+            sample_idx = bit.bit_length() - 1
+            if sample_idx < len(presence_builders):
+                presence_builders[sample_idx][contig].add(start, end)
+            mask ^= bit
 
     with _open_gfa_text(gfa_path) as fh:
         for line_num, raw_line in enumerate(fh, 1):
@@ -919,10 +984,10 @@ def build_gfa_scan_index(
                     segment = segments.get(seg_name)
                     if segment is not None:
                         segment.sample_mask |= bit
-                        raw_intervals[sample_idx][segment.contig].append((
+                        presence_builders[sample_idx][segment.contig].add(
                             segment.start,
                             segment.end,
-                        ))
+                        )
                     else:
                         pending_segment_sample_mask[seg_name] = (
                             pending_segment_sample_mask.get(seg_name, 0) | bit
@@ -966,8 +1031,9 @@ def build_gfa_scan_index(
                             maybe_log_progress("cohort path")
                         continue
                     segment.sample_mask |= bit
-                    raw_intervals[sample_idx][segment.contig].append(
-                        (segment.start, segment.end)
+                    presence_builders[sample_idx][segment.contig].add(
+                        segment.start,
+                        segment.end,
                     )
                     if segment_refs_in_record % 500_000 == 0:
                         maybe_log_progress("cohort path")
@@ -999,10 +1065,10 @@ def build_gfa_scan_index(
             n_p_segment_refs_without_coords,
         )
 
-    log.info("Merging GFA sample presence intervals")
+    log.info("Finalizing GFA sample presence intervals")
     sample_intervals = [
-        _merge_sample_intervals(intervals_by_contig)
-        for intervals_by_contig in raw_intervals
+        _finalize_sample_intervals(intervals_by_contig)
+        for intervals_by_contig in presence_builders
     ]
     segment_sample_mask = {
         name: segment.sample_mask
@@ -1326,32 +1392,16 @@ def _strip_path_orientation(segment: str) -> str:
     return segment
 
 
-def _merge_sample_intervals(
-    raw: dict[str, list[tuple[int, int]]],
+def _finalize_sample_intervals(
+    builders: dict[str, _PresenceIntervalBuilder],
 ) -> dict[str, GfaPresenceIntervals]:
-    """Sort and merge raw per-contig intervals for one sample."""
-    merged_by_contig: dict[str, GfaPresenceIntervals] = {}
-    for contig, intervals in raw.items():
-        if not intervals:
-            continue
-
-        merged: list[tuple[int, int]] = []
-        for start, end in sorted(intervals):
-            if end <= start:
-                continue
-            if not merged or start > merged[-1][1]:
-                merged.append((start, end))
-            else:
-                prev_start, prev_end = merged[-1]
-                merged[-1] = (prev_start, max(prev_end, end))
-
-        if merged:
-            starts, ends = zip(*merged, strict=False)
-            merged_by_contig[contig] = GfaPresenceIntervals(
-                starts=tuple(starts),
-                ends=tuple(ends),
-            )
-    return merged_by_contig
+    """Finalize compact per-contig intervals for one sample."""
+    intervals_by_contig: dict[str, GfaPresenceIntervals] = {}
+    for contig, builder in builders.items():
+        intervals = builder.to_presence_intervals()
+        if intervals.starts:
+            intervals_by_contig[contig] = intervals
+    return intervals_by_contig
 
 
 def _canonical_gfa_contig(contig: str) -> str:
