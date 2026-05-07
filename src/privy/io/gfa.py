@@ -47,7 +47,7 @@ log = logging.getLogger("privy.io.gfa")
 _WALK_SEGMENT_RE = re.compile(r"[><]([^><\t\r\n]+)")
 _SQLITE_HEADER = b"SQLite format 3\0"
 _LEGACY_GFA_SCAN_INDEX_MAGIC = b"PRIVY_GFA_SCAN_INDEX\0"
-_GFA_SCAN_INDEX_SCHEMA_VERSION = 3
+_GFA_SCAN_INDEX_SCHEMA_VERSION = 4
 _SQLITE_INSERT_BATCH_SIZE = 100_000
 
 
@@ -259,6 +259,14 @@ class GfaScanIndex:
         if self.sqlite_contigs:
             return self.sqlite_contigs
         return tuple(self.contig_segments.keys())
+
+    def matching_contigs(self, contig: str) -> tuple[str, ...]:
+        """Return indexed contigs matching *contig* exactly or by GFA alias."""
+        return tuple(
+            indexed_contig
+            for indexed_contig in self.contig_names()
+            if _gfa_contigs_match(indexed_contig, contig)
+        )
 
     def has_contig(self, contig: str) -> bool:
         """Return True when *contig* has coordinate-tagged segments."""
@@ -834,7 +842,9 @@ def build_gfa_scan_index(
                 if parsed is None:
                     continue
                 seg_name, segment_record = parsed
-                if filter_contig is not None and segment_record.contig != filter_contig:
+                if filter_contig is not None and not _gfa_contigs_match(
+                    segment_record.contig, filter_contig
+                ):
                     pending_segment_sample_mask.pop(seg_name, None)
                     continue
                 if filter_start is not None and segment_record.end <= filter_start:
@@ -874,7 +884,9 @@ def build_gfa_scan_index(
                         f"Line {line_num}: W-line numeric field parse error: {exc}"
                     ) from exc
 
-                if filter_contig is not None and walk_contig != filter_contig:
+                if filter_contig is not None and not _gfa_contigs_match(
+                    walk_contig, filter_contig
+                ):
                     maybe_log_progress()
                     continue
                 if filter_start is not None and walk_end <= filter_start:
@@ -967,6 +979,11 @@ def build_gfa_scan_index(
             "SN/SO/LN tags.",
             n_p_segment_refs_without_coords,
         )
+
+    _alias_presence_intervals_to_coordinate_contigs(
+        raw_intervals,
+        coordinate_contigs=tuple(contig_segments),
+    )
 
     log.info("Merging GFA sample presence intervals")
     sample_intervals = [
@@ -1097,7 +1114,11 @@ def get_samples_present_at_locus(
 
     # W-lines: check interval overlap directly
     for walk in graph.walks:
-        if walk.seq_id == contig and walk.seq_start < end and walk.seq_end > start:
+        if (
+            _gfa_contigs_match(walk.seq_id, contig)
+            and walk.seq_start < end
+            and walk.seq_end > start
+        ):
             samples.add(walk.sample)
 
     # P-lines: check if any traversed segment overlaps the locus
@@ -1317,6 +1338,59 @@ def _merge_sample_intervals(
                 ends=tuple(ends),
             )
     return merged_by_contig
+
+
+def _alias_presence_intervals_to_coordinate_contigs(
+    raw_intervals: list[defaultdict[str, list[tuple[int, int]]]],
+    *,
+    coordinate_contigs: tuple[str, ...],
+) -> None:
+    """Copy W-line presence intervals onto matching S-line coordinate contigs.
+
+    Minigraph-cactus commonly stores W-line ``seq_id`` values as bare contigs
+    such as ``Gm01`` while S-line ``SN`` tags use names like
+    ``Wm82a6#0#Gm01``.  GFA scanning evaluates S-line coordinate contigs, so
+    presence intervals must be queryable under those names too; otherwise
+    off-target samples look missing even when their W-lines cover the locus.
+    """
+    coordinate_by_canonical: dict[str, list[str]] = defaultdict(list)
+    for contig in coordinate_contigs:
+        coordinate_by_canonical[_canonical_gfa_contig(contig)].append(contig)
+
+    n_interval_copies = 0
+    aliased_contigs: set[tuple[str, str]] = set()
+    for intervals_by_contig in raw_intervals:
+        for raw_contig, intervals in list(intervals_by_contig.items()):
+            if not intervals:
+                continue
+            for coordinate_contig in coordinate_by_canonical.get(
+                _canonical_gfa_contig(raw_contig), []
+            ):
+                if coordinate_contig == raw_contig:
+                    continue
+                intervals_by_contig[coordinate_contig].extend(intervals)
+                n_interval_copies += len(intervals)
+                aliased_contigs.add((raw_contig, coordinate_contig))
+
+    if n_interval_copies:
+        log.info(
+            "Aliased GFA presence intervals onto coordinate contigs | "
+            "contig_aliases=%d | interval_copies=%d",
+            len(aliased_contigs),
+            n_interval_copies,
+        )
+
+
+def _canonical_gfa_contig(contig: str) -> str:
+    """Return the final ``#``-delimited component used for contig aliasing."""
+    if "#" in contig:
+        return contig.rsplit("#", 1)[-1]
+    return contig
+
+
+def _gfa_contigs_match(left: str, right: str) -> bool:
+    """Return True when two GFA contig labels share a coordinate namespace."""
+    return left == right or _canonical_gfa_contig(left) == _canonical_gfa_contig(right)
 
 
 def _required_tab_positions(

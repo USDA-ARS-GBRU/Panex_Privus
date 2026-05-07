@@ -330,6 +330,20 @@ class TestGetSamplesPresentAtLocus:
         present = get_samples_present_at_locus(graph, "chrX", 0, 100)
         assert present == set()
 
+    def test_w_line_seq_id_aliases_segment_coordinate_contig(
+        self, tmp_path: Path
+    ) -> None:
+        content = (
+            "H\tVN:Z:1.1\n"
+            "S\tsegA\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:0\n"
+            "W\tT1\t1\tchr1\t0\t5\t>segA\n"
+        )
+        gfa = tmp_path / "aliased_present.gfa"
+        gfa.write_text(content)
+        graph = parse_gfa(gfa)
+
+        assert get_samples_present_at_locus(graph, "Ref#0#chr1", 0, 5) == {"T1"}
+
 
 # ---------------------------------------------------------------------------
 # TestExtractCohortSegmentCounts
@@ -505,6 +519,49 @@ class TestGfaScanIndex:
 
         assert "segA" in index.segments
         assert index.segment_sample_mask["segA"] == index.sample_mask(["T1", "O1"])
+
+    def test_scan_index_aliases_w_line_seq_id_to_segment_coordinate_contig(
+        self, tmp_path: Path
+    ) -> None:
+        content = (
+            "H\tVN:Z:1.1\n"
+            "S\tsegT\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:0\n"
+            "S\tsegO\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:0\n"
+            "W\tT1\t1\tchr1\t0\t5\t>segT\n"
+            "W\tO1\t1\tchr1\t0\t5\t>segO\n"
+        )
+        gfa = tmp_path / "aliased_contig.gfa"
+        gfa.write_text(content)
+
+        index = build_gfa_scan_index(gfa, ["T1", "O1"])
+        support_mask = index.segment_sample_mask["segT"]
+        present_mask = index.present_mask("Ref#0#chr1", 0, 5)
+
+        assert present_mask == index.sample_mask(["T1", "O1"])
+        assert index.mask_to_statuses(
+            support_mask=support_mask,
+            present_mask=present_mask,
+            samples=["T1", "O1"],
+        ) == {"T1": "traverses", "O1": "absent"}
+
+    def test_scan_index_filter_accepts_aliased_contig(self, tmp_path: Path) -> None:
+        content = (
+            "H\tVN:Z:1.1\n"
+            "S\tsegT\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:0\n"
+            "W\tT1\t1\tchr1\t0\t5\t>segT\n"
+        )
+        gfa = tmp_path / "aliased_filter.gfa"
+        gfa.write_text(content)
+
+        index = build_gfa_scan_index(
+            gfa,
+            ["T1"],
+            filter_contig="Ref#0#chr1",
+        )
+
+        assert index.contig_segment_count("Ref#0#chr1") == 1
+        assert index.matching_contigs("chr1") == ("Ref#0#chr1",)
+        assert index.present_mask("Ref#0#chr1", 0, 5) == index.sample_mask(["T1"])
 
     def test_scan_index_handles_p_lines_without_full_graph(self, tmp_path: Path) -> None:
         content = (

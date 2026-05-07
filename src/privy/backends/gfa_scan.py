@@ -334,7 +334,7 @@ def _scan_segments(
 
     # Determine contigs to scan
     if filter_contig is not None:
-        contigs = [filter_contig]
+        contigs = list(scan_index.matching_contigs(filter_contig))
     else:
         contigs = sorted(scan_index.contig_names())
 
@@ -668,7 +668,7 @@ def _write_sample_support_tsv(
 def _write_qc_tsv(stats: ScanStats, outdir: Path) -> None:
     path = outdir / "qc.tsv"
     with TsvWriter(path, QC_COLUMNS) as w:
-        w.write_rows(stats.as_qc_rows())
+        w.write_rows(stats.as_qc_rows(source="gfa"))
     log.info("Wrote %s", path)
 
 
@@ -684,12 +684,15 @@ def _write_run_json_file(
 ) -> None:
     from privy import __version__  # noqa: PLC0415
 
+    run_cfg = cfg.model_copy(update={
+        "gfa": cfg.gfa.model_copy(update={"enabled": True}),
+    })
     data = {
         "privy_version": __version__,
         "start_time": start_time,
         "end_time": end_time,
         "project_name": cfg.project_name,
-        "config": cfg.as_run_dict(),
+        "config": run_cfg.as_run_dict(),
         "cohort": {
             "targets": list(cohort.targets),
             "off_targets": list(cohort.off_targets),

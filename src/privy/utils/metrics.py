@@ -65,34 +65,57 @@ class ScanStats:
             self.strictness_counts.get(class_name, 0) + 1
         )
 
-    def as_qc_rows(self) -> list[dict[str, str]]:
+    def as_qc_rows(self, source: str = "vcf") -> list[dict[str, str]]:
         """Return a list of row dicts for ``qc.tsv``."""
+        if source == "gfa":
+            record_desc = "GFA graph segments processed for target-private status"
+            skipped_filter_desc = "GFA records skipped by filter"
+            skipped_qual_desc = "GFA records skipped by quality threshold"
+            skipped_multiallelic_desc = "GFA records skipped as multiallelic"
+            allele_eval_desc = "Graph segments evaluated for private-segment status"
+            allele_pass_desc = "Graph segments passing discovery criteria"
+            allele_contradicted_desc = "Graph segments classified as contradicted"
+            target_desc = "Target samples found in GFA"
+            offtarget_desc = "Off-target samples found in GFA"
+        else:
+            record_desc = "Total VCF records processed"
+            skipped_filter_desc = "Records skipped: FILTER != PASS"
+            skipped_qual_desc = "Records skipped: QUAL below threshold"
+            skipped_multiallelic_desc = (
+                "Records skipped: multiallelic (when allow_multiallelic=False)"
+            )
+            allele_eval_desc = "Alternate alleles evaluated for private-allele status"
+            allele_pass_desc = "Alleles passing discovery criteria"
+            allele_contradicted_desc = "Alleles classified as contradicted"
+            target_desc = "Target samples found in VCF header"
+            offtarget_desc = "Off-target samples found in VCF header"
+
         rows: list[dict[str, str]] = [
             {"metric": "records_evaluated",       "value": str(self.records_evaluated),
-             "description": "Total VCF records processed"},
+             "description": record_desc},
             {"metric": "records_skipped_filter",  "value": str(self.records_skipped_filter),
-             "description": "Records skipped: FILTER != PASS"},
+             "description": skipped_filter_desc},
             {"metric": "records_skipped_qual",    "value": str(self.records_skipped_qual),
-             "description": "Records skipped: QUAL below threshold"},
+             "description": skipped_qual_desc},
             {
                 "metric": "records_skipped_multiallelic",
                 "value": str(self.records_skipped_multiallelic),
-                "description": "Records skipped: multiallelic (when allow_multiallelic=False)",
+                "description": skipped_multiallelic_desc,
             },
             {"metric": "alleles_evaluated",       "value": str(self.alleles_evaluated),
-             "description": "Alternate alleles evaluated for private-allele status"},
+             "description": allele_eval_desc},
             {"metric": "alleles_passed",          "value": str(self.alleles_passed),
-             "description": "Alleles passing discovery criteria"},
+             "description": allele_pass_desc},
             {"metric": "alleles_contradicted",    "value": str(self.alleles_contradicted),
-             "description": "Alleles classified as contradicted"},
+             "description": allele_contradicted_desc},
             {"metric": "loci_emitted",            "value": str(self.loci_emitted),
              "description": "Loci written to hits.tsv"},
             {"metric": "regions_emitted",         "value": str(self.regions_emitted),
              "description": "Regions written to regions.tsv"},
             {"metric": "n_target_samples",        "value": str(self.n_target_samples),
-             "description": "Target samples found in VCF header"},
+             "description": target_desc},
             {"metric": "n_offtarget_samples",     "value": str(self.n_offtarget_samples),
-             "description": "Off-target samples found in VCF header"},
+             "description": offtarget_desc},
             {"metric": "n_contigs_scanned",       "value": str(self.n_contigs_scanned),
              "description": "Contigs visited during scan"},
         ]

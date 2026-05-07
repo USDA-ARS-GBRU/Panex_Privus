@@ -213,6 +213,14 @@ class TestQcMetrics:
         assert "strictness_strict_complete" in metrics
         assert "strictness_strict_target_missing" in metrics
 
+    def test_qc_descriptions_are_gfa_specific(self, scan_outdir: Path) -> None:
+        rows = read_tsv(scan_outdir / "qc.tsv")
+        descriptions = {r["metric"]: r["description"] for r in rows}
+        assert descriptions["records_evaluated"] == (
+            "GFA graph segments processed for target-private status"
+        )
+        assert descriptions["n_target_samples"] == "Target samples found in GFA"
+
 
 # ---------------------------------------------------------------------------
 # TestSampleSupportTsv
