@@ -49,10 +49,11 @@ xmfa:
   window_bp: 500
 
 compare:
-  overlap_mode: reciprocal     # any | reciprocal | contained
+  overlap_mode: contained      # any | reciprocal | contained
   min_reciprocal_overlap: 0.5
   breakpoint_tolerance_bp: 200
   require_state_compatibility: false
+  normalize_contigs: true
 
 scoring:
   discovery_weight: 1.0

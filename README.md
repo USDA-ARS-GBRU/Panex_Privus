@@ -149,6 +149,10 @@ privy compare \
   --outdir results/compare/
 ```
 
+For VCF/GFA comparisons, `privy compare` normalizes minigraph-cactus contig
+names like `Sample#0#Gm01` to `Gm01` and uses contained-overlap matching by
+default. Use `--overlap-mode reciprocal` for stricter interval matching.
+
 Generate a report:
 
 ```bash

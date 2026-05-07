@@ -9,6 +9,7 @@ import pytest
 
 from privy.backends.compare import (
     HitsRow,
+    canonicalize_contig,
     classify_match,
     compute_comparison_score,
     find_best_match,
@@ -23,6 +24,7 @@ from privy.core.evidence import MatchClass
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_row(
     locus_id: str = "PPX000001",
@@ -90,12 +92,21 @@ def _row_dict(**kwargs: str) -> dict[str, str]:
 # TestLoadHitsTsv
 # ---------------------------------------------------------------------------
 
+
 class TestLoadHitsTsv:
     def test_loads_valid_file(self, tmp_path: Path) -> None:
-        path = _make_hits_tsv(tmp_path, [
-            _row_dict(locus_id="PPX000001", contig="chr1", start="100", end="200",
-                      strictness_class="strict_complete"),
-        ])
+        path = _make_hits_tsv(
+            tmp_path,
+            [
+                _row_dict(
+                    locus_id="PPX000001",
+                    contig="chr1",
+                    start="100",
+                    end="200",
+                    strictness_class="strict_complete",
+                ),
+            ],
+        )
         rows = load_hits_tsv(path)
         assert len(rows) == 1
         assert rows[0].locus_id == "PPX000001"
@@ -113,20 +124,42 @@ class TestLoadHitsTsv:
             load_hits_tsv(tmp_path / "nonexistent.tsv")
 
     def test_malformed_start_raises(self, tmp_path: Path) -> None:
-        path = _make_hits_tsv(tmp_path, [
-            _row_dict(locus_id="PPX000001", contig="chr1", start="notanint", end="200",
-                      strictness_class="strict_complete"),
-        ])
+        path = _make_hits_tsv(
+            tmp_path,
+            [
+                _row_dict(
+                    locus_id="PPX000001",
+                    contig="chr1",
+                    start="notanint",
+                    end="200",
+                    strictness_class="strict_complete",
+                ),
+            ],
+        )
         with pytest.raises(ValueError, match="Malformed hits.tsv row"):
             load_hits_tsv(path)
 
     def test_multiple_rows_parsed(self, tmp_path: Path) -> None:
-        path = _make_hits_tsv(tmp_path, [
-            _row_dict(locus_id="PPX000001", contig="chr1", start="100", end="200",
-                      strictness_class="strict_complete"),
-            _row_dict(locus_id="PPX000002", contig="chr2", start="500", end="600",
-                      strictness_class="strict_target_missing", final_score="0.7"),
-        ])
+        path = _make_hits_tsv(
+            tmp_path,
+            [
+                _row_dict(
+                    locus_id="PPX000001",
+                    contig="chr1",
+                    start="100",
+                    end="200",
+                    strictness_class="strict_complete",
+                ),
+                _row_dict(
+                    locus_id="PPX000002",
+                    contig="chr2",
+                    start="500",
+                    end="600",
+                    strictness_class="strict_target_missing",
+                    final_score="0.7",
+                ),
+            ],
+        )
         rows = load_hits_tsv(path)
         assert len(rows) == 2
         assert rows[1].contig == "chr2"
@@ -136,6 +169,7 @@ class TestLoadHitsTsv:
 # ---------------------------------------------------------------------------
 # TestInferSourceLabel
 # ---------------------------------------------------------------------------
+
 
 class TestInferSourceLabel:
     def test_explicit_label_wins(self) -> None:
@@ -161,6 +195,7 @@ class TestInferSourceLabel:
 # ---------------------------------------------------------------------------
 # TestReciprocalOverlapRows
 # ---------------------------------------------------------------------------
+
 
 class TestReciprocalOverlapRows:
     def test_perfect_overlap(self) -> None:
@@ -197,8 +232,25 @@ class TestReciprocalOverlapRows:
 
 
 # ---------------------------------------------------------------------------
+# TestCanonicalizeContig
+# ---------------------------------------------------------------------------
+
+
+class TestCanonicalizeContig:
+    def test_minigraph_cactus_name_uses_final_field(self) -> None:
+        assert canonicalize_contig("Wm82a6#0#Gm01") == "Gm01"
+
+    def test_plain_name_is_unchanged(self) -> None:
+        assert canonicalize_contig("Gm01") == "Gm01"
+
+    def test_can_disable_normalization(self) -> None:
+        assert canonicalize_contig("Wm82a6#0#Gm01", normalize=False) == "Wm82a6#0#Gm01"
+
+
+# ---------------------------------------------------------------------------
 # TestIsStateCompatible
 # ---------------------------------------------------------------------------
+
 
 class TestIsStateCompatible:
     def test_a_contradicted_returns_false(self) -> None:
@@ -212,8 +264,7 @@ class TestIsStateCompatible:
 
     def test_both_strict_no_require(self) -> None:
         assert (
-            is_state_compatible("strict_complete", "strict_target_missing", require=False)
-            is True
+            is_state_compatible("strict_complete", "strict_target_missing", require=False) is True
         )
 
     def test_both_strict_require(self) -> None:
@@ -236,6 +287,7 @@ class TestIsStateCompatible:
 # TestClassifyMatch
 # ---------------------------------------------------------------------------
 
+
 class TestClassifyMatch:
     def _cfg(self, **kwargs: object) -> CompareConfig:
         return CompareConfig(**kwargs)  # type: ignore[arg-type]
@@ -254,6 +306,18 @@ class TestClassifyMatch:
         cfg = self._cfg(min_reciprocal_overlap=0.5, require_state_compatibility=False)
         mc = classify_match(0.0, True, "strict_complete", "strict_complete", cfg)
         assert mc == MatchClass.SOURCE_SPECIFIC
+
+    def test_breakpoint_fallback_partially_supported(self) -> None:
+        cfg = self._cfg(min_reciprocal_overlap=0.5, require_state_compatibility=False)
+        mc = classify_match(
+            0.0,
+            True,
+            "strict_complete",
+            "strict_complete",
+            cfg,
+            method="breakpoint",
+        )
+        assert mc == MatchClass.PARTIALLY_SUPPORTED
 
     def test_overlap_state_compat_supported(self) -> None:
         cfg = self._cfg(min_reciprocal_overlap=0.5, require_state_compatibility=False)
@@ -279,6 +343,7 @@ class TestClassifyMatch:
 # ---------------------------------------------------------------------------
 # TestComputeComparisonScore
 # ---------------------------------------------------------------------------
+
 
 class TestComputeComparisonScore:
     def test_supported_perfect_overlap(self) -> None:
@@ -314,9 +379,21 @@ class TestComputeComparisonScore:
 # TestFindBestMatch
 # ---------------------------------------------------------------------------
 
+
 class TestFindBestMatch:
-    def _cfg(self, min_overlap: float = 0.5, tol: int = 0) -> CompareConfig:
-        return CompareConfig(min_reciprocal_overlap=min_overlap, breakpoint_tolerance_bp=tol)
+    def _cfg(
+        self,
+        min_overlap: float = 0.5,
+        tol: int = 0,
+        overlap_mode: str = "contained",
+        normalize_contigs: bool = True,
+    ) -> CompareConfig:
+        return CompareConfig(
+            overlap_mode=overlap_mode,  # type: ignore[arg-type]
+            min_reciprocal_overlap=min_overlap,
+            breakpoint_tolerance_bp=tol,
+            normalize_contigs=normalize_contigs,
+        )
 
     def test_exact_match(self) -> None:
         query = _make_row(start=100, end=200)
@@ -347,6 +424,7 @@ class TestFindBestMatch:
         best, ov = find_best_match(query, [near], self._cfg(min_overlap=0.5, tol=50))
         assert best is not None
         assert best.locus_id == "GPX000001"
+        assert ov == pytest.approx(0.0)
 
     def test_breakpoint_fallback_disabled(self) -> None:
         query = _make_row(start=100, end=200)
@@ -365,3 +443,47 @@ class TestFindBestMatch:
         cand = _make_row(contig="chr2", start=100, end=200, locus_id="GPX000001")
         best, _ = find_best_match(query, [cand], self._cfg())
         assert best is None
+
+    def test_minigraph_cactus_contig_normalization(self) -> None:
+        query = _make_row(contig="Gm01", start=100, end=200)
+        cand = _make_row(
+            contig="Wm82a6#0#Gm01",
+            start=100,
+            end=200,
+            locus_id="GPX000001",
+        )
+        best, ov = find_best_match(query, [cand], self._cfg())
+        assert best is not None
+        assert best.locus_id == "GPX000001"
+        assert ov == pytest.approx(1.0)
+
+    def test_can_disable_minigraph_cactus_contig_normalization(self) -> None:
+        query = _make_row(contig="Gm01", start=100, end=200)
+        cand = _make_row(
+            contig="Wm82a6#0#Gm01",
+            start=100,
+            end=200,
+            locus_id="GPX000001",
+        )
+        best, _ = find_best_match(query, [cand], self._cfg(normalize_contigs=False))
+        assert best is None
+
+    def test_contained_mode_matches_short_segment_inside_interval(self) -> None:
+        query = _make_row(start=100, end=111)
+        cand = _make_row(start=105, end=106, locus_id="GPX000001")
+        best, ov = find_best_match(query, [cand], self._cfg())
+        assert best is not None
+        assert ov == pytest.approx(1.0)
+
+    def test_reciprocal_mode_rejects_short_segment_inside_interval(self) -> None:
+        query = _make_row(start=100, end=111)
+        cand = _make_row(start=105, end=106, locus_id="GPX000001")
+        best, _ = find_best_match(query, [cand], self._cfg(overlap_mode="reciprocal"))
+        assert best is None
+
+    def test_any_mode_accepts_low_fraction_overlap(self) -> None:
+        query = _make_row(start=100, end=200)
+        cand = _make_row(start=199, end=299, locus_id="GPX000001")
+        best, ov = find_best_match(query, [cand], self._cfg(overlap_mode="any"))
+        assert best is not None
+        assert ov == pytest.approx(0.01)

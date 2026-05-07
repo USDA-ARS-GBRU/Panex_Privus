@@ -148,10 +148,11 @@ class XmfaConfig(BaseModel):
 class CompareConfig(BaseModel):
     """Parameters for ``privy compare``."""
 
-    overlap_mode: Literal["any", "reciprocal", "contained"] = "reciprocal"
+    overlap_mode: Literal["any", "reciprocal", "contained"] = "contained"
     min_reciprocal_overlap: float = Field(default=0.5, ge=0.0, le=1.0)
     breakpoint_tolerance_bp: int = Field(default=200, ge=0)
     require_state_compatibility: bool = False
+    normalize_contigs: bool = True
 
 
 class ScoringConfig(BaseModel):

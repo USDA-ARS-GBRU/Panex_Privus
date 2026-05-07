@@ -45,8 +45,10 @@ gfa:
   min_segment_length: 1
 
 compare:
+  overlap_mode: contained
   min_reciprocal_overlap: 0.5
   breakpoint_tolerance_bp: 200
+  normalize_contigs: true
 
 scoring:
   discovery_weight: 1.0

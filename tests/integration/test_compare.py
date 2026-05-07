@@ -74,21 +74,27 @@ def _hit(
 @pytest.fixture()
 def vcf_hits(tmp_path: Path) -> Path:
     """VCF scan results with three loci."""
-    return _write_hits(tmp_path / "vcf" / "hits.tsv", [
-        _hit("PPX000001", "chr1", 100, 200, "strict_complete"),
-        _hit("PPX000002", "chr1", 500, 600, "strict_target_missing", 0.7),
-        _hit("PPX000003", "chr2", 1000, 1100, "strict_complete"),
-    ])
+    return _write_hits(
+        tmp_path / "vcf" / "hits.tsv",
+        [
+            _hit("PPX000001", "chr1", 100, 200, "strict_complete"),
+            _hit("PPX000002", "chr1", 500, 600, "strict_target_missing", 0.7),
+            _hit("PPX000003", "chr2", 1000, 1100, "strict_complete"),
+        ],
+    )
 
 
 @pytest.fixture()
 def gfa_hits(tmp_path: Path) -> Path:
     """GFA scan results: matches PPX000001 and PPX000003; PPX000002 not present."""
-    return _write_hits(tmp_path / "gfa" / "hits.tsv", [
-        _hit("GPX000001", "chr1", 100, 200, "strict_complete"),      # matches PPX000001
-        _hit("GPX000002", "chr2", 1000, 1100, "strict_complete"),    # matches PPX000003
-        _hit("GPX000003", "chr3", 2000, 2100, "strict_complete"),    # no VCF counterpart
-    ])
+    return _write_hits(
+        tmp_path / "gfa" / "hits.tsv",
+        [
+            _hit("GPX000001", "chr1", 100, 200, "strict_complete"),  # matches PPX000001
+            _hit("GPX000002", "chr2", 1000, 1100, "strict_complete"),  # matches PPX000003
+            _hit("GPX000003", "chr3", 2000, 2100, "strict_complete"),  # no VCF counterpart
+        ],
+    )
 
 
 @pytest.fixture()
@@ -100,10 +106,9 @@ def runner() -> CliRunner:
 # TestRunCompareOutputFiles
 # ---------------------------------------------------------------------------
 
+
 class TestRunCompareOutputFiles:
-    def test_compare_tsv_created(
-        self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path
-    ) -> None:
+    def test_compare_tsv_created(self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path) -> None:
         outdir = tmp_path / "out"
         run_compare(vcf_hits, gfa_hits, outdir, default_config())
         assert (outdir / "compare.tsv").exists()
@@ -115,9 +120,7 @@ class TestRunCompareOutputFiles:
         run_compare(vcf_hits, gfa_hits, outdir, default_config())
         assert (outdir / "compare_summary.tsv").exists()
 
-    def test_compare_json_created(
-        self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path
-    ) -> None:
+    def test_compare_json_created(self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path) -> None:
         outdir = tmp_path / "out"
         run_compare(vcf_hits, gfa_hits, outdir, default_config())
         assert (outdir / "compare.json").exists()
@@ -127,7 +130,10 @@ class TestRunCompareOutputFiles:
     ) -> None:
         outdir = tmp_path / "out"
         run_compare(
-            vcf_hits, gfa_hits, outdir, default_config(),
+            vcf_hits,
+            gfa_hits,
+            outdir,
+            default_config(),
             write_compare_tsv=False,
             write_summary_tsv=False,
             write_json=False,
@@ -140,6 +146,7 @@ class TestRunCompareOutputFiles:
 # ---------------------------------------------------------------------------
 # TestRunCompareColumns
 # ---------------------------------------------------------------------------
+
 
 class TestRunCompareColumns:
     def test_compare_tsv_has_correct_columns(
@@ -162,6 +169,7 @@ class TestRunCompareColumns:
 # ---------------------------------------------------------------------------
 # TestRunCompareMatchClasses
 # ---------------------------------------------------------------------------
+
 
 class TestRunCompareMatchClasses:
     def test_perfect_overlap_is_supported(
@@ -187,9 +195,9 @@ class TestRunCompareMatchClasses:
         outdir = tmp_path / "out"
         rows = run_compare(vcf_hits, gfa_hits, outdir, default_config())
         vcf_specific = [
-            r for r in rows
-            if r["match_class"] == MatchClass.SOURCE_SPECIFIC.value
-            and r["locus_id_a"] != "NA"
+            r
+            for r in rows
+            if r["match_class"] == MatchClass.SOURCE_SPECIFIC.value and r["locus_id_a"] != "NA"
         ]
         assert all(r["locus_id_b"] == "NA" for r in vcf_specific)
 
@@ -199,74 +207,126 @@ class TestRunCompareMatchClasses:
         outdir = tmp_path / "out"
         rows = run_compare(vcf_hits, gfa_hits, outdir, default_config())
         gfa_specific = [
-            r for r in rows
-            if r["match_class"] == MatchClass.SOURCE_SPECIFIC.value
-            and r["locus_id_b"] != "NA"
+            r
+            for r in rows
+            if r["match_class"] == MatchClass.SOURCE_SPECIFIC.value and r["locus_id_b"] != "NA"
         ]
         assert all(r["locus_id_a"] == "NA" for r in gfa_specific)
 
-    def test_total_row_count(
-        self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path
-    ) -> None:
+    def test_total_row_count(self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path) -> None:
         # 3 rows in A (2 matched + 1 source-specific A) + 1 unmatched B = 4 total
         outdir = tmp_path / "out"
         rows = run_compare(vcf_hits, gfa_hits, outdir, default_config())
         assert len(rows) == 4
 
     def test_contradicted_classification(self, tmp_path: Path) -> None:
-        vcf = _write_hits(tmp_path / "v" / "hits.tsv", [
-            _hit("PPX000001", "chr1", 100, 200, "contradicted"),
-        ])
-        gfa = _write_hits(tmp_path / "g" / "hits.tsv", [
-            _hit("GPX000001", "chr1", 100, 200, "strict_complete"),
-        ])
+        vcf = _write_hits(
+            tmp_path / "v" / "hits.tsv",
+            [
+                _hit("PPX000001", "chr1", 100, 200, "contradicted"),
+            ],
+        )
+        gfa = _write_hits(
+            tmp_path / "g" / "hits.tsv",
+            [
+                _hit("GPX000001", "chr1", 100, 200, "strict_complete"),
+            ],
+        )
         rows = run_compare(vcf, gfa, tmp_path / "out", default_config())
         assert rows[0]["match_class"] == MatchClass.CONTRADICTED.value
 
     def test_partially_supported_mixed_strictness(self, tmp_path: Path) -> None:
         cfg = default_config().model_copy(
-            update={"compare": default_config().compare.model_copy(
-                update={"require_state_compatibility": True}
-            )}
+            update={
+                "compare": default_config().compare.model_copy(
+                    update={"require_state_compatibility": True}
+                )
+            }
         )
-        vcf = _write_hits(tmp_path / "v" / "hits.tsv", [
-            _hit("PPX000001", "chr1", 100, 200, "strict_complete"),
-        ])
-        gfa = _write_hits(tmp_path / "g" / "hits.tsv", [
-            _hit("GPX000001", "chr1", 100, 200, "relaxed_threshold"),
-        ])
+        vcf = _write_hits(
+            tmp_path / "v" / "hits.tsv",
+            [
+                _hit("PPX000001", "chr1", 100, 200, "strict_complete"),
+            ],
+        )
+        gfa = _write_hits(
+            tmp_path / "g" / "hits.tsv",
+            [
+                _hit("GPX000001", "chr1", 100, 200, "relaxed_threshold"),
+            ],
+        )
         rows = run_compare(vcf, gfa, tmp_path / "out", cfg)
         assert rows[0]["match_class"] == MatchClass.PARTIALLY_SUPPORTED.value
+
+    def test_minigraph_cactus_contigs_are_compared(self, tmp_path: Path) -> None:
+        vcf = _write_hits(
+            tmp_path / "v" / "hits.tsv",
+            [
+                _hit("PPX000001", "Gm01", 100, 111),
+            ],
+        )
+        gfa = _write_hits(
+            tmp_path / "g" / "hits.tsv",
+            [
+                _hit("GPX000001", "Wm82a6#0#Gm01", 105, 106),
+            ],
+        )
+        rows = run_compare(vcf, gfa, tmp_path / "out", default_config())
+        supported = [r for r in rows if r["match_class"] == MatchClass.SUPPORTED.value]
+        assert len(supported) == 1
+        assert supported[0]["coordinate_overlap"] == "1.0000"
+
+    def test_multiple_gfa_segments_can_support_one_vcf_locus(self, tmp_path: Path) -> None:
+        vcf = _write_hits(
+            tmp_path / "v" / "hits.tsv",
+            [
+                _hit("PPX000001", "Gm01", 100, 111),
+            ],
+        )
+        gfa = _write_hits(
+            tmp_path / "g" / "hits.tsv",
+            [
+                _hit("GPX000001", "Wm82a6#0#Gm01", 105, 106),
+                _hit("GPX000002", "Wm82a6#0#Gm01", 108, 109),
+            ],
+        )
+        rows = run_compare(vcf, gfa, tmp_path / "out", default_config())
+        supported = [r for r in rows if r["match_class"] == MatchClass.SUPPORTED.value]
+        assert {r["locus_id_b"] for r in supported} == {"GPX000001", "GPX000002"}
+        assert not any(
+            r["match_class"] == MatchClass.SOURCE_SPECIFIC.value
+            and r["locus_id_b"] in {"GPX000001", "GPX000002"}
+            for r in rows
+        )
 
 
 # ---------------------------------------------------------------------------
 # TestRunCompareSourceLabels
 # ---------------------------------------------------------------------------
 
+
 class TestRunCompareSourceLabels:
-    def test_infers_vcf_label(
-        self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path
-    ) -> None:
+    def test_infers_vcf_label(self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path) -> None:
         outdir = tmp_path / "out"
         rows = run_compare(vcf_hits, gfa_hits, outdir, default_config())
         matched = [r for r in rows if r["source_a"] != "NA"]
         assert all(r["source_a"] == "vcf" for r in matched)
 
-    def test_infers_gfa_label(
-        self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path
-    ) -> None:
+    def test_infers_gfa_label(self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path) -> None:
         outdir = tmp_path / "out"
         rows = run_compare(vcf_hits, gfa_hits, outdir, default_config())
         matched = [r for r in rows if r["source_b"] != "NA"]
         assert all(r["source_b"] == "gfa" for r in matched)
 
-    def test_explicit_labels_used(
-        self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path
-    ) -> None:
+    def test_explicit_labels_used(self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path) -> None:
         outdir = tmp_path / "out"
         rows = run_compare(
-            vcf_hits, gfa_hits, outdir, default_config(),
-            source_label_a="my_vcf", source_label_b="my_gfa",
+            vcf_hits,
+            gfa_hits,
+            outdir,
+            default_config(),
+            source_label_a="my_vcf",
+            source_label_b="my_gfa",
         )
         a_labels = {r["source_a"] for r in rows if r["source_a"] != "NA"}
         b_labels = {r["source_b"] for r in rows if r["source_b"] != "NA"}
@@ -278,20 +338,28 @@ class TestRunCompareSourceLabels:
 # TestRunCompareJson
 # ---------------------------------------------------------------------------
 
+
 class TestRunCompareJson:
-    def test_json_has_expected_keys(
-        self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path
-    ) -> None:
+    def test_json_has_expected_keys(self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path) -> None:
         outdir = tmp_path / "out"
         run_compare(vcf_hits, gfa_hits, outdir, default_config())
         meta = json.loads((outdir / "compare.json").read_text())
-        for key in ("tool", "hits_a", "hits_b", "source_a", "source_b",
-                    "n_rows_a", "n_rows_b", "n_compare_rows", "config", "timestamp"):
+        for key in (
+            "tool",
+            "hits_a",
+            "hits_b",
+            "source_a",
+            "source_b",
+            "n_rows_a",
+            "n_rows_b",
+            "n_compare_rows",
+            "config",
+            "diagnostics",
+            "timestamp",
+        ):
             assert key in meta
 
-    def test_json_row_counts_match(
-        self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path
-    ) -> None:
+    def test_json_row_counts_match(self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path) -> None:
         outdir = tmp_path / "out"
         rows = run_compare(vcf_hits, gfa_hits, outdir, default_config())
         meta = json.loads((outdir / "compare.json").read_text())
@@ -299,10 +367,32 @@ class TestRunCompareJson:
         assert meta["n_rows_b"] == 3
         assert meta["n_compare_rows"] == len(rows)
 
+    def test_json_diagnostics_report_contig_overlap(self, tmp_path: Path) -> None:
+        vcf = _write_hits(
+            tmp_path / "v" / "hits.tsv",
+            [
+                _hit("PPX000001", "Gm01", 100, 111),
+            ],
+        )
+        gfa = _write_hits(
+            tmp_path / "g" / "hits.tsv",
+            [
+                _hit("GPX000001", "Wm82a6#0#Gm01", 105, 106),
+            ],
+        )
+        outdir = tmp_path / "out"
+        run_compare(vcf, gfa, outdir, default_config())
+        meta = json.loads((outdir / "compare.json").read_text())
+        diagnostics = meta["diagnostics"]
+        assert diagnostics["raw_shared_contigs"] == 0
+        assert diagnostics["canonical_shared_contigs"] == 1
+        assert diagnostics["overlapping_candidate_pairs"] == 1
+
 
 # ---------------------------------------------------------------------------
 # TestRunCompareSummary
 # ---------------------------------------------------------------------------
+
 
 class TestRunCompareSummary:
     def test_summary_covers_all_match_classes(
@@ -314,9 +404,7 @@ class TestRunCompareSummary:
         classes = {r["match_class"] for r in summary_rows}
         assert classes == {mc.value for mc in MatchClass}
 
-    def test_summary_pct_sums_to_100(
-        self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path
-    ) -> None:
+    def test_summary_pct_sums_to_100(self, tmp_path: Path, vcf_hits: Path, gfa_hits: Path) -> None:
         outdir = tmp_path / "out"
         run_compare(vcf_hits, gfa_hits, outdir, default_config())
         summary_rows = read_tsv(outdir / "compare_summary.tsv")
@@ -328,63 +416,109 @@ class TestRunCompareSummary:
 # TestRunCompareConfig
 # ---------------------------------------------------------------------------
 
+
 class TestRunCompareConfig:
     def test_low_overlap_threshold_increases_matches(self, tmp_path: Path) -> None:
-        vcf = _write_hits(tmp_path / "v" / "hits.tsv", [
-            _hit("PPX000001", "chr1", 100, 200),
-        ])
-        gfa = _write_hits(tmp_path / "g" / "hits.tsv", [
-            _hit("GPX000001", "chr1", 150, 250),  # overlap = 50/150 ≈ 0.33
-        ])
+        vcf = _write_hits(
+            tmp_path / "v" / "hits.tsv",
+            [
+                _hit("PPX000001", "chr1", 100, 200),
+            ],
+        )
+        gfa = _write_hits(
+            tmp_path / "g" / "hits.tsv",
+            [
+                _hit("GPX000001", "chr1", 150, 250),  # overlap = 50/150 ≈ 0.33
+            ],
+        )
         # Strict config: threshold=0.5, no breakpoint fallback → no match
         cfg_strict = default_config().model_copy(
-            update={"compare": default_config().compare.model_copy(
-                update={"min_reciprocal_overlap": 0.5, "breakpoint_tolerance_bp": 0}
-            )}
+            update={
+                "compare": default_config().compare.model_copy(
+                    update={
+                        "overlap_mode": "reciprocal",
+                        "min_reciprocal_overlap": 0.5,
+                        "breakpoint_tolerance_bp": 0,
+                    }
+                )
+            }
         )
         rows_strict = run_compare(
-            vcf, gfa, tmp_path / "out1", cfg_strict,
-            write_compare_tsv=False, write_summary_tsv=False, write_json=False,
+            vcf,
+            gfa,
+            tmp_path / "out1",
+            cfg_strict,
+            write_compare_tsv=False,
+            write_summary_tsv=False,
+            write_json=False,
         )
         assert any(r["match_class"] == MatchClass.SOURCE_SPECIFIC.value for r in rows_strict)
 
         # Low threshold: threshold=0.2 → should match (overlap ≈ 0.33 > 0.2)
         cfg_low = default_config().model_copy(
-            update={"compare": default_config().compare.model_copy(
-                update={"min_reciprocal_overlap": 0.2, "breakpoint_tolerance_bp": 0}
-            )}
+            update={
+                "compare": default_config().compare.model_copy(
+                    update={
+                        "overlap_mode": "reciprocal",
+                        "min_reciprocal_overlap": 0.2,
+                        "breakpoint_tolerance_bp": 0,
+                    }
+                )
+            }
         )
         rows_low = run_compare(
-            vcf, gfa, tmp_path / "out2", cfg_low,
-            write_compare_tsv=False, write_summary_tsv=False, write_json=False,
+            vcf,
+            gfa,
+            tmp_path / "out2",
+            cfg_low,
+            write_compare_tsv=False,
+            write_summary_tsv=False,
+            write_json=False,
         )
-        assert any(r["match_class"] in (
-            MatchClass.SUPPORTED.value, MatchClass.PARTIALLY_SUPPORTED.value
-        ) for r in rows_low)
+        assert any(
+            r["match_class"] in (MatchClass.SUPPORTED.value, MatchClass.PARTIALLY_SUPPORTED.value)
+            for r in rows_low
+        )
 
     def test_breakpoint_tolerance_enables_near_miss_match(self, tmp_path: Path) -> None:
-        vcf = _write_hits(tmp_path / "v" / "hits.tsv", [
-            _hit("PPX000001", "chr1", 100, 200),
-        ])
-        gfa = _write_hits(tmp_path / "g" / "hits.tsv", [
-            _hit("GPX000001", "chr1", 210, 310),  # gap = 10 bp
-        ])
+        vcf = _write_hits(
+            tmp_path / "v" / "hits.tsv",
+            [
+                _hit("PPX000001", "chr1", 100, 200),
+            ],
+        )
+        gfa = _write_hits(
+            tmp_path / "g" / "hits.tsv",
+            [
+                _hit("GPX000001", "chr1", 210, 310),  # gap = 10 bp
+            ],
+        )
         cfg = default_config().model_copy(
-            update={"compare": default_config().compare.model_copy(
-                update={"breakpoint_tolerance_bp": 50}
-            )}
+            update={
+                "compare": default_config().compare.model_copy(
+                    update={"breakpoint_tolerance_bp": 50}
+                )
+            }
         )
         rows = run_compare(
-            vcf, gfa, tmp_path / "out", cfg,
-            write_compare_tsv=False, write_summary_tsv=False, write_json=False,
+            vcf,
+            gfa,
+            tmp_path / "out",
+            cfg,
+            write_compare_tsv=False,
+            write_summary_tsv=False,
+            write_json=False,
         )
         matched = [r for r in rows if r["locus_id_a"] != "NA" and r["locus_id_b"] != "NA"]
         assert len(matched) == 1
+        assert matched[0]["match_class"] == MatchClass.PARTIALLY_SUPPORTED.value
+        assert "method=breakpoint" in matched[0]["support_summary"]
 
 
 # ---------------------------------------------------------------------------
 # TestCompareCli
 # ---------------------------------------------------------------------------
+
 
 class TestCompareCli:
     def test_successful_run(
@@ -395,12 +529,18 @@ class TestCompareCli:
         runner: CliRunner,
     ) -> None:
         outdir = tmp_path / "cli_out"
-        result = runner.invoke(app, [
-            "compare",
-            "--hits-a", str(vcf_hits),
-            "--hits-b", str(gfa_hits),
-            "--outdir", str(outdir),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--hits-a",
+                str(vcf_hits),
+                "--hits-b",
+                str(gfa_hits),
+                "--outdir",
+                str(outdir),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert (outdir / "compare.tsv").exists()
 
@@ -410,12 +550,18 @@ class TestCompareCli:
         gfa_hits: Path,
         runner: CliRunner,
     ) -> None:
-        result = runner.invoke(app, [
-            "compare",
-            "--hits-a", str(tmp_path / "nonexistent.tsv"),
-            "--hits-b", str(gfa_hits),
-            "--outdir", str(tmp_path / "out"),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--hits-a",
+                str(tmp_path / "nonexistent.tsv"),
+                "--hits-b",
+                str(gfa_hits),
+                "--outdir",
+                str(tmp_path / "out"),
+            ],
+        )
         assert result.exit_code != 0
 
     def test_missing_hits_b_exits_nonzero(
@@ -424,12 +570,18 @@ class TestCompareCli:
         vcf_hits: Path,
         runner: CliRunner,
     ) -> None:
-        result = runner.invoke(app, [
-            "compare",
-            "--hits-a", str(vcf_hits),
-            "--hits-b", str(tmp_path / "nonexistent.tsv"),
-            "--outdir", str(tmp_path / "out"),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--hits-a",
+                str(vcf_hits),
+                "--hits-b",
+                str(tmp_path / "nonexistent.tsv"),
+                "--outdir",
+                str(tmp_path / "out"),
+            ],
+        )
         assert result.exit_code != 0
 
     def test_min_reciprocal_overlap_override(
@@ -440,16 +592,108 @@ class TestCompareCli:
         runner: CliRunner,
     ) -> None:
         outdir = tmp_path / "out"
-        result = runner.invoke(app, [
-            "compare",
-            "--hits-a", str(vcf_hits),
-            "--hits-b", str(gfa_hits),
-            "--min-reciprocal-overlap", "0.1",
-            "--outdir", str(outdir),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--hits-a",
+                str(vcf_hits),
+                "--hits-b",
+                str(gfa_hits),
+                "--min-reciprocal-overlap",
+                "0.1",
+                "--outdir",
+                str(outdir),
+            ],
+        )
         assert result.exit_code == 0, result.output
         meta = json.loads((outdir / "compare.json").read_text())
         assert meta["config"]["min_reciprocal_overlap"] == pytest.approx(0.1)
+
+    def test_overlap_mode_override(
+        self,
+        tmp_path: Path,
+        vcf_hits: Path,
+        gfa_hits: Path,
+        runner: CliRunner,
+    ) -> None:
+        outdir = tmp_path / "out"
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--hits-a",
+                str(vcf_hits),
+                "--hits-b",
+                str(gfa_hits),
+                "--overlap-mode",
+                "reciprocal",
+                "--outdir",
+                str(outdir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        meta = json.loads((outdir / "compare.json").read_text())
+        assert meta["config"]["overlap_mode"] == "reciprocal"
+
+    def test_invalid_overlap_mode_exits_nonzero(
+        self,
+        tmp_path: Path,
+        vcf_hits: Path,
+        gfa_hits: Path,
+        runner: CliRunner,
+    ) -> None:
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--hits-a",
+                str(vcf_hits),
+                "--hits-b",
+                str(gfa_hits),
+                "--overlap-mode",
+                "near-enough",
+                "--outdir",
+                str(tmp_path / "out"),
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_no_normalize_contigs_override(
+        self,
+        tmp_path: Path,
+        runner: CliRunner,
+    ) -> None:
+        vcf = _write_hits(
+            tmp_path / "v" / "hits.tsv",
+            [
+                _hit("PPX000001", "Gm01", 100, 111),
+            ],
+        )
+        gfa = _write_hits(
+            tmp_path / "g" / "hits.tsv",
+            [
+                _hit("GPX000001", "Wm82a6#0#Gm01", 105, 106),
+            ],
+        )
+        outdir = tmp_path / "out"
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--hits-a",
+                str(vcf),
+                "--hits-b",
+                str(gfa),
+                "--no-normalize-contigs",
+                "--outdir",
+                str(outdir),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        meta = json.loads((outdir / "compare.json").read_text())
+        assert meta["config"]["normalize_contigs"] is False
+        assert meta["diagnostics"]["canonical_shared_contigs"] == 0
 
     def test_explicit_source_labels(
         self,
@@ -459,14 +703,22 @@ class TestCompareCli:
         runner: CliRunner,
     ) -> None:
         outdir = tmp_path / "out"
-        result = runner.invoke(app, [
-            "compare",
-            "--hits-a", str(vcf_hits),
-            "--hits-b", str(gfa_hits),
-            "--source-a", "myvcf",
-            "--source-b", "mygfa",
-            "--outdir", str(outdir),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--hits-a",
+                str(vcf_hits),
+                "--hits-b",
+                str(gfa_hits),
+                "--source-a",
+                "myvcf",
+                "--source-b",
+                "mygfa",
+                "--outdir",
+                str(outdir),
+            ],
+        )
         assert result.exit_code == 0, result.output
         rows = read_tsv(outdir / "compare.tsv")
         a_labels = {r["source_a"] for r in rows if r["source_a"] != "NA"}
@@ -480,14 +732,20 @@ class TestCompareCli:
         runner: CliRunner,
     ) -> None:
         outdir = tmp_path / "out"
-        result = runner.invoke(app, [
-            "compare",
-            "--hits-a", str(vcf_hits),
-            "--hits-b", str(gfa_hits),
-            "--no-write-compare-tsv",
-            "--no-write-summary-tsv",
-            "--no-write-json",
-            "--outdir", str(outdir),
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "compare",
+                "--hits-a",
+                str(vcf_hits),
+                "--hits-b",
+                str(gfa_hits),
+                "--no-write-compare-tsv",
+                "--no-write-summary-tsv",
+                "--no-write-json",
+                "--outdir",
+                str(outdir),
+            ],
+        )
         assert result.exit_code == 0, result.output
         assert not (outdir / "compare.tsv").exists()

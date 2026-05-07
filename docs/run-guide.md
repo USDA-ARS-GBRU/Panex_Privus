@@ -354,11 +354,18 @@ privy compare \
   --outdir results/compare/
 ```
 
+By default, `privy compare` normalizes minigraph-cactus GFA contig names such
+as `Sample#0#Gm01` to `Gm01` before matching them to VCF contigs. It also uses
+`contained` overlap mode, which works well when short GFA graph segments fall
+inside longer VCF intervals. Use `--overlap-mode reciprocal` when you want a
+stricter interval comparison.
+
 Compare outputs:
 
-- `compare.tsv`: per-locus source agreement table
+- `compare.tsv`: per-locus-pair source agreement table
 - `compare_summary.tsv`: match-class counts and summary statistics
-- `compare.json`: compare run metadata
+- `compare.json`: compare run metadata and diagnostics, including raw vs
+  normalized contig overlap and candidate-match counts
 
 Key compare options:
 
@@ -368,9 +375,11 @@ Key compare options:
 | `--hits-b PATH` | Second `hits.tsv` |
 | `--source-a TEXT` | Optional label for source A |
 | `--source-b TEXT` | Optional label for source B |
-| `--min-reciprocal-overlap FLOAT` | Minimum overlap for interval matching |
+| `--overlap-mode TEXT` | Match mode: `contained`, `reciprocal`, or `any` |
+| `--min-reciprocal-overlap FLOAT` | Minimum overlap score for `contained` or `reciprocal` matching |
 | `--breakpoint-tolerance-bp INT` | Gap tolerance for near misses |
 | `--require-state-compatibility` | Require strictness compatibility |
+| `--no-normalize-contigs` | Compare contig names exactly as written |
 
 See [Figures and Tables](figures-and-tables.md#privy-compare) for example
 compare tables, a compare-summary figure, and captions.

@@ -223,6 +223,9 @@ group, so the same feature can be core in one group and absent in another.
 `privy compare` reconciles two scan outputs, usually one VCF run and one GFA
 run. The goal is not to force the sources to agree perfectly, but to make
 agreement, partial agreement, and source-specific discoveries explicit.
+For minigraph-cactus GFA output, compare normalizes contig names like
+`Sample#0#Gm01` to `Gm01` and uses contained-overlap matching by default so
+short graph segments can support longer VCF intervals.
 
 Example command:
 
@@ -239,6 +242,10 @@ privy compare \
 |------------|------------|------------|----------|----------|--------|-------------|--------------------|---------------------|------------------|
 | `CMP000001` | `PPX00000001` | `GPX00000002` | `vcf` | `gfa` | `chr1` | `source_specific` | 0.0000 | `True` | 0.3 |
 | `CMP000006` | `PPX00000002` | `GPX00000002` | `vcf` | `gfa` | `chr1` | `source_specific` | 0.0000 | `True` | 0.3 |
+
+`coordinate_overlap` reports the score used by the configured overlap mode.
+With the default `contained` mode, a short GFA segment fully inside a longer
+VCF interval reports `1.0000`.
 
 **Table title.** Concordance between VCF and GFA private-locus scans.
 
