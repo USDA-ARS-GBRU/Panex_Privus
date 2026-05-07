@@ -541,8 +541,19 @@ class TestGfaScanIndex:
         loaded = load_gfa_scan_index(index_path, GFA_DATA)
 
         assert loaded.sample_order == index.sample_order
+        assert loaded.coordinate_segment_count() == index.coordinate_segment_count()
+        assert loaded.contig_segment_count("chr1") == index.contig_segment_count("chr1")
         assert loaded.support_mask_for_segment("s2_target") == index.segment_sample_mask[
             "s2_target"
+        ]
+        assert list(loaded.iter_contig_segments("chr1")) == [
+            (
+                start,
+                end,
+                name,
+                index.segment_sample_mask.get(name, 0),
+            )
+            for start, end, name in index.contig_segments["chr1"]
         ]
         assert loaded.present_mask("chr1", 8, 18) == index.present_mask("chr1", 8, 18)
         assert loaded.metadata["source"]["size"] == GFA_DATA.stat().st_size

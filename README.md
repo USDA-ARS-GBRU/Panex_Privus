@@ -99,7 +99,8 @@ GFA walk-parsing step:
 privy index gfa --gfa pangenome.gfa.gz
 ```
 
-If you built the index with an older development version, rebuild it once with
+If you built the index with an older development version, or after pulling a
+Privy update that changes GFA indexing, rebuild it once with
 `privy index gfa --gfa pangenome.gfa.gz --force`.
 
 Then run a GFA scan:

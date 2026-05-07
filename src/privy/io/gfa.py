@@ -47,7 +47,7 @@ log = logging.getLogger("privy.io.gfa")
 _WALK_SEGMENT_RE = re.compile(r"[><]([^><\t\r\n]+)")
 _SQLITE_HEADER = b"SQLite format 3\0"
 _LEGACY_GFA_SCAN_INDEX_MAGIC = b"PRIVY_GFA_SCAN_INDEX\0"
-_GFA_SCAN_INDEX_SCHEMA_VERSION = 2
+_GFA_SCAN_INDEX_SCHEMA_VERSION = 3
 _SQLITE_INSERT_BATCH_SIZE = 100_000
 
 
@@ -200,6 +200,7 @@ class GfaScanIndex:
     sqlite_index_path: Path | None = None
     sqlite_contigs: tuple[str, ...] = ()
     sqlite_contig_counts: dict[str, int] = field(default_factory=dict)
+    sqlite_contig_ranges: dict[str, tuple[int, int]] = field(default_factory=dict)
     n_segments: int = 0
     n_links: int = 0
     n_paths: int = 0
@@ -265,14 +266,24 @@ class GfaScanIndex:
             return contig in self.sqlite_contig_counts
         return contig in self.contig_segments
 
+    def contig_segment_count(self, contig: str) -> int:
+        """Return the number of coordinate-tagged segments for one contig."""
+        if self.sqlite_contig_counts:
+            return self.sqlite_contig_counts.get(contig, 0)
+        return len(self.contig_segments.get(contig, []))
+
     def iter_contig_segments(self, contig: str) -> Iterator[tuple[int, int, str, int]]:
         """Yield ``(start, end, segment_name, sample_mask)`` rows for *contig*."""
         if self.sqlite_index_path is not None:
+            row_range = self.sqlite_contig_ranges.get(contig)
+            if row_range is None:
+                return
+            first_segment_id, last_segment_id = row_range
             with _connect_gfa_scan_index_db(self.sqlite_index_path, readonly=True) as conn:
                 rows = conn.execute(
                     "SELECT start, end, name, sample_mask FROM segments "
-                    "WHERE contig = ? ORDER BY start, end, name",
-                    (contig,),
+                    "WHERE segment_id BETWEEN ? AND ? ORDER BY segment_id",
+                    (first_segment_id, last_segment_id),
                 )
                 for start, end, name, mask_blob in rows:
                     yield int(start), int(end), str(name), _decode_sample_mask(mask_blob)
@@ -464,16 +475,15 @@ def write_gfa_scan_index(
             interval_rows,
         )
 
+        next_segment_id = 1
         written_segments = 0
         for contig, entries in scan_index.contig_segments.items():
-            conn.execute(
-                "INSERT INTO contigs(contig, n_segments) VALUES (?, ?)",
-                (contig, len(entries)),
-            )
-            batch: list[tuple[str, int, int, str, sqlite3.Binary]] = []
+            first_segment_id = next_segment_id
+            batch: list[tuple[int, str, int, int, str, sqlite3.Binary]] = []
             contig_written = 0
             for start, end, seg_name in entries:
                 batch.append((
+                    next_segment_id,
                     contig,
                     start,
                     end,
@@ -482,6 +492,7 @@ def write_gfa_scan_index(
                         scan_index.segment_sample_mask.get(seg_name, 0)
                     )),
                 ))
+                next_segment_id += 1
                 if len(batch) >= _SQLITE_INSERT_BATCH_SIZE:
                     batch_size = len(batch)
                     _insert_segment_batch(conn, batch)
@@ -494,6 +505,12 @@ def write_gfa_scan_index(
                 contig_written += batch_size
                 written_segments += batch_size
 
+            last_segment_id = next_segment_id - 1
+            conn.execute(
+                "INSERT INTO contigs(contig, n_segments, first_segment_id, "
+                "last_segment_id) VALUES (?, ?, ?, ?)",
+                (contig, len(entries), first_segment_id, last_segment_id),
+            )
             log.info(
                 "  indexed %s: %d segments (%d total written)",
                 contig,
@@ -501,10 +518,6 @@ def write_gfa_scan_index(
                 written_segments,
             )
 
-        conn.execute(
-            "CREATE INDEX segments_contig_start_idx "
-            "ON segments(contig, start, end, name)"
-        )
         conn.commit()
 
 
@@ -570,12 +583,14 @@ def load_gfa_scan_index(
                 )
             sample_intervals[int(sample_idx)][str(contig)] = intervals
 
-        contig_counts = {
-            str(contig): int(n_segments)
-            for contig, n_segments in conn.execute(
-                "SELECT contig, n_segments FROM contigs"
-            )
-        }
+        contig_counts: dict[str, int] = {}
+        contig_ranges: dict[str, tuple[int, int]] = {}
+        for contig, n_segments, first_segment_id, last_segment_id in conn.execute(
+            "SELECT contig, n_segments, first_segment_id, last_segment_id FROM contigs"
+        ):
+            contig_name = str(contig)
+            contig_counts[contig_name] = int(n_segments)
+            contig_ranges[contig_name] = (int(first_segment_id), int(last_segment_id))
 
     if gfa_path is not None:
         _validate_gfa_index_source(metadata, gfa_path, index_path)
@@ -591,6 +606,7 @@ def load_gfa_scan_index(
         sqlite_index_path=index_path,
         sqlite_contigs=tuple(sorted(contig_counts)),
         sqlite_contig_counts=contig_counts,
+        sqlite_contig_ranges=contig_ranges,
         n_segments=int(metadata.get("n_segments", 0) or 0),
         n_links=int(metadata.get("n_links", 0) or 0),
         n_paths=int(metadata.get("n_paths", 0) or 0),
@@ -601,12 +617,18 @@ def load_gfa_scan_index(
 
 def _connect_gfa_scan_index_db(index_path: Path, *, readonly: bool) -> sqlite3.Connection:
     if readonly:
-        return sqlite3.connect(f"file:{index_path}?mode=ro", uri=True)
+        conn = sqlite3.connect(f"file:{index_path}?mode=ro", uri=True)
+        conn.execute("PRAGMA query_only=ON")
+        conn.execute("PRAGMA temp_store=MEMORY")
+        conn.execute("PRAGMA cache_size=-200000")
+        conn.execute("PRAGMA mmap_size=268435456")
+        return conn
 
     conn = sqlite3.connect(index_path)
     conn.execute("PRAGMA journal_mode=OFF")
     conn.execute("PRAGMA synchronous=OFF")
     conn.execute("PRAGMA temp_store=MEMORY")
+    conn.execute("PRAGMA cache_size=-200000")
     return conn
 
 
@@ -632,9 +654,12 @@ def _init_gfa_scan_index_db(conn: sqlite3.Connection) -> None:
         );
         CREATE TABLE contigs (
             contig TEXT PRIMARY KEY,
-            n_segments INTEGER NOT NULL
+            n_segments INTEGER NOT NULL,
+            first_segment_id INTEGER NOT NULL,
+            last_segment_id INTEGER NOT NULL
         );
         CREATE TABLE segments (
+            segment_id INTEGER PRIMARY KEY,
             contig TEXT NOT NULL,
             start INTEGER NOT NULL,
             end INTEGER NOT NULL,
@@ -647,11 +672,11 @@ def _init_gfa_scan_index_db(conn: sqlite3.Connection) -> None:
 
 def _insert_segment_batch(
     conn: sqlite3.Connection,
-    batch: list[tuple[str, int, int, str, sqlite3.Binary]],
+    batch: list[tuple[int, str, int, int, str, sqlite3.Binary]],
 ) -> None:
     conn.executemany(
-        "INSERT INTO segments(contig, start, end, name, sample_mask) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO segments(segment_id, contig, start, end, name, sample_mask) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
         batch,
     )
 

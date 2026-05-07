@@ -34,6 +34,7 @@ All locus IDs use the ``GPX`` prefix (Graph Private region X).
 from __future__ import annotations
 
 import logging
+import time
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -345,10 +346,27 @@ def _scan_segments(
         contigs_visited.add(ctg)
         contig_hits_before = len(hits)
         contig_evaluated_before = stats.alleles_evaluated
+        contig_rows_seen = 0
+        contig_total_rows = scan_index.contig_segment_count(ctg)
         progress_next = 1_000_000
+        last_time_progress = time.monotonic()
         presence_trackers = _build_presence_trackers(scan_index, ctg)
 
         for seg_start, seg_end, seg_name, support_mask in scan_index.iter_contig_segments(ctg):
+            contig_rows_seen += 1
+            now = time.monotonic()
+            if now - last_time_progress >= 30.0:
+                log.info(
+                    "  %s: scanned %d/%d coordinate segments, evaluated %d "
+                    "target-supported segments, %d hits so far",
+                    ctg,
+                    contig_rows_seen,
+                    contig_total_rows,
+                    stats.alleles_evaluated - contig_evaluated_before,
+                    len(hits) - contig_hits_before,
+                )
+                last_time_progress = now
+
             # Apply region filter
             if filter_start is not None and seg_end <= filter_start:
                 continue
