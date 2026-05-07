@@ -318,7 +318,8 @@ GFA contributes:
 	•	path membership
 	•	walk/path traversal by sample
 	•	graph segment coordinates from SN/SO/LN tags
-	•	private graph-region candidates
+	•	private graph-node and graph-region candidates
+	•	GFA-specific segment length and coordinate-coverage summaries
 	•	missing-vs-absent classification at graph loci
 
 Landscape
@@ -341,7 +342,8 @@ Discovery architecture
 Primary scan backends
 
 The active primary backends are VCF and GFA. VCF scans evaluate alternate
-alleles. GFA scans evaluate coordinate-tagged graph segments.
+alleles. GFA scans evaluate coordinate-tagged graph segments. GFA calls are
+private graph-node evidence, not VCF-style ALT-allele calls.
 
 Scan workflow
 	1.	validate config and cohort definitions
@@ -814,6 +816,7 @@ SCAN OUTPUTS:
   regions.tsv
   evidence.tsv
   sample_support.tsv
+  graph_segments.tsv  (GFA scans only)
   qc.tsv
   run.json
 

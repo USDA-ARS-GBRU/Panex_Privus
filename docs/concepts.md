@@ -217,7 +217,13 @@ by `min_target_support=1.0` and `max_off_target_support=0.0`.
 
 In a GFA scan, Panex Privus evaluates graph segments instead of VCF alleles. A
 segment can become a candidate when target paths or walks traverse it and
-off-target paths or walks do not.
+off-target paths or walks do not traverse that same segment.
+
+This is private graph-node evidence. It should not be described as a VCF-style
+ALT allele. In a graph traversal, an off-target sample may take an alternate
+path through the same genomic interval, or it may have no informative walk
+coverage there. `graph_segments.tsv` reports same-segment traversal and
+coordinate-overlap coverage separately so those cases remain visible.
 
 GFA discovery depends on segment coordinates. Segments without usable coordinate
 tags cannot be placed on chromosome-scale output intervals and are skipped for

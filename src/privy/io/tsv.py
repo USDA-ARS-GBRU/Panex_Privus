@@ -72,6 +72,28 @@ SAMPLE_SUPPORT_COLUMNS: list[str] = [
     "evidence_class",
 ]
 
+GFA_SEGMENT_COLUMNS: list[str] = [
+    "locus_id",
+    "contig",
+    "start",
+    "end",
+    "segment_name",
+    "segment_length",
+    "segment_length_class",
+    "graph_signal_type",
+    "target_traverse_n",
+    "target_total_n",
+    "target_coordinate_covered_n",
+    "target_missing_n",
+    "offtarget_same_segment_traverse_n",
+    "offtarget_same_segment_absent_n",
+    "offtarget_coordinate_covered_n",
+    "offtarget_missing_n",
+    "offtarget_total_n",
+    "strictness_class",
+    "interpretation",
+]
+
 QC_COLUMNS: list[str] = [
     "metric",
     "value",

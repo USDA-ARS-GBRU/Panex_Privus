@@ -36,7 +36,7 @@ class ScanStats:
     """Alleles that passed discovery criteria (pattern_pass=True)."""
 
     alleles_contradicted: int = 0
-    """Alleles classified as contradicted."""
+    """Evaluated alleles or graph segments classified as contradicted."""
 
     alleles_missing_only: int = 0
     """Alleles where all samples in one cohort are missing."""
@@ -48,7 +48,7 @@ class ScanStats:
     """Regions written to regions.tsv."""
 
     strictness_counts: dict[str, int] = field(default_factory=dict)
-    """Per-strictness-class counts of passing loci."""
+    """Per-strictness-class counts of evaluated alleles or graph segments."""
 
     n_target_samples: int = 0
     """Number of target samples found in VCF."""
@@ -72,9 +72,10 @@ class ScanStats:
             skipped_filter_desc = "GFA records skipped by filter"
             skipped_qual_desc = "GFA records skipped by quality threshold"
             skipped_multiallelic_desc = "GFA records skipped as multiallelic"
-            allele_eval_desc = "Graph segments evaluated for private-segment status"
+            allele_eval_desc = "Graph segments evaluated for path-differentiating status"
             allele_pass_desc = "Graph segments passing discovery criteria"
-            allele_contradicted_desc = "Graph segments classified as contradicted"
+            allele_contradicted_desc = "Evaluated graph segments classified as contradicted"
+            strictness_desc_prefix = "Evaluated graph segments classified as"
             target_desc = "Target samples found in GFA"
             offtarget_desc = "Off-target samples found in GFA"
         else:
@@ -86,7 +87,8 @@ class ScanStats:
             )
             allele_eval_desc = "Alternate alleles evaluated for private-allele status"
             allele_pass_desc = "Alleles passing discovery criteria"
-            allele_contradicted_desc = "Alleles classified as contradicted"
+            allele_contradicted_desc = "Evaluated alternate alleles classified as contradicted"
+            strictness_desc_prefix = "Evaluated alternate alleles classified as"
             target_desc = "Target samples found in VCF header"
             offtarget_desc = "Off-target samples found in VCF header"
 
@@ -124,7 +126,7 @@ class ScanStats:
             rows.append({
                 "metric": f"strictness_{class_name}",
                 "value": str(count),
-                "description": f"Passing loci classified as {class_name}",
+                "description": f"{strictness_desc_prefix} {class_name}",
             })
         return rows
 

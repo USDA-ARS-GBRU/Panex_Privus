@@ -86,6 +86,20 @@ support, absence, ambiguity, or contradiction.
 locus. This table is useful for auditing candidate calls, explaining missingness,
 and selecting loci for follow-up validation.
 
+### Table: GFA Graph Segments (`graph_segments.tsv`)
+
+| locus_id | segment_name | segment_length | segment_length_class | graph_signal_type | offtarget_coordinate_covered_n | interpretation |
+|----------|--------------|----------------|----------------------|-------------------|-------------------------------|----------------|
+| `GPX00000001` | `s2_target` | 10 | `small_indel_like` | `target_traversed_graph_segment` | 3 | Targets traverse this graph segment; off-targets have coordinate-overlapping graph coverage but do not traverse this same segment. |
+
+**Table title.** GFA private graph-node evidence.
+
+**Caption.** GFA-specific companion table for `hits.tsv`. Each row describes a
+coordinate-tagged graph segment traversed by target samples and not traversed by
+off-target samples. Segment length classes are descriptive graph-node size
+classes; they should not be treated as VCF variant calls without additional
+path or bubble analysis.
+
 ### Table: Scan Metrics (`qc.tsv`)
 
 | metric | value | description |

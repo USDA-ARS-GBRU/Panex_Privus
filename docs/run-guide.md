@@ -135,9 +135,15 @@ tables and captions.
 ## GFA Scan
 
 Use a GFA scan when your discovery question is based on a pangenome graph rather
-than called variants. This asks the same biological question, but at the level of
-graph segments: which segments are traversed by the target samples and absent
-from off-target samples?
+than called variants. This asks a graph-specific version of the same biological
+question: which coordinate-tagged graph segments are traversed by the target
+samples and not traversed by off-target samples?
+
+GFA hits are private graph-node calls, not VCF ALT-allele calls. In a graph, an
+off-target sample may take a different path through the same coordinate interval
+instead of traversing the target segment. Review `graph_segments.tsv` to see
+segment length, length class, same-segment traversal counts, coordinate-coverage
+counts, and the graph-specific interpretation for each GFA hit.
 
 For large GFA graphs, build a reusable Privy GFA index before scanning:
 
@@ -167,7 +173,10 @@ privy scan \
   --outdir results/
 ```
 
-GFA outputs are written under `results/gfa/`.
+GFA outputs are written under `results/gfa/`. In addition to the common scan
+files, GFA scans write `graph_segments.tsv`, a companion table for interpreting
+private graph-node evidence without pretending it is the same thing as a VCF
+alternate allele.
 
 The `--gfa` input may be a plain-text `.gfa` file or a gzip-compressed
 `.gfa.gz` file, matching the compressed output commonly written by

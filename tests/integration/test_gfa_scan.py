@@ -63,6 +63,9 @@ class TestOutputFiles:
     def test_hits_tsv_created(self, scan_outdir: Path) -> None:
         assert (scan_outdir / "hits.tsv").exists()
 
+    def test_graph_segments_tsv_created(self, scan_outdir: Path) -> None:
+        assert (scan_outdir / "graph_segments.tsv").exists()
+
     def test_regions_tsv_created(self, scan_outdir: Path) -> None:
         assert (scan_outdir / "regions.tsv").exists()
 
@@ -188,6 +191,30 @@ class TestRegionsTsv:
 
 
 # ---------------------------------------------------------------------------
+# TestGraphSegmentsTsv
+# ---------------------------------------------------------------------------
+
+
+class TestGraphSegmentsTsv:
+    def test_graph_segments_has_one_row_per_hit(self, scan_outdir: Path) -> None:
+        hit_rows = read_tsv(scan_outdir / "hits.tsv")
+        graph_rows = read_tsv(scan_outdir / "graph_segments.tsv")
+        assert len(graph_rows) == len(hit_rows)
+
+    def test_graph_segments_report_gfa_specific_fields(self, scan_outdir: Path) -> None:
+        rows = read_tsv(scan_outdir / "graph_segments.tsv")
+        s2_row = next(r for r in rows if r["segment_name"] == "s2_target")
+        assert s2_row["segment_length"] == "10"
+        assert s2_row["segment_length_class"] == "small_indel_like"
+        assert s2_row["graph_signal_type"] == "target_traversed_graph_segment"
+        assert s2_row["target_traverse_n"] == "2"
+        assert s2_row["offtarget_same_segment_traverse_n"] == "0"
+        assert s2_row["offtarget_same_segment_absent_n"] == "3"
+        assert s2_row["offtarget_coordinate_covered_n"] == "3"
+        assert "same segment" in s2_row["interpretation"]
+
+
+# ---------------------------------------------------------------------------
 # TestQcMetrics
 # ---------------------------------------------------------------------------
 
@@ -218,6 +245,9 @@ class TestQcMetrics:
         descriptions = {r["metric"]: r["description"] for r in rows}
         assert descriptions["records_evaluated"] == (
             "GFA graph segments processed for target-private status"
+        )
+        assert descriptions["alleles_evaluated"] == (
+            "Graph segments evaluated for path-differentiating status"
         )
         assert descriptions["n_target_samples"] == "Target samples found in GFA"
 

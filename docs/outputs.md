@@ -8,7 +8,8 @@ description: Panex Privus output files and important result columns.
 `privy scan` writes source-specific output directories. VCF discovery results
 go under `results/vcf/`, GFA discovery results go under `results/gfa/`, and a
 combined VCF+GFA run also writes reconciliation files under `results/compare/`.
-Each scan directory contains six primary outputs.
+Each scan directory contains the common scan outputs below. GFA scans also write
+a graph-specific companion table.
 
 | File | Purpose |
 |------|---------|
@@ -18,6 +19,9 @@ Each scan directory contains six primary outputs.
 | `sample_support.tsv` | Per-sample support/missingness table |
 | `qc.tsv` | Scan metrics |
 | `run.json` | Run metadata and resolved configuration |
+
+GFA scan directories also include `graph_segments.tsv`, a companion table for
+private graph-node evidence, segment length, and graph-specific interpretation.
 
 `privy pangenome` writes pangenome-wide and sub-pangenome summaries to the
 directory you choose with `--outdir`.
@@ -88,6 +92,33 @@ For a SNP at VCF position 12345, `start=12344` and `end=12345`.
 
 Match classes include `supported`, `partially_supported`, `contradicted`,
 `source_specific`, `uninformative`, and `missing_data`.
+
+## GFA Graph Segment Outputs
+
+`graph_segments.tsv` is written only by `privy scan --gfa`. It keeps
+`hits.tsv` compatible with the shared scan/report/compare tools while making
+the graph-specific evidence explicit.
+
+A row in `graph_segments.tsv` means:
+
+> Target samples traverse this coordinate-tagged graph segment. Off-target
+> samples do not traverse this same segment, but they may have an alternate
+> path or missing graph coverage at the same genomic coordinates.
+
+This is private-node evidence, not a VCF-style alternate allele call.
+
+| Column | Meaning |
+|--------|---------|
+| `segment_name` | GFA segment ID |
+| `segment_length` | Length from the GFA `LN` tag or segment sequence |
+| `segment_length_class` | `snp_like`, `small_indel_like`, `sv_like`, or `large_sv_like` |
+| `graph_signal_type` | Currently `target_traversed_graph_segment` |
+| `target_traverse_n` | Target samples that traverse this same segment |
+| `target_coordinate_covered_n` | Target samples with graph coverage overlapping this segment's coordinate interval |
+| `offtarget_same_segment_traverse_n` | Off-target samples that traverse this same segment |
+| `offtarget_same_segment_absent_n` | Off-target samples with coordinate-overlapping graph coverage that do not traverse this segment |
+| `offtarget_coordinate_covered_n` | Off-target samples with graph coverage overlapping this segment's coordinate interval |
+| `interpretation` | Plain-language explanation of what can and cannot be concluded from this node-level call |
 
 ## Pangenome Outputs
 

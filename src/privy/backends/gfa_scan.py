@@ -59,6 +59,7 @@ from privy.io.gfa import (
 from privy.io.jsonio import write_run_json as _write_json
 from privy.io.tsv import (
     EVIDENCE_COLUMNS,
+    GFA_SEGMENT_COLUMNS,
     HITS_COLUMNS,
     QC_COLUMNS,
     REGIONS_COLUMNS,
@@ -286,6 +287,7 @@ def run_gfa_scan(
     # ── Step 7: Write outputs ─────────────────────────────────────────────────
     if write_hits:
         _write_hits_tsv(hit_records, outdir)
+        _write_graph_segments_tsv(hit_records, outdir)
     if write_regions:
         _write_regions_tsv(region_loci, hit_by_id, outdir)
     if write_evidence:
@@ -583,6 +585,45 @@ def _write_hits_tsv(hit_records: list[GfaHitRecord], outdir: Path) -> None:
     log.info("Wrote %s (%d rows)", path, len(hit_records))
 
 
+def _write_graph_segments_tsv(hit_records: list[GfaHitRecord], outdir: Path) -> None:
+    """Write a GFA-specific companion table for private graph-node evidence."""
+    path = outdir / "graph_segments.tsv"
+    sorted_hits = sorted(hit_records, key=lambda h: h.rank)
+    with TsvWriter(path, GFA_SEGMENT_COLUMNS) as w:
+        for hr in sorted_hits:
+            pattern = hr.pattern
+            target_covered_n = pattern.target_total_n - pattern.target_missing_n
+            offtarget_covered_n = pattern.offtarget_total_n - pattern.offtarget_missing_n
+            offtarget_absent_n = (
+                pattern.offtarget_total_n
+                - pattern.offtarget_support_n
+                - pattern.offtarget_missing_n
+            )
+            segment_length = hr.locus.length
+            w.write_row({
+                "locus_id": hr.locus_id,
+                "contig": hr.locus.contig,
+                "start": hr.locus.start,
+                "end": hr.locus.end,
+                "segment_name": hr.segment_name,
+                "segment_length": segment_length,
+                "segment_length_class": _segment_length_class(segment_length),
+                "graph_signal_type": "target_traversed_graph_segment",
+                "target_traverse_n": pattern.target_support_n,
+                "target_total_n": pattern.target_total_n,
+                "target_coordinate_covered_n": target_covered_n,
+                "target_missing_n": pattern.target_missing_n,
+                "offtarget_same_segment_traverse_n": pattern.offtarget_support_n,
+                "offtarget_same_segment_absent_n": offtarget_absent_n,
+                "offtarget_coordinate_covered_n": offtarget_covered_n,
+                "offtarget_missing_n": pattern.offtarget_missing_n,
+                "offtarget_total_n": pattern.offtarget_total_n,
+                "strictness_class": pattern.strictness_class.value,
+                "interpretation": _graph_segment_interpretation(pattern),
+            })
+    log.info("Wrote %s (%d rows)", path, len(hit_records))
+
+
 def _write_regions_tsv(
     region_loci: list[Locus],
     hit_by_id: dict[str, GfaHitRecord],
@@ -736,6 +777,39 @@ def _traversal_to_evidence_class(status: str, cohort_role: str) -> str:
         return "support" if status == "traverses" else "absence"
     else:  # off_target
         return "contradiction" if status == "traverses" else "absence"
+
+
+def _segment_length_class(length: int) -> str:
+    """Return a descriptive size class for a coordinate-tagged graph segment."""
+    if length <= 0:
+        return "unknown"
+    if length == 1:
+        return "snp_like"
+    if length < 50:
+        return "small_indel_like"
+    if length < 1000:
+        return "sv_like"
+    return "large_sv_like"
+
+
+def _graph_segment_interpretation(pattern: AllelePattern) -> str:
+    """Explain what the GFA segment call means without VCF-style overclaiming."""
+    if pattern.offtarget_missing_n == pattern.offtarget_total_n:
+        return (
+            "Targets traverse this graph segment; off-target coordinate-overlapping "
+            "graph coverage was not observed, so this is private-node evidence "
+            "rather than confirmed alternate-path absence."
+        )
+    if pattern.offtarget_missing_n == 0 and pattern.offtarget_support_n == 0:
+        return (
+            "Targets traverse this graph segment; off-targets have "
+            "coordinate-overlapping graph coverage but do not traverse this same "
+            "segment."
+        )
+    return (
+        "Targets traverse this graph segment; off-target same-segment traversal "
+        "and coordinate coverage are mixed or incomplete."
+    )
 
 
 def _parse_region(region: str) -> tuple[str, int | None, int | None]:

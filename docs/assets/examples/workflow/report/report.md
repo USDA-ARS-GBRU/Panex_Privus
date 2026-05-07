@@ -29,18 +29,18 @@
 | records_skipped_multiallelic | 0 | Records skipped: multiallelic (when allow_multiallelic=False) |
 | alleles_evaluated | 9 | Alternate alleles evaluated for private-allele status |
 | alleles_passed | 7 | Alleles passing discovery criteria |
-| alleles_contradicted | 1 | Alleles classified as contradicted |
+| alleles_contradicted | 1 | Evaluated alternate alleles classified as contradicted |
 | loci_emitted | 7 | Loci written to hits.tsv |
 | regions_emitted | 7 | Regions written to regions.tsv |
 | n_target_samples | 2 | Target samples found in VCF header |
 | n_offtarget_samples | 3 | Off-target samples found in VCF header |
 | n_contigs_scanned | 1 | Contigs visited during scan |
-| strictness_contradicted | 1 | Passing loci classified as contradicted |
-| strictness_relaxed_threshold | 1 | Passing loci classified as relaxed_threshold |
-| strictness_strict_both_missing | 1 | Passing loci classified as strict_both_missing |
-| strictness_strict_complete | 4 | Passing loci classified as strict_complete |
-| strictness_strict_offtarget_missing | 1 | Passing loci classified as strict_offtarget_missing |
-| strictness_strict_target_missing | 1 | Passing loci classified as strict_target_missing |
+| strictness_contradicted | 1 | Evaluated alternate alleles classified as contradicted |
+| strictness_relaxed_threshold | 1 | Evaluated alternate alleles classified as relaxed_threshold |
+| strictness_strict_both_missing | 1 | Evaluated alternate alleles classified as strict_both_missing |
+| strictness_strict_complete | 4 | Evaluated alternate alleles classified as strict_complete |
+| strictness_strict_offtarget_missing | 1 | Evaluated alternate alleles classified as strict_offtarget_missing |
+| strictness_strict_target_missing | 1 | Evaluated alternate alleles classified as strict_target_missing |
 
 ---
 
@@ -111,4 +111,3 @@ Every hit carries a `strictness_class` label indicating how complete the support
 - `final_score` is a transparent additive composite of discovery score, support score, and missingness penalty. Higher scores reflect data completeness, not biological certainty.
 - Off-target exclusion depends on the comprehensiveness of your off-target cohort. Alleles absent from an incomplete reference set may appear private even if they are shared more broadly.
 - For loci in repetitive or low-complexity regions, VCF quality scores may be less reliable. Use `--min-qual` to apply a QUAL filter in subsequent runs.
-
