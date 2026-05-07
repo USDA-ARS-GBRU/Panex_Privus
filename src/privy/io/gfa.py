@@ -47,7 +47,7 @@ log = logging.getLogger("privy.io.gfa")
 _WALK_SEGMENT_RE = re.compile(r"[><]([^><\t\r\n]+)")
 _SQLITE_HEADER = b"SQLite format 3\0"
 _LEGACY_GFA_SCAN_INDEX_MAGIC = b"PRIVY_GFA_SCAN_INDEX\0"
-_GFA_SCAN_INDEX_SCHEMA_VERSION = 4
+_GFA_SCAN_INDEX_SCHEMA_VERSION = 5
 _SQLITE_INSERT_BATCH_SIZE = 100_000
 
 
@@ -821,6 +821,14 @@ def build_gfa_scan_index(
     log.info("Building streaming GFA scan index: %s", gfa_path)
 
     pending_segment_sample_mask: dict[str, int] = {}
+    pending_segment_presence_mask: dict[str, int] = {}
+
+    def append_presence_interval(mask: int, contig: str, start: int, end: int) -> None:
+        if not mask:
+            return
+        for sample_idx in range(len(sample_order_list)):
+            if mask & (1 << sample_idx):
+                raw_intervals[sample_idx][contig].append((start, end))
 
     with _open_gfa_text(gfa_path) as fh:
         for line_num, raw_line in enumerate(fh, 1):
@@ -846,15 +854,24 @@ def build_gfa_scan_index(
                     segment_record.contig, filter_contig
                 ):
                     pending_segment_sample_mask.pop(seg_name, None)
+                    pending_segment_presence_mask.pop(seg_name, None)
                     continue
                 if filter_start is not None and segment_record.end <= filter_start:
                     pending_segment_sample_mask.pop(seg_name, None)
+                    pending_segment_presence_mask.pop(seg_name, None)
                     continue
                 if filter_end is not None and segment_record.start >= filter_end:
                     pending_segment_sample_mask.pop(seg_name, None)
+                    pending_segment_presence_mask.pop(seg_name, None)
                     continue
                 segment_record.sample_mask = pending_segment_sample_mask.pop(
                     seg_name, 0
+                )
+                append_presence_interval(
+                    pending_segment_presence_mask.pop(seg_name, 0),
+                    segment_record.contig,
+                    segment_record.start,
+                    segment_record.end,
                 )
                 segments[seg_name] = segment_record
                 contig_segments.setdefault(segment_record.contig, []).append(
@@ -877,8 +894,8 @@ def build_gfa_scan_index(
                     walk_contig = _intern_text(
                         raw_line[tabs[2] + 1:tabs[3]], contig_pool
                     )
-                    walk_start = int(raw_line[tabs[3] + 1:tabs[4]])
-                    walk_end = int(raw_line[tabs[4] + 1:tabs[5]])
+                    int(raw_line[tabs[3] + 1:tabs[4]])
+                    int(raw_line[tabs[4] + 1:tabs[5]])
                 except ValueError as exc:
                     raise ValueError(
                         f"Line {line_num}: W-line numeric field parse error: {exc}"
@@ -889,14 +906,6 @@ def build_gfa_scan_index(
                 ):
                     maybe_log_progress()
                     continue
-                if filter_start is not None and walk_end <= filter_start:
-                    maybe_log_progress()
-                    continue
-                if filter_end is not None and walk_start >= filter_end:
-                    maybe_log_progress()
-                    continue
-
-                raw_intervals[sample_idx][walk_contig].append((walk_start, walk_end))
 
                 bit = 1 << sample_idx
                 walk_field_start = tabs[5] + 1
@@ -910,9 +919,16 @@ def build_gfa_scan_index(
                     segment = segments.get(seg_name)
                     if segment is not None:
                         segment.sample_mask |= bit
+                        raw_intervals[sample_idx][segment.contig].append((
+                            segment.start,
+                            segment.end,
+                        ))
                     else:
                         pending_segment_sample_mask[seg_name] = (
                             pending_segment_sample_mask.get(seg_name, 0) | bit
+                        )
+                        pending_segment_presence_mask[seg_name] = (
+                            pending_segment_presence_mask.get(seg_name, 0) | bit
                         )
                     if segment_refs_in_record % 500_000 == 0:
                         maybe_log_progress("cohort walk")
@@ -941,6 +957,9 @@ def build_gfa_scan_index(
                     if segment is None:
                         pending_segment_sample_mask[seg_name] = (
                             pending_segment_sample_mask.get(seg_name, 0) | bit
+                        )
+                        pending_segment_presence_mask[seg_name] = (
+                            pending_segment_presence_mask.get(seg_name, 0) | bit
                         )
                         n_p_segment_refs_without_coords += 1
                         if segment_refs_in_record % 500_000 == 0:
@@ -979,11 +998,6 @@ def build_gfa_scan_index(
             "SN/SO/LN tags.",
             n_p_segment_refs_without_coords,
         )
-
-    _alias_presence_intervals_to_coordinate_contigs(
-        raw_intervals,
-        coordinate_contigs=tuple(contig_segments),
-    )
 
     log.info("Merging GFA sample presence intervals")
     sample_intervals = [
@@ -1338,47 +1352,6 @@ def _merge_sample_intervals(
                 ends=tuple(ends),
             )
     return merged_by_contig
-
-
-def _alias_presence_intervals_to_coordinate_contigs(
-    raw_intervals: list[defaultdict[str, list[tuple[int, int]]]],
-    *,
-    coordinate_contigs: tuple[str, ...],
-) -> None:
-    """Copy W-line presence intervals onto matching S-line coordinate contigs.
-
-    Minigraph-cactus commonly stores W-line ``seq_id`` values as bare contigs
-    such as ``Gm01`` while S-line ``SN`` tags use names like
-    ``Wm82a6#0#Gm01``.  GFA scanning evaluates S-line coordinate contigs, so
-    presence intervals must be queryable under those names too; otherwise
-    off-target samples look missing even when their W-lines cover the locus.
-    """
-    coordinate_by_canonical: dict[str, list[str]] = defaultdict(list)
-    for contig in coordinate_contigs:
-        coordinate_by_canonical[_canonical_gfa_contig(contig)].append(contig)
-
-    n_interval_copies = 0
-    aliased_contigs: set[tuple[str, str]] = set()
-    for intervals_by_contig in raw_intervals:
-        for raw_contig, intervals in list(intervals_by_contig.items()):
-            if not intervals:
-                continue
-            for coordinate_contig in coordinate_by_canonical.get(
-                _canonical_gfa_contig(raw_contig), []
-            ):
-                if coordinate_contig == raw_contig:
-                    continue
-                intervals_by_contig[coordinate_contig].extend(intervals)
-                n_interval_copies += len(intervals)
-                aliased_contigs.add((raw_contig, coordinate_contig))
-
-    if n_interval_copies:
-        log.info(
-            "Aliased GFA presence intervals onto coordinate contigs | "
-            "contig_aliases=%d | interval_copies=%d",
-            len(aliased_contigs),
-            n_interval_copies,
-        )
 
 
 def _canonical_gfa_contig(contig: str) -> str:

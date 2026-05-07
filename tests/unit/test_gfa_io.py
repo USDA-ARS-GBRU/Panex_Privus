@@ -519,23 +519,24 @@ class TestGfaScanIndex:
 
         assert "segA" in index.segments
         assert index.segment_sample_mask["segA"] == index.sample_mask(["T1", "O1"])
+        assert index.present_mask("chr1", 0, 5) == index.sample_mask(["T1", "O1"])
 
     def test_scan_index_aliases_w_line_seq_id_to_segment_coordinate_contig(
         self, tmp_path: Path
     ) -> None:
         content = (
             "H\tVN:Z:1.1\n"
-            "S\tsegT\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:0\n"
-            "S\tsegO\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:0\n"
-            "W\tT1\t1\tchr1\t0\t5\t>segT\n"
-            "W\tO1\t1\tchr1\t0\t5\t>segO\n"
+            "S\tsegT\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:100\n"
+            "S\tsegO\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:100\n"
+            "W\tT1\t1\tT1#0#chr1\t1000\t1005\t>segT\n"
+            "W\tO1\t1\tO1#0#chr1\t2000\t2005\t>segO\n"
         )
         gfa = tmp_path / "aliased_contig.gfa"
         gfa.write_text(content)
 
         index = build_gfa_scan_index(gfa, ["T1", "O1"])
         support_mask = index.segment_sample_mask["segT"]
-        present_mask = index.present_mask("Ref#0#chr1", 0, 5)
+        present_mask = index.present_mask("Ref#0#chr1", 100, 105)
 
         assert present_mask == index.sample_mask(["T1", "O1"])
         assert index.mask_to_statuses(
@@ -543,12 +544,13 @@ class TestGfaScanIndex:
             present_mask=present_mask,
             samples=["T1", "O1"],
         ) == {"T1": "traverses", "O1": "absent"}
+        assert index.present_mask("Ref#0#chr1", 1000, 1005) == 0
 
     def test_scan_index_filter_accepts_aliased_contig(self, tmp_path: Path) -> None:
         content = (
             "H\tVN:Z:1.1\n"
-            "S\tsegT\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:0\n"
-            "W\tT1\t1\tchr1\t0\t5\t>segT\n"
+            "S\tsegT\t*\tLN:i:5\tSN:Z:Ref#0#chr1\tSO:i:100\n"
+            "W\tT1\t1\tT1#0#chr1\t1000\t1005\t>segT\n"
         )
         gfa = tmp_path / "aliased_filter.gfa"
         gfa.write_text(content)
@@ -557,11 +559,13 @@ class TestGfaScanIndex:
             gfa,
             ["T1"],
             filter_contig="Ref#0#chr1",
+            filter_start=90,
+            filter_end=110,
         )
 
         assert index.contig_segment_count("Ref#0#chr1") == 1
         assert index.matching_contigs("chr1") == ("Ref#0#chr1",)
-        assert index.present_mask("Ref#0#chr1", 0, 5) == index.sample_mask(["T1"])
+        assert index.present_mask("Ref#0#chr1", 100, 105) == index.sample_mask(["T1"])
 
     def test_scan_index_handles_p_lines_without_full_graph(self, tmp_path: Path) -> None:
         content = (
