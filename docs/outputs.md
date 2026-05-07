@@ -131,8 +131,8 @@ mode and window size parameters in `landscape.json`.
 | `het_rate` | Fraction of called records with heterozygous genotype |
 | `nonref_rate` | Fraction of called records carrying any ALT allele |
 | `minor_genotype_rate` | Fraction of called records where the sample has a minor genotype class |
-| `rare_alt_rate` | Fraction of called records where the sample carries a rare ALT allele |
-| `private_alt_rate` | Fraction of called records where the sample carries an ALT allele private to its cohort |
+| `rare_alt_rate` | Rare ALT allele events carried by the sample per called record |
+| `private_alt_rate` | Cohort-private ALT allele events carried by the sample per called record |
 | `median_call_freq` | Median frequency of the sample's genotype class in the window |
 | `nearest_background` | Most similar sample in the same window |
 | `nearest_similarity` | Genotype-match fraction to the nearest background sample |
@@ -149,6 +149,8 @@ mode and window size parameters in `landscape.json`.
 | `offtarget_mean_nonref_rate` | Mean non-reference burden across off-target samples |
 | `target_private_alt_n` | Number of ALT alleles carried by targets and absent from off-targets |
 | `offtarget_private_alt_n` | Number of ALT alleles carried by off-targets and absent from targets |
+| `target_private_alt_rate` | Target-private ALT events per VCF record in the window |
+| `offtarget_private_alt_rate` | Off-target-private ALT events per VCF record in the window |
 | `top_nearest_background` | Most frequent nearest-background assignment in the window |
 
 ### `background_blocks.tsv`

@@ -291,9 +291,10 @@ private signal may be influenced by missing target or off-target genotypes.
 
 **Figure title.** Windowed private ALT burden across samples.
 
-**Caption.** Heatmap of the fraction of called records where each sample carries
-an ALT allele private to its cohort. Enriched target-private burden can
-highlight candidate chromosome intervals for follow-up.
+**Caption.** Heatmap of cohort-private ALT allele events per called record for
+each sample. Enriched target-private burden can highlight candidate chromosome
+intervals for follow-up. In multiallelic callsets, this is an event rate rather
+than a strict 0-to-1 probability.
 
 ### Figure: Local Background Map
 
