@@ -7,6 +7,8 @@ than replacing mature population-genetic tools.
 
 from __future__ import annotations
 
+import logging
+import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +26,8 @@ from privy.io.vcf import (
 from privy.pangenome.model import PangenomeGroups, resolve_pangenome_groups
 
 WindowMode = Literal["records", "bp"]
+
+log = logging.getLogger("privy.landscape.vcf")
 
 LANDSCAPE_SAMPLE_WINDOW_COLUMNS = [
     "window_id",
@@ -184,6 +188,7 @@ def run_vcf_landscape(
     min_introgression_delta: float = 0.0,
     max_introgression_missing_rate: float = 0.5,
     min_introgression_windows: int = 1,
+    progress_interval_seconds: float = 30.0,
 ) -> LandscapeResult:
     """Run sliding-window VCF landscape analysis.
 
@@ -233,6 +238,19 @@ def run_vcf_landscape(
 
     mode: WindowMode = "bp" if window_bp is not None else "records"
     effective_step_bp = step_bp or window_bp
+    started_at = time.monotonic()
+    last_stream_progress_at = started_at
+    log.info(
+        "Landscape setup complete | samples=%d | active_samples=%d | "
+        "targets=%d | off_targets=%d | mode=%s | window=%s | step=%s",
+        len(samples),
+        len(groups.full),
+        len(groups.target),
+        len(groups.off_target),
+        mode,
+        window_bp if mode == "bp" else window_records,
+        effective_step_bp if mode == "bp" else step_records,
+    )
 
     sample_rows: list[dict[str, object]] = []
     window_rows: list[dict[str, object]] = []
@@ -241,44 +259,62 @@ def run_vcf_landscape(
 
     contig_records: list[_VariantSnapshot] = []
     current_contig: str | None = None
+    current_contig_input_records = 0
+    current_contig_kept_records = 0
     window_counter = 0
+    records_seen = 0
+    records_kept = 0
+    skipped_no_alt = 0
+    skipped_filter = 0
+    skipped_qual = 0
+    contigs_seen = 0
+    contigs_analyzed = 0
 
-    for record in stream_vcf_records(vcf_path):
-        if record.alts is None:
-            continue
-        if pass_only and not _record_passes(record_filter_values=list(record.filter)):
-            continue
-        if min_qual is not None and (record.qual is None or record.qual < min_qual):
-            continue
+    def maybe_log_stream_progress() -> None:
+        nonlocal last_stream_progress_at
+        if progress_interval_seconds <= 0:
+            return
+        now = time.monotonic()
+        if now - last_stream_progress_at < progress_interval_seconds:
+            return
+        last_stream_progress_at = now
+        log.info(
+            "Landscape VCF read progress | contig=%s | records_seen=%d | "
+            "records_kept=%d | current_contig_kept=%d | windows=%d | "
+            "elapsed=%.1fs",
+            current_contig or "NA",
+            records_seen,
+            records_kept,
+            current_contig_kept_records,
+            len(window_rows),
+            now - started_at,
+        )
 
-        if current_contig is not None and record.chrom != current_contig:
-            window_counter = _analyze_contig_windows(
-                records=tuple(contig_records),
-                mode=mode,
-                window_counter_start=window_counter,
-                samples=samples,
-                active_sample_indices=active_sample_indices,
-                sample_to_role=sample_to_role,
-                groups=groups,
-                sample_rows=sample_rows,
-                window_rows=window_rows,
-                similarity_rows=similarity_rows,
-                background_rows_input=background_rows_input,
-                window_records=window_records,
-                step_records=step_records,
-                window_bp=window_bp,
-                step_bp=effective_step_bp,
-                rare_max_count=rare_max_count,
-                rare_max_freq=rare_max_freq,
-                min_called_for_freq=min_called_for_freq,
-                min_freq_values=min_freq_values,
+    def finish_current_contig() -> None:
+        nonlocal window_counter, contigs_analyzed, last_stream_progress_at
+        if current_contig is None:
+            return
+        if not contig_records:
+            log.info(
+                "Landscape skipped contig %s | input_records=%d | "
+                "kept_variants=0 | total_records_seen=%d | elapsed=%.1fs",
+                current_contig,
+                current_contig_input_records,
+                records_seen,
+                time.monotonic() - started_at,
             )
-            contig_records = []
+            return
 
-        current_contig = record.chrom
-        contig_records.append(_snapshot_record(record, samples))
-
-    if contig_records:
+        before_windows = window_counter
+        log.info(
+            "Landscape analyzing contig %s | kept_variants=%d | "
+            "input_records=%d | windows_so_far=%d | elapsed=%.1fs",
+            current_contig,
+            len(contig_records),
+            current_contig_input_records,
+            len(window_rows),
+            time.monotonic() - started_at,
+        )
         window_counter = _analyze_contig_windows(
             records=tuple(contig_records),
             mode=mode,
@@ -299,12 +335,90 @@ def run_vcf_landscape(
             rare_max_freq=rare_max_freq,
             min_called_for_freq=min_called_for_freq,
             min_freq_values=min_freq_values,
+            progress_interval_seconds=progress_interval_seconds,
+            progress_started_at=started_at,
+        )
+        contigs_analyzed += 1
+        last_stream_progress_at = time.monotonic()
+        log.info(
+            "Landscape finished contig %s | windows=%d | total_windows=%d | "
+            "sample_window_rows=%d | similarity_rows=%d | elapsed=%.1fs",
+            current_contig,
+            window_counter - before_windows,
+            len(window_rows),
+            len(sample_rows),
+            len(similarity_rows),
+            last_stream_progress_at - started_at,
         )
 
+    for record in stream_vcf_records(vcf_path):
+        records_seen += 1
+        if current_contig is None:
+            current_contig = record.chrom
+            current_contig_input_records = 0
+            current_contig_kept_records = 0
+            contigs_seen += 1
+            log.info("Landscape reading contig %s", current_contig)
+        elif record.chrom != current_contig:
+            finish_current_contig()
+            contig_records = []
+            current_contig = record.chrom
+            current_contig_input_records = 0
+            current_contig_kept_records = 0
+            contigs_seen += 1
+            log.info("Landscape reading contig %s", current_contig)
+
+        current_contig_input_records += 1
+        if record.alts is None:
+            skipped_no_alt += 1
+            maybe_log_stream_progress()
+            continue
+        if pass_only and not _record_passes(record_filter_values=list(record.filter)):
+            skipped_filter += 1
+            maybe_log_stream_progress()
+            continue
+        if min_qual is not None and (record.qual is None or record.qual < min_qual):
+            skipped_qual += 1
+            maybe_log_stream_progress()
+            continue
+
+        records_kept += 1
+        current_contig_kept_records += 1
+        contig_records.append(_snapshot_record(record, samples))
+        maybe_log_stream_progress()
+
+    finish_current_contig()
     del window_counter
+    log.info(
+        "Landscape VCF read complete | contigs_seen=%d | contigs_analyzed=%d | "
+        "records_seen=%d | records_kept=%d | skipped_no_alt=%d | "
+        "skipped_filter=%d | skipped_qual=%d | windows=%d | elapsed=%.1fs",
+        contigs_seen,
+        contigs_analyzed,
+        records_seen,
+        records_kept,
+        skipped_no_alt,
+        skipped_filter,
+        skipped_qual,
+        len(window_rows),
+        time.monotonic() - started_at,
+    )
+    log.info(
+        "Building local background blocks | sample_window_rows=%d | "
+        "min_similarity=%.3f",
+        len(background_rows_input),
+        min_background_similarity,
+    )
     block_rows = build_background_blocks(
         background_rows_input,
         min_background_similarity=min_background_similarity,
+    )
+    log.info("Built local background blocks | blocks=%d", len(block_rows))
+    log.info(
+        "Building candidate introgression blocks | similarity_rows=%d | "
+        "min_windows=%d",
+        len(similarity_rows),
+        min_introgression_windows,
     )
     introgression_rows = build_candidate_introgression_blocks(
         sample_window_rows=background_rows_input,
@@ -318,6 +432,11 @@ def run_vcf_landscape(
         min_introgression_delta=min_introgression_delta,
         max_introgression_missing_rate=max_introgression_missing_rate,
         min_introgression_windows=min_introgression_windows,
+    )
+    log.info(
+        "Built candidate introgression blocks | blocks=%d | elapsed=%.1fs",
+        len(introgression_rows),
+        time.monotonic() - started_at,
     )
     return LandscapeResult(
         samples=samples,
@@ -636,16 +755,29 @@ def _analyze_contig_windows(
     rare_max_freq: float,
     min_called_for_freq: int,
     min_freq_values: int,
+    progress_interval_seconds: float = 30.0,
+    progress_started_at: float | None = None,
 ) -> int:
     if not records:
         return window_counter_start
 
+    contig = records[0].contig
     windows = _make_record_windows(records, window_records, step_records)
     if mode == "bp":
         if window_bp is None or step_bp is None:
             raise ValueError("bp window mode requires window_bp and step_bp.")
         windows = _make_bp_windows(records, window_bp, step_bp)
 
+    log.info(
+        "Landscape contig windows prepared | contig=%s | variants=%d | "
+        "windows=%d | mode=%s",
+        contig,
+        len(records),
+        len(windows),
+        mode,
+    )
+    last_progress_at = time.monotonic()
+    started_at = progress_started_at or last_progress_at
     window_counter = window_counter_start
     for local_index, window_variants in enumerate(windows, 1):
         window_counter += 1
@@ -670,6 +802,22 @@ def _analyze_contig_windows(
         window_rows.append(rows.window_row)
         similarity_rows.extend(rows.similarity_rows)
         background_rows_input.extend(rows.sample_rows)
+        if progress_interval_seconds > 0:
+            now = time.monotonic()
+            if now - last_progress_at >= progress_interval_seconds:
+                last_progress_at = now
+                log.info(
+                    "Landscape contig window progress | contig=%s | "
+                    "windows=%d/%d | total_windows=%d | sample_window_rows=%d | "
+                    "similarity_rows=%d | elapsed=%.1fs",
+                    contig,
+                    local_index,
+                    len(windows),
+                    len(window_rows),
+                    len(sample_rows),
+                    len(similarity_rows),
+                    now - started_at,
+                )
 
     return window_counter
 

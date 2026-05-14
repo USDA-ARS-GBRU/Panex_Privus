@@ -69,7 +69,18 @@ def run_landscape_vcf(
         max_introgression_missing_rate=max_introgression_missing_rate,
         min_introgression_windows=min_introgression_windows,
     )
+    log.info(
+        "Landscape analysis complete | windows=%d | sample_window_rows=%d | "
+        "background_blocks=%d | candidate_introgression_blocks=%d | "
+        "similarity_rows=%d",
+        len(result.window_rows),
+        len(result.sample_rows),
+        len(result.background_block_rows),
+        len(result.candidate_introgression_rows),
+        len(result.similarity_rows),
+    )
 
+    log.info("Writing landscape tables | outdir=%s", outdir)
     with TsvWriter(outdir / "sample_windows.tsv", LANDSCAPE_SAMPLE_WINDOW_COLUMNS) as writer:
         writer.write_rows(result.sample_rows)
     with TsvWriter(outdir / "windows.tsv", LANDSCAPE_WINDOW_COLUMNS) as writer:
@@ -88,6 +99,7 @@ def run_landscape_vcf(
     if write_plots:
         from privy.plot.landscape import plot_all_landscape  # noqa: PLC0415
 
+        log.info("Rendering landscape plots | format=%s", plot_format)
         plot_paths = [
             str(path.name)
             for path in plot_all_landscape(
@@ -98,6 +110,9 @@ def run_landscape_vcf(
                 output_format=plot_format,
             )
         ]
+        log.info("Rendered landscape plots | count=%d", len(plot_paths))
+    else:
+        log.info("Skipping landscape plots (--no-plots)")
 
     window_parameters: dict[str, Any] = {
         "window_mode": result.window_mode,
@@ -161,3 +176,4 @@ def run_landscape_vcf(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    log.info("Wrote landscape metadata: %s", outdir / "landscape.json")
