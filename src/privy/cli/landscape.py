@@ -129,6 +129,18 @@ def landscape(
         1, "--min-introgression-windows", metavar="INTEGER", min=1,
         help="Minimum adjacent windows required to emit a candidate introgression block.",
     ),
+    similarity_output: str = typer.Option(
+        "summary", "--similarity-output", metavar="TEXT",
+        help="Pairwise similarity output mode: full, summary, or none.",
+    ),
+    vcf_engine: str = typer.Option(
+        "auto", "--vcf-engine", metavar="TEXT",
+        help="VCF parser engine: auto, pysam, or cyvcf2.",
+    ),
+    local_pca: bool = typer.Option(
+        False, "--local-pca/--no-local-pca",
+        help="Write exploratory local PCA coordinates from each window similarity matrix.",
+    ),
     write_plots: bool = typer.Option(
         True, "--plots/--no-plots",
         help="Write landscape figures alongside TSV outputs.",
@@ -154,6 +166,15 @@ def landscape(
         raise typer.Exit(code=1)
     if plot_format not in {"png", "svg", "pdf"}:
         typer.echo("[error] --plot-format must be one of: png, svg, pdf.", err=True)
+        raise typer.Exit(code=1)
+    if similarity_output not in {"full", "summary", "none"}:
+        typer.echo(
+            "[error] --similarity-output must be one of: full, summary, none.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if vcf_engine not in {"auto", "pysam", "cyvcf2"}:
+        typer.echo("[error] --vcf-engine must be one of: auto, pysam, cyvcf2.", err=True)
         raise typer.Exit(code=1)
 
     try:
@@ -233,6 +254,9 @@ def landscape(
             min_introgression_delta=min_introgression_delta,
             max_introgression_missing_rate=max_introgression_missing_rate,
             min_introgression_windows=min_introgression_windows,
+            similarity_output=similarity_output,
+            vcf_engine=vcf_engine,
+            local_pca=local_pca,
             write_plots=write_plots,
             plot_format=plot_format,
         )

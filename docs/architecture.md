@@ -996,6 +996,10 @@ LANDSCAPE OPTIONS:
                              Maximum missingness in candidate windows
   --min-introgression-windows INT
                              Minimum adjacent windows per candidate block
+  --similarity-output TEXT   Pairwise similarity table mode: summary, full, none
+  --vcf-engine TEXT          VCF parser: auto, pysam, cyvcf2
+  --local-pca / --no-local-pca
+                             Write or skip local PCA coordinate table
   --plots / --no-plots       Write or skip landscape figures
 
 LANDSCAPE OUTPUTS:
@@ -1004,6 +1008,7 @@ LANDSCAPE OUTPUTS:
   background_blocks.tsv
   candidate_introgression_blocks.tsv
   similarity.tsv
+  local_pca.tsv
   landscape.json
   missingness_heatmap.png
   private_burden_heatmap.png

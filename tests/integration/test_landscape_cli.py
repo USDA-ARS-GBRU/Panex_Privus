@@ -99,6 +99,8 @@ def test_landscape_cli_accepts_grouped_cohort_sample_lists(
     assert data["samples"]["target"] == ["T1", "T2"]
     assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
     assert data["summary"]["n_sample_window_rows"] == 15
+    assert data["parameters"]["similarity_output"] == "summary"
+    assert data["parameters"]["vcf_engine"] in {"pysam", "cyvcf2"}
 
 
 def test_landscape_cli_accepts_cohort_file(
@@ -138,6 +140,96 @@ def test_landscape_cli_accepts_cohort_file(
     data = json.loads((outdir / "landscape.json").read_text())
     assert data["samples"]["target"] == ["T1", "T2"]
     assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
+
+
+def test_landscape_cli_can_skip_pairwise_similarity_output(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "landscape-no-similarity"
+    result = runner.invoke(
+        app,
+        [
+            "landscape",
+            "--vcf",
+            str(indexed_vcf),
+            "--targets",
+            "T1",
+            "T2",
+            "--window-records",
+            "3",
+            "--step-records",
+            "3",
+            "--similarity-output",
+            "none",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not (outdir / "similarity.tsv").exists()
+    data = json.loads((outdir / "landscape.json").read_text())
+    assert data["parameters"]["similarity_output"] == "none"
+    assert data["summary"]["n_similarity_rows"] == 0
+    assert data["summary"]["n_pairwise_window_similarity_rows"] == 30
+    assert "similarity.tsv" not in data["outputs"]
+
+
+def test_landscape_cli_can_write_full_similarity_and_local_pca(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "landscape-full-similarity"
+    result = runner.invoke(
+        app,
+        [
+            "landscape",
+            "--vcf",
+            str(indexed_vcf),
+            "--targets",
+            "T1",
+            "T2",
+            "--window-records",
+            "3",
+            "--step-records",
+            "3",
+            "--similarity-output",
+            "full",
+            "--local-pca",
+            "--vcf-engine",
+            "pysam",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    similarity_rows = read_tsv(outdir / "similarity.tsv")
+    local_pca_rows = read_tsv(outdir / "local_pca.tsv")
+    assert len(similarity_rows) == 30
+    assert len(local_pca_rows) == 15
+    assert set(local_pca_rows[0]) == {
+        "window_id",
+        "contig",
+        "window_index",
+        "start",
+        "end",
+        "sample",
+        "cohort_role",
+        "local_pc1",
+        "local_pc2",
+        "local_pc1_variance",
+        "local_pc2_variance",
+        "n_compared_samples",
+    }
+    data = json.loads((outdir / "landscape.json").read_text())
+    assert data["parameters"]["similarity_output"] == "full"
+    assert data["parameters"]["local_pca"] is True
+    assert data["parameters"]["vcf_engine"] == "pysam"
+    assert data["summary"]["n_similarity_rows"] == 30
+    assert data["summary"]["n_local_pca_rows"] == 15
+    assert "local_pca.tsv" in data["outputs"]
 
 
 def test_landscape_cli_can_skip_plots(indexed_vcf: Path, tmp_path: Path) -> None:

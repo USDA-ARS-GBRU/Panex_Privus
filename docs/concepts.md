@@ -62,8 +62,10 @@ These terms appear throughout the documentation and output files.
 | Rare ALT burden | Rare ALT allele events carried by a sample per called record, using the configured carrier-count or carrier-frequency thresholds |
 | Private ALT burden | Cohort-private ALT allele events carried by a sample per called record |
 | Local sample similarity | Pairwise genotype-match fraction between two samples within one landscape window, calculated only where both samples have called genotypes |
+| Similarity output mode | The amount of pairwise similarity written to disk: compact genome summaries, full per-window pairs, or no similarity table |
 | Local background | The sample most similar to a focal sample in a landscape window |
 | Local background block | Adjacent landscape windows merged when the nearest local background stays the same and passes the similarity threshold |
+| Local PCA coordinates | Optional two-axis embedding of each window's local similarity matrix for exploratory local-structure scans |
 | Candidate introgression block | Adjacent target-sample windows where the nearest local background is an off-target sample and configured similarity, delta, missingness, and minimum-window filters pass |
 | Sliding window | A fixed-record or fixed-base-pair interval moved along each contig to summarize local VCF patterns |
 
@@ -460,6 +462,26 @@ similarity = matching normalized genotypes / compared variants
 sample in that window. If there is a tie, the lexicographically earlier sample
 name is chosen. The nearest background can be a target or an off-target; it is
 a local similarity assignment, not a claim about ancestry by itself.
+
+`--similarity-output` controls how much of the pairwise similarity matrix is
+written to disk. `summary` writes one genome-wide mean row per sample pair and
+is the default for large VCFs. `full` writes every sample-pair-by-window row.
+`none` skips the similarity table while still computing the internal local
+similarity values needed for nearest-background and candidate-introgression
+calls.
+
+### Local PCA Coordinates
+
+When `--local-pca` is enabled, Panex Privus writes `local_pca.tsv`. For each
+window, it converts the pairwise local genotype similarity matrix into a
+distance matrix and embeds that matrix into two PCA-like axes. This is closest
+in spirit to local PCA or local structure scans: it helps show whether samples
+separate differently in different chromosome intervals.
+
+These coordinates are exploratory. Axis sign can flip between windows, and the
+coordinates are not a formal ancestry or recombination model. Use them to find
+regions where the local sample relationship changes, then follow up with a
+method suited to the study design.
 
 ### Local Background Blocks
 

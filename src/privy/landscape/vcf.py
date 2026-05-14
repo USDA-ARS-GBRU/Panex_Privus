@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 import time
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean, median
@@ -127,6 +128,21 @@ LANDSCAPE_SIMILARITY_COLUMNS = [
     "compared_variants",
 ]
 
+LANDSCAPE_LOCAL_PCA_COLUMNS = [
+    "window_id",
+    "contig",
+    "window_index",
+    "start",
+    "end",
+    "sample",
+    "cohort_role",
+    "local_pc1",
+    "local_pc2",
+    "local_pc1_variance",
+    "local_pc2_variance",
+    "n_compared_samples",
+]
+
 
 @dataclass(frozen=True)
 class LandscapeResult:
@@ -141,9 +157,12 @@ class LandscapeResult:
     candidate_introgression_rows: list[dict[str, object]]
     similarity_rows: list[dict[str, object]]
     similarity_summary_rows: list[dict[str, object]]
+    local_pca_rows: list[dict[str, object]]
     n_sample_rows: int
     n_window_rows: int
     n_similarity_rows: int
+    n_local_pca_rows: int
+    vcf_engine: str
 
 
 @dataclass(frozen=True)
@@ -173,11 +192,127 @@ class _PairwiseStats:
 
 
 @dataclass(frozen=True)
+class _VariantContribution:
+    variant: _VariantSnapshot
+    called_n: tuple[int, ...]
+    missing_n: tuple[int, ...]
+    het_n: tuple[int, ...]
+    nonref_n: tuple[int, ...]
+    minor_gt_n: tuple[int, ...]
+    rare_alt_n: tuple[int, ...]
+    private_alt_n: tuple[int, ...]
+    call_freqs: tuple[float | None, ...]
+    pair_compared: tuple[int, ...]
+    pair_matches: tuple[int, ...]
+    private_alt_events_target: int
+    private_alt_events_offtarget: int
+
+
+@dataclass
+class _WindowAccumulator:
+    contributions: deque[_VariantContribution]
+    called_n: list[int]
+    missing_n: list[int]
+    het_n: list[int]
+    nonref_n: list[int]
+    minor_gt_n: list[int]
+    rare_alt_n: list[int]
+    private_alt_n: list[int]
+    call_freqs: list[list[float]]
+    pair_compared: list[int]
+    pair_matches: list[int]
+    private_alt_events_target: int
+    private_alt_events_offtarget: int
+
+    @classmethod
+    def create(cls, n_samples: int, n_pairs: int) -> _WindowAccumulator:
+        return cls(
+            contributions=deque(),
+            called_n=[0] * n_samples,
+            missing_n=[0] * n_samples,
+            het_n=[0] * n_samples,
+            nonref_n=[0] * n_samples,
+            minor_gt_n=[0] * n_samples,
+            rare_alt_n=[0] * n_samples,
+            private_alt_n=[0] * n_samples,
+            call_freqs=[[] for _ in range(n_samples)],
+            pair_compared=[0] * n_pairs,
+            pair_matches=[0] * n_pairs,
+            private_alt_events_target=0,
+            private_alt_events_offtarget=0,
+        )
+
+    def add(self, contribution: _VariantContribution) -> None:
+        self.contributions.append(contribution)
+        self._apply(contribution, sign=1)
+        for sample_index, call_freq in enumerate(contribution.call_freqs):
+            if call_freq is not None:
+                self.call_freqs[sample_index].append(call_freq)
+
+    def remove_left(self) -> None:
+        contribution = self.contributions.popleft()
+        self._apply(contribution, sign=-1)
+        for sample_index, call_freq in enumerate(contribution.call_freqs):
+            if call_freq is not None:
+                try:
+                    self.call_freqs[sample_index].remove(call_freq)
+                except ValueError:
+                    pass
+
+    def _apply(self, contribution: _VariantContribution, sign: int) -> None:
+        _apply_counts(self.called_n, contribution.called_n, sign)
+        _apply_counts(self.missing_n, contribution.missing_n, sign)
+        _apply_counts(self.het_n, contribution.het_n, sign)
+        _apply_counts(self.nonref_n, contribution.nonref_n, sign)
+        _apply_counts(self.minor_gt_n, contribution.minor_gt_n, sign)
+        _apply_counts(self.rare_alt_n, contribution.rare_alt_n, sign)
+        _apply_counts(self.private_alt_n, contribution.private_alt_n, sign)
+        _apply_counts(self.pair_compared, contribution.pair_compared, sign)
+        _apply_counts(self.pair_matches, contribution.pair_matches, sign)
+        self.private_alt_events_target += sign * contribution.private_alt_events_target
+        self.private_alt_events_offtarget += (
+            sign * contribution.private_alt_events_offtarget
+        )
+
+
+@dataclass(frozen=True)
 class _AnalyzedContig:
     window_counter: int
     window_row_count: int
     sample_row_count: int
     similarity_row_count: int
+    local_pca_row_count: int
+
+
+class _LandscapeSampleCall:
+    def __init__(self, gt: Genotype | None) -> None:
+        self._gt = gt
+
+    def __getitem__(self, key: str) -> Genotype | None:
+        if key != "GT":
+            raise KeyError(key)
+        return self._gt
+
+
+class _LandscapeSamples:
+    def __init__(self, genotypes: tuple[Genotype | None, ...],
+                 sample_to_index: dict[str, int]) -> None:
+        self._genotypes = genotypes
+        self._sample_to_index = sample_to_index
+
+    def __getitem__(self, sample: str) -> _LandscapeSampleCall:
+        return _LandscapeSampleCall(self._genotypes[self._sample_to_index[sample]])
+
+
+@dataclass(frozen=True)
+class _Cyvcf2Record:
+    chrom: str
+    pos: int
+    ref: str
+    alts: tuple[str, ...] | None
+    qual: float | None
+    filter: tuple[str, ...]
+    samples: _LandscapeSamples
 
 
 def run_vcf_landscape(
@@ -204,8 +339,13 @@ def run_vcf_landscape(
     sample_row_writer: Any | None = None,
     window_row_writer: Any | None = None,
     similarity_row_writer: Any | None = None,
+    local_pca_row_writer: Any | None = None,
+    emit_similarity_rows: bool = True,
     retain_output_rows: bool = True,
     retain_similarity_rows: bool = True,
+    retain_local_pca_rows: bool = True,
+    local_pca: bool = False,
+    vcf_engine: str = "auto",
 ) -> LandscapeResult:
     """Run sliding-window VCF landscape analysis.
 
@@ -242,7 +382,10 @@ def run_vcf_landscape(
         raise ValueError("max_introgression_missing_rate must be between 0 and 1.")
     if min_introgression_windows <= 0:
         raise ValueError("min_introgression_windows must be positive.")
+    if vcf_engine not in {"auto", "pysam", "cyvcf2"}:
+        raise ValueError("vcf_engine must be one of: auto, pysam, cyvcf2.")
 
+    resolved_vcf_engine = _resolve_vcf_engine(vcf_engine)
     samples = tuple(get_vcf_samples(vcf_path))
     groups = resolve_pangenome_groups(
         all_samples=samples,
@@ -259,7 +402,8 @@ def run_vcf_landscape(
     last_stream_progress_at = started_at
     log.info(
         "Landscape setup complete | samples=%d | active_samples=%d | "
-        "targets=%d | off_targets=%d | mode=%s | window=%s | step=%s",
+        "targets=%d | off_targets=%d | mode=%s | window=%s | step=%s | "
+        "local_pca=%s",
         len(samples),
         len(groups.full),
         len(groups.target),
@@ -267,11 +411,15 @@ def run_vcf_landscape(
         mode,
         window_bp if mode == "bp" else window_records,
         effective_step_bp if mode == "bp" else step_records,
+        local_pca,
     )
+    log.info("Landscape VCF engine selected | requested=%s | engine=%s", vcf_engine,
+             resolved_vcf_engine)
 
     sample_rows: list[dict[str, object]] = []
     window_rows: list[dict[str, object]] = []
     similarity_rows: list[dict[str, object]] = []
+    local_pca_rows: list[dict[str, object]] = []
     background_rows_input: list[dict[str, object]] = []
     nearest_target_similarity: dict[tuple[str, str], float] = {}
     similarity_totals: dict[tuple[str, str], float] = defaultdict(float)
@@ -285,6 +433,7 @@ def run_vcf_landscape(
     window_row_count = 0
     sample_row_count = 0
     similarity_row_count = 0
+    local_pca_row_count = 0
     records_seen = 0
     records_kept = 0
     skipped_no_alt = 0
@@ -316,6 +465,7 @@ def run_vcf_landscape(
     def finish_current_contig() -> None:
         nonlocal window_counter, contigs_analyzed, last_stream_progress_at
         nonlocal window_row_count, sample_row_count, similarity_row_count
+        nonlocal local_pca_row_count
         if current_contig is None:
             return
         if not contig_records:
@@ -350,6 +500,7 @@ def run_vcf_landscape(
             sample_rows=sample_rows,
             window_rows=window_rows,
             similarity_rows=similarity_rows,
+            local_pca_rows=local_pca_rows,
             background_rows_input=background_rows_input,
             nearest_target_similarity=nearest_target_similarity,
             similarity_totals=similarity_totals,
@@ -367,17 +518,28 @@ def run_vcf_landscape(
             total_windows_start=window_row_count,
             total_sample_rows_start=sample_row_count,
             total_similarity_rows_start=similarity_row_count,
+            total_local_pca_rows_start=local_pca_row_count,
             sample_row_writer=sample_row_writer,
             window_row_writer=window_row_writer,
             similarity_row_writer=similarity_row_writer,
+            local_pca_row_writer=local_pca_row_writer,
+            emit_similarity_rows=emit_similarity_rows,
             retain_output_rows=retain_output_rows,
             retain_similarity_rows=retain_similarity_rows,
+            retain_local_pca_rows=retain_local_pca_rows,
+            local_pca=local_pca,
         )
         window_counter = contig_result.window_counter
         window_row_count += contig_result.window_row_count
         sample_row_count += contig_result.sample_row_count
         similarity_row_count += contig_result.similarity_row_count
-        _flush_row_writers(sample_row_writer, window_row_writer, similarity_row_writer)
+        local_pca_row_count += contig_result.local_pca_row_count
+        _flush_row_writers(
+            sample_row_writer,
+            window_row_writer,
+            similarity_row_writer,
+            local_pca_row_writer,
+        )
         contigs_analyzed += 1
         last_stream_progress_at = time.monotonic()
         log.info(
@@ -391,7 +553,7 @@ def run_vcf_landscape(
             last_stream_progress_at - started_at,
         )
 
-    for record in stream_vcf_records(vcf_path):
+    for record in _stream_landscape_records(vcf_path, samples, resolved_vcf_engine):
         records_seen += 1
         if current_contig is None:
             current_contig = record.chrom
@@ -432,7 +594,8 @@ def run_vcf_landscape(
     log.info(
         "Landscape VCF read complete | contigs_seen=%d | contigs_analyzed=%d | "
         "records_seen=%d | records_kept=%d | skipped_no_alt=%d | "
-        "skipped_filter=%d | skipped_qual=%d | windows=%d | elapsed=%.1fs",
+        "skipped_filter=%d | skipped_qual=%d | windows=%d | local_pca_rows=%d | "
+        "elapsed=%.1fs",
         contigs_seen,
         contigs_analyzed,
         records_seen,
@@ -441,6 +604,7 @@ def run_vcf_landscape(
         skipped_filter,
         skipped_qual,
         window_row_count,
+        local_pca_row_count,
         time.monotonic() - started_at,
     )
     log.info(
@@ -493,9 +657,12 @@ def run_vcf_landscape(
             similarity_totals,
             similarity_counts,
         ),
+        local_pca_rows=local_pca_rows,
         n_sample_rows=sample_row_count,
         n_window_rows=window_row_count,
         n_similarity_rows=similarity_row_count,
+        n_local_pca_rows=local_pca_row_count,
+        vcf_engine=resolved_vcf_engine,
     )
 
 
@@ -562,6 +729,86 @@ def build_background_blocks(
             block_index += 1
 
     return block_rows
+
+
+def _resolve_vcf_engine(requested: str) -> str:
+    if requested == "pysam":
+        return "pysam"
+    if requested == "cyvcf2":
+        try:
+            import cyvcf2  # noqa: F401, PLC0415
+        except ImportError as exc:
+            raise ValueError(
+                "cyvcf2 is not installed. Install panex-privus[fast-vcf] "
+                "or use --vcf-engine pysam."
+            ) from exc
+        return "cyvcf2"
+    try:
+        import cyvcf2  # noqa: F401, PLC0415
+    except ImportError:
+        return "pysam"
+    return "cyvcf2"
+
+
+def _stream_landscape_records(
+    vcf_path: Path,
+    samples: tuple[str, ...],
+    engine: str,
+) -> Iterator[VariantRecordLike]:
+    if engine == "pysam":
+        yield from stream_vcf_records(vcf_path)
+        return
+
+    sample_to_index = {sample: i for i, sample in enumerate(samples)}
+    yield from _stream_cyvcf2_records(vcf_path, sample_to_index)
+
+
+def _stream_cyvcf2_records(
+    vcf_path: Path,
+    sample_to_index: dict[str, int],
+) -> Iterator[VariantRecordLike]:
+    from cyvcf2 import VCF  # noqa: PLC0415
+
+    reader = VCF(str(vcf_path), gts012=True, lazy=True)
+    try:
+        for record in reader:
+            genotypes = tuple(
+                _cyvcf2_gt_to_tuple(gt)
+                for gt in record.genotypes
+            )
+            filters = _cyvcf2_filter_values(record.FILTER)
+            yield _Cyvcf2Record(
+                chrom=str(record.CHROM),
+                pos=int(record.POS),
+                ref=str(record.REF),
+                alts=None if record.ALT is None else tuple(str(alt) for alt in record.ALT),
+                qual=None if record.QUAL is None else float(record.QUAL),
+                filter=filters,
+                samples=_LandscapeSamples(genotypes, sample_to_index),
+            )
+    finally:
+        reader.close()
+
+
+def _cyvcf2_gt_to_tuple(raw_gt: list[int | bool]) -> Genotype | None:
+    alleles: list[int | None] = []
+    for allele in raw_gt[:-1]:
+        if isinstance(allele, bool):
+            continue
+        alleles.append(None if allele < 0 else allele)
+    return tuple(alleles) if alleles else None
+
+
+def _cyvcf2_filter_values(raw_filter: object) -> tuple[str, ...]:
+    if raw_filter is None:
+        return ()
+    if isinstance(raw_filter, str):
+        if raw_filter in {".", "PASS"}:
+            return () if raw_filter == "." else ("PASS",)
+        return tuple(raw_filter.split(";"))
+    if isinstance(raw_filter, Iterable):
+        return tuple(str(item) for item in raw_filter)
+    return (str(raw_filter),)
 
 
 def build_candidate_introgression_blocks(
@@ -797,6 +1044,7 @@ def _analyze_contig_windows(
     sample_rows: list[dict[str, object]],
     window_rows: list[dict[str, object]],
     similarity_rows: list[dict[str, object]],
+    local_pca_rows: list[dict[str, object]],
     background_rows_input: list[dict[str, object]],
     nearest_target_similarity: dict[tuple[str, str], float],
     similarity_totals: dict[tuple[str, str], float],
@@ -814,11 +1062,16 @@ def _analyze_contig_windows(
     total_windows_start: int = 0,
     total_sample_rows_start: int = 0,
     total_similarity_rows_start: int = 0,
+    total_local_pca_rows_start: int = 0,
     sample_row_writer: Any | None = None,
     window_row_writer: Any | None = None,
     similarity_row_writer: Any | None = None,
+    local_pca_row_writer: Any | None = None,
+    emit_similarity_rows: bool = True,
     retain_output_rows: bool = True,
     retain_similarity_rows: bool = True,
+    retain_local_pca_rows: bool = True,
+    local_pca: bool = False,
 ) -> _AnalyzedContig:
     if not records:
         return _AnalyzedContig(
@@ -826,14 +1079,52 @@ def _analyze_contig_windows(
             window_row_count=0,
             sample_row_count=0,
             similarity_row_count=0,
+            local_pca_row_count=0,
         )
 
     contig = records[0].contig
-    windows = _make_record_windows(records, window_records, step_records)
-    if mode == "bp":
-        if window_bp is None or step_bp is None:
-            raise ValueError("bp window mode requires window_bp and step_bp.")
-        windows = _make_bp_windows(records, window_bp, step_bp)
+    if mode == "records":
+        return _analyze_record_windows_rolling(
+            records=records,
+            window_counter_start=window_counter_start,
+            samples=samples,
+            active_sample_indices=active_sample_indices,
+            sample_to_role=sample_to_role,
+            groups=groups,
+            sample_rows=sample_rows,
+            window_rows=window_rows,
+            similarity_rows=similarity_rows,
+            local_pca_rows=local_pca_rows,
+            background_rows_input=background_rows_input,
+            nearest_target_similarity=nearest_target_similarity,
+            similarity_totals=similarity_totals,
+            similarity_counts=similarity_counts,
+            window_records=window_records,
+            step_records=step_records,
+            rare_max_count=rare_max_count,
+            rare_max_freq=rare_max_freq,
+            min_called_for_freq=min_called_for_freq,
+            min_freq_values=min_freq_values,
+            progress_interval_seconds=progress_interval_seconds,
+            progress_started_at=progress_started_at,
+            total_windows_start=total_windows_start,
+            total_sample_rows_start=total_sample_rows_start,
+            total_similarity_rows_start=total_similarity_rows_start,
+            total_local_pca_rows_start=total_local_pca_rows_start,
+            sample_row_writer=sample_row_writer,
+            window_row_writer=window_row_writer,
+            similarity_row_writer=similarity_row_writer,
+            local_pca_row_writer=local_pca_row_writer,
+            emit_similarity_rows=emit_similarity_rows,
+            retain_output_rows=retain_output_rows,
+            retain_similarity_rows=retain_similarity_rows,
+            retain_local_pca_rows=retain_local_pca_rows,
+            local_pca=local_pca,
+        )
+
+    if window_bp is None or step_bp is None:
+        raise ValueError("bp window mode requires window_bp and step_bp.")
+    windows = _make_bp_windows(records, window_bp, step_bp)
 
     log.info(
         "Landscape contig windows prepared | contig=%s | variants=%d | "
@@ -849,6 +1140,7 @@ def _analyze_contig_windows(
     window_row_count = 0
     sample_row_count = 0
     similarity_row_count = 0
+    local_pca_row_count = 0
     for local_index, window_variants in enumerate(windows, 1):
         window_counter += 1
         window = _make_window(
@@ -867,10 +1159,13 @@ def _analyze_contig_windows(
             rare_max_freq=rare_max_freq,
             min_called_for_freq=min_called_for_freq,
             min_freq_values=min_freq_values,
+            local_pca=local_pca,
+            emit_similarity_rows=emit_similarity_rows,
         )
         window_row_count += 1
         sample_row_count += len(rows.sample_rows)
-        similarity_row_count += len(rows.similarity_rows)
+        similarity_row_count += len(rows.pairwise)
+        local_pca_row_count += len(rows.local_pca_rows)
 
         if sample_row_writer is not None:
             sample_row_writer.write_rows(rows.sample_rows)
@@ -878,19 +1173,19 @@ def _analyze_contig_windows(
             window_row_writer.write_row(rows.window_row)
         if similarity_row_writer is not None:
             similarity_row_writer.write_rows(rows.similarity_rows)
+        if local_pca_row_writer is not None:
+            local_pca_row_writer.write_rows(rows.local_pca_rows)
 
         if retain_output_rows:
             sample_rows.extend(rows.sample_rows)
             window_rows.append(rows.window_row)
         if retain_similarity_rows:
             similarity_rows.extend(rows.similarity_rows)
+        if retain_local_pca_rows:
+            local_pca_rows.extend(rows.local_pca_rows)
         background_rows_input.extend(rows.sample_rows)
         nearest_target_similarity.update(rows.nearest_target_similarity)
-        _add_similarity_summary(
-            rows.similarity_rows,
-            totals=similarity_totals,
-            counts=similarity_counts,
-        )
+        _add_similarity_summary_from_window(rows, samples, similarity_totals, similarity_counts)
         if progress_interval_seconds > 0:
             now = time.monotonic()
             if now - last_progress_at >= progress_interval_seconds:
@@ -913,6 +1208,192 @@ def _analyze_contig_windows(
         window_row_count=window_row_count,
         sample_row_count=sample_row_count,
         similarity_row_count=similarity_row_count,
+        local_pca_row_count=local_pca_row_count,
+    )
+
+
+def _analyze_record_windows_rolling(
+    records: tuple[_VariantSnapshot, ...],
+    window_counter_start: int,
+    samples: tuple[str, ...],
+    active_sample_indices: tuple[int, ...],
+    sample_to_role: dict[str, str],
+    groups: PangenomeGroups,
+    sample_rows: list[dict[str, object]],
+    window_rows: list[dict[str, object]],
+    similarity_rows: list[dict[str, object]],
+    local_pca_rows: list[dict[str, object]],
+    background_rows_input: list[dict[str, object]],
+    nearest_target_similarity: dict[tuple[str, str], float],
+    similarity_totals: dict[tuple[str, str], float],
+    similarity_counts: dict[tuple[str, str], int],
+    window_records: int,
+    step_records: int,
+    rare_max_count: int,
+    rare_max_freq: float,
+    min_called_for_freq: int,
+    min_freq_values: int,
+    progress_interval_seconds: float = 30.0,
+    progress_started_at: float | None = None,
+    total_windows_start: int = 0,
+    total_sample_rows_start: int = 0,
+    total_similarity_rows_start: int = 0,
+    total_local_pca_rows_start: int = 0,
+    sample_row_writer: Any | None = None,
+    window_row_writer: Any | None = None,
+    similarity_row_writer: Any | None = None,
+    local_pca_row_writer: Any | None = None,
+    emit_similarity_rows: bool = True,
+    retain_output_rows: bool = True,
+    retain_similarity_rows: bool = True,
+    retain_local_pca_rows: bool = True,
+    local_pca: bool = False,
+) -> _AnalyzedContig:
+    contig = records[0].contig
+    total_contig_windows = _record_window_count(
+        n_records=len(records),
+        window_records=window_records,
+        step_records=step_records,
+    )
+    log.info(
+        "Landscape contig windows prepared | contig=%s | variants=%d | "
+        "windows=%d | mode=records | engine=rolling",
+        contig,
+        len(records),
+        total_contig_windows,
+    )
+
+    n_samples = len(samples)
+    pair_order = _active_pair_order(active_sample_indices)
+    pair_to_offset = {pair: offset for offset, pair in enumerate(pair_order)}
+    sample_to_index = {sample: index for index, sample in enumerate(samples)}
+    target_indices = {sample_to_index[sample] for sample in groups.target}
+    offtarget_indices = {sample_to_index[sample] for sample in groups.off_target}
+    active_sample_set = set(active_sample_indices)
+    accumulator = _WindowAccumulator.create(n_samples, len(pair_order))
+
+    n_records = len(records)
+    current_start = 0
+    start = 0
+    end = 0
+    local_index = 0
+    window_counter = window_counter_start
+    window_row_count = 0
+    sample_row_count = 0
+    similarity_row_count = 0
+    local_pca_row_count = 0
+    last_progress_at = time.monotonic()
+    started_at = progress_started_at or last_progress_at
+
+    while start < n_records:
+        while current_start < start and accumulator.contributions:
+            accumulator.remove_left()
+            current_start += 1
+        if current_start < start:
+            current_start = start
+        if end < start:
+            end = start
+
+        next_end = min(start + window_records, n_records)
+        while end < next_end:
+            accumulator.add(
+                _variant_contribution(
+                    variant=records[end],
+                    n_samples=n_samples,
+                    active_sample_indices=active_sample_indices,
+                    active_sample_set=active_sample_set,
+                    target_indices=target_indices,
+                    offtarget_indices=offtarget_indices,
+                    pair_to_offset=pair_to_offset,
+                    rare_max_count=rare_max_count,
+                    rare_max_freq=rare_max_freq,
+                    min_called_for_freq=min_called_for_freq,
+                )
+            )
+            end += 1
+
+        if not accumulator.contributions:
+            break
+
+        local_index += 1
+        window_counter += 1
+        window = _make_window(
+            variants=tuple(
+                contribution.variant for contribution in accumulator.contributions
+            ),
+            mode="records",
+            global_index=window_counter,
+            local_index=local_index,
+        )
+        rows = _analyze_accumulated_window(
+            window=window,
+            accumulator=accumulator,
+            samples=samples,
+            active_sample_indices=active_sample_indices,
+            pair_order=pair_order,
+            sample_to_role=sample_to_role,
+            target_indices=target_indices,
+            min_freq_values=min_freq_values,
+            local_pca=local_pca,
+            emit_similarity_rows=emit_similarity_rows,
+        )
+        window_row_count += 1
+        sample_row_count += len(rows.sample_rows)
+        similarity_row_count += len(rows.pairwise)
+        local_pca_row_count += len(rows.local_pca_rows)
+
+        if sample_row_writer is not None:
+            sample_row_writer.write_rows(rows.sample_rows)
+        if window_row_writer is not None:
+            window_row_writer.write_row(rows.window_row)
+        if similarity_row_writer is not None:
+            similarity_row_writer.write_rows(rows.similarity_rows)
+        if local_pca_row_writer is not None:
+            local_pca_row_writer.write_rows(rows.local_pca_rows)
+
+        if retain_output_rows:
+            sample_rows.extend(rows.sample_rows)
+            window_rows.append(rows.window_row)
+        if retain_similarity_rows:
+            similarity_rows.extend(rows.similarity_rows)
+        if retain_local_pca_rows:
+            local_pca_rows.extend(rows.local_pca_rows)
+        background_rows_input.extend(rows.sample_rows)
+        nearest_target_similarity.update(rows.nearest_target_similarity)
+        _add_similarity_summary_from_window(rows, samples, similarity_totals, similarity_counts)
+        if progress_interval_seconds > 0:
+            now = time.monotonic()
+            if now - last_progress_at >= progress_interval_seconds:
+                last_progress_at = now
+                log.info(
+                    "Landscape contig window progress | contig=%s | "
+                    "windows=%d/%d | total_windows=%d | sample_window_rows=%d | "
+                    "similarity_rows=%d | elapsed=%.1fs",
+                    contig,
+                    local_index,
+                    total_contig_windows,
+                    total_windows_start + window_row_count,
+                    total_sample_rows_start + sample_row_count,
+                    total_similarity_rows_start + similarity_row_count,
+                    now - started_at,
+                )
+                if local_pca:
+                    log.info(
+                        "Landscape local PCA progress | contig=%s | rows=%d",
+                        contig,
+                        total_local_pca_rows_start + local_pca_row_count,
+                    )
+
+        if next_end == n_records:
+            break
+        start += step_records
+
+    return _AnalyzedContig(
+        window_counter=window_counter,
+        window_row_count=window_row_count,
+        sample_row_count=sample_row_count,
+        similarity_row_count=similarity_row_count,
+        local_pca_row_count=local_pca_row_count,
     )
 
 
@@ -922,6 +1403,8 @@ class _AnalyzedWindow:
     nearest_target_similarity: dict[tuple[str, str], float]
     window_row: dict[str, object]
     similarity_rows: list[dict[str, object]]
+    pairwise: dict[tuple[int, int], _PairwiseStats]
+    local_pca_rows: list[dict[str, object]]
 
 
 def _analyze_window(
@@ -934,9 +1417,60 @@ def _analyze_window(
     rare_max_freq: float,
     min_called_for_freq: int,
     min_freq_values: int,
+    local_pca: bool = False,
+    emit_similarity_rows: bool = True,
 ) -> _AnalyzedWindow:
     n_samples = len(samples)
-    n_variants = len(window.variants)
+    pair_order = _active_pair_order(active_sample_indices)
+    pair_to_offset = {pair: offset for offset, pair in enumerate(pair_order)}
+    sample_to_index = {sample: index for index, sample in enumerate(samples)}
+    target_indices = {sample_to_index[sample] for sample in groups.target}
+    offtarget_indices = {sample_to_index[sample] for sample in groups.off_target}
+    active_sample_set = set(active_sample_indices)
+    accumulator = _WindowAccumulator.create(n_samples, len(pair_order))
+
+    for variant in window.variants:
+        accumulator.add(
+            _variant_contribution(
+                variant=variant,
+                n_samples=n_samples,
+                active_sample_indices=active_sample_indices,
+                active_sample_set=active_sample_set,
+                target_indices=target_indices,
+                offtarget_indices=offtarget_indices,
+                pair_to_offset=pair_to_offset,
+                rare_max_count=rare_max_count,
+                rare_max_freq=rare_max_freq,
+                min_called_for_freq=min_called_for_freq,
+            )
+        )
+
+    return _analyze_accumulated_window(
+        window=window,
+        accumulator=accumulator,
+        samples=samples,
+        active_sample_indices=active_sample_indices,
+        pair_order=pair_order,
+        sample_to_role=sample_to_role,
+        target_indices=target_indices,
+        min_freq_values=min_freq_values,
+        local_pca=local_pca,
+        emit_similarity_rows=emit_similarity_rows,
+    )
+
+
+def _variant_contribution(
+    variant: _VariantSnapshot,
+    n_samples: int,
+    active_sample_indices: tuple[int, ...],
+    active_sample_set: set[int],
+    target_indices: set[int],
+    offtarget_indices: set[int],
+    pair_to_offset: dict[tuple[int, int], int],
+    rare_max_count: int,
+    rare_max_freq: float,
+    min_called_for_freq: int,
+) -> _VariantContribution:
     called_n = [0] * n_samples
     missing_n = [0] * n_samples
     het_n = [0] * n_samples
@@ -944,91 +1478,114 @@ def _analyze_window(
     minor_gt_n = [0] * n_samples
     rare_alt_n = [0] * n_samples
     private_alt_n = [0] * n_samples
-    call_freqs: list[list[float]] = [[] for _ in samples]
+    call_freqs: list[float | None] = [None] * n_samples
+    pair_compared = [0] * len(pair_to_offset)
+    pair_matches = [0] * len(pair_to_offset)
+    genotype_counts: Counter[Genotype] = Counter()
+    normalized_by_sample: dict[int, Genotype] = {}
+    called_indices: list[int] = []
     private_alt_events_target = 0
     private_alt_events_offtarget = 0
 
-    target_indices = {samples.index(sample) for sample in groups.target}
-    offtarget_indices = {samples.index(sample) for sample in groups.off_target}
+    for sample_index in active_sample_indices:
+        gt = variant.genotypes[sample_index]
+        if gt is None or is_missing_genotype(gt):
+            missing_n[sample_index] += 1
+            continue
+        normalized_gt = _normalize_genotype(gt)
+        normalized_by_sample[sample_index] = normalized_gt
+        genotype_counts[normalized_gt] += 1
+        called_n[sample_index] += 1
+        called_indices.append(sample_index)
+        if _is_het(gt):
+            het_n[sample_index] += 1
+        if _is_nonref(gt):
+            nonref_n[sample_index] += 1
 
-    pair_match_counts: dict[tuple[int, int], int] = defaultdict(int)
-    pair_compared_counts: dict[tuple[int, int], int] = defaultdict(int)
+    if len(genotype_counts) >= 2:
+        min_count = min(genotype_counts.values())
+        minor_gts = {gt for gt, count in genotype_counts.items() if count == min_count}
+        for sample_index, normalized_gt in normalized_by_sample.items():
+            if normalized_gt in minor_gts:
+                minor_gt_n[sample_index] += 1
 
-    for variant in window.variants:
-        genotype_counts: Counter[Genotype] = Counter()
-        called_indices: list[int] = []
-        for sample_index in active_sample_indices:
-            gt = variant.genotypes[sample_index]
-            if is_missing_genotype(gt):
-                missing_n[sample_index] += 1
-                continue
-            if gt is None:
-                missing_n[sample_index] += 1
-                continue
-            normalized_gt = _normalize_genotype(gt)
-            genotype_counts[normalized_gt] += 1
-            called_n[sample_index] += 1
-            called_indices.append(sample_index)
-            if _is_het(gt):
-                het_n[sample_index] += 1
-            if _is_nonref(gt):
-                nonref_n[sample_index] += 1
+    called_denominator = len(called_indices)
+    if called_denominator > min_called_for_freq:
+        for sample_index, normalized_gt in normalized_by_sample.items():
+            call_freqs[sample_index] = genotype_counts[normalized_gt] / called_denominator
 
-        if len(genotype_counts) >= 2:
-            min_count = min(genotype_counts.values())
-            minor_gts = {gt for gt, count in genotype_counts.items() if count == min_count}
-            for sample_index in called_indices:
-                gt = variant.genotypes[sample_index]
-                if gt is not None and _normalize_genotype(gt) in minor_gts:
-                    minor_gt_n[sample_index] += 1
+    for carriers in variant.alt_carriers:
+        active_carriers = set(carriers) & active_sample_set
+        if not active_carriers:
+            continue
+        alt_freq = len(active_carriers) / len(active_sample_indices)
+        is_rare = len(active_carriers) <= rare_max_count or alt_freq <= rare_max_freq
+        target_carriers = active_carriers & target_indices
+        offtarget_carriers = active_carriers & offtarget_indices
+        is_target_private = bool(target_carriers) and not offtarget_carriers
+        is_offtarget_private = bool(offtarget_carriers) and not target_carriers
+        if is_target_private:
+            private_alt_events_target += 1
+        if is_offtarget_private:
+            private_alt_events_offtarget += 1
+        for sample_index in active_carriers:
+            if is_rare:
+                rare_alt_n[sample_index] += 1
+            if (
+                (sample_index in target_indices and is_target_private)
+                or (sample_index in offtarget_indices and is_offtarget_private)
+            ):
+                private_alt_n[sample_index] += 1
 
-        called_denominator = len(called_indices)
-        if called_denominator > min_called_for_freq:
-            for sample_index in called_indices:
-                gt = variant.genotypes[sample_index]
-                if gt is not None:
-                    call_freqs[sample_index].append(
-                        genotype_counts[_normalize_genotype(gt)] / called_denominator
-                    )
+    for left_pos, left_index in enumerate(called_indices):
+        left_gt = normalized_by_sample[left_index]
+        for right_index in called_indices[left_pos + 1:]:
+            right_gt = normalized_by_sample[right_index]
+            pair = (
+                (left_index, right_index)
+                if left_index < right_index
+                else (right_index, left_index)
+            )
+            offset = pair_to_offset[pair]
+            pair_compared[offset] += 1
+            if left_gt == right_gt:
+                pair_matches[offset] += 1
 
-        for carriers in variant.alt_carriers:
-            active_carriers = set(carriers) & set(active_sample_indices)
-            if not active_carriers:
-                continue
-            alt_freq = len(active_carriers) / len(active_sample_indices)
-            is_rare = len(active_carriers) <= rare_max_count or alt_freq <= rare_max_freq
-            target_carriers = active_carriers & target_indices
-            offtarget_carriers = active_carriers & offtarget_indices
-            is_target_private = bool(target_carriers) and not offtarget_carriers
-            is_offtarget_private = bool(offtarget_carriers) and not target_carriers
-            if is_target_private:
-                private_alt_events_target += 1
-            if is_offtarget_private:
-                private_alt_events_offtarget += 1
-            for sample_index in active_carriers:
-                if is_rare:
-                    rare_alt_n[sample_index] += 1
-                if (
-                    (sample_index in target_indices and is_target_private)
-                    or (sample_index in offtarget_indices and is_offtarget_private)
-                ):
-                    private_alt_n[sample_index] += 1
+    return _VariantContribution(
+        variant=variant,
+        called_n=tuple(called_n),
+        missing_n=tuple(missing_n),
+        het_n=tuple(het_n),
+        nonref_n=tuple(nonref_n),
+        minor_gt_n=tuple(minor_gt_n),
+        rare_alt_n=tuple(rare_alt_n),
+        private_alt_n=tuple(private_alt_n),
+        call_freqs=tuple(call_freqs),
+        pair_compared=tuple(pair_compared),
+        pair_matches=tuple(pair_matches),
+        private_alt_events_target=private_alt_events_target,
+        private_alt_events_offtarget=private_alt_events_offtarget,
+    )
 
-        for left_pos, left_index in enumerate(called_indices):
-            left_gt = variant.genotypes[left_index]
-            if left_gt is None:
-                continue
-            for right_index in called_indices[left_pos + 1:]:
-                right_gt = variant.genotypes[right_index]
-                if right_gt is None:
-                    continue
-                pair = (left_index, right_index)
-                pair_compared_counts[pair] += 1
-                if _normalize_genotype(left_gt) == _normalize_genotype(right_gt):
-                    pair_match_counts[pair] += 1
 
-    pairwise = _pairwise_similarity(samples, active_sample_indices, pair_match_counts,
-                                    pair_compared_counts)
+def _analyze_accumulated_window(
+    window: _Window,
+    accumulator: _WindowAccumulator,
+    samples: tuple[str, ...],
+    active_sample_indices: tuple[int, ...],
+    pair_order: tuple[tuple[int, int], ...],
+    sample_to_role: dict[str, str],
+    target_indices: set[int],
+    min_freq_values: int,
+    local_pca: bool = False,
+    emit_similarity_rows: bool = True,
+) -> _AnalyzedWindow:
+    n_variants = len(window.variants)
+    pairwise = _pairwise_similarity_from_counts(
+        pair_order=pair_order,
+        pair_matches=accumulator.pair_matches,
+        pair_compared=accumulator.pair_compared,
+    )
     nearest = _nearest_backgrounds(samples, active_sample_indices, pairwise)
     nearest_targets = _nearest_backgrounds(
         samples,
@@ -1049,8 +1606,8 @@ def _analyze_window(
             "NA" if nearest_index is None else sample_to_role.get(nearest_sample, "other")
         )
         median_freq: str | float = "NA"
-        if len(call_freqs[sample_index]) > min_freq_values:
-            median_freq = _fmt_float(median(call_freqs[sample_index]))
+        if len(accumulator.call_freqs[sample_index]) > min_freq_values:
+            median_freq = _fmt_float(median(accumulator.call_freqs[sample_index]))
         row = {
             "window_id": window.window_id,
             "contig": window.contig,
@@ -1062,19 +1619,34 @@ def _analyze_window(
             "n_variants": n_variants,
             "sample": sample,
             "cohort_role": sample_to_role.get(sample, "other"),
-            "called_n": called_n[sample_index],
-            "missing_n": missing_n[sample_index],
-            "missing_rate": _fmt_ratio(missing_n[sample_index], n_variants),
-            "het_n": het_n[sample_index],
-            "het_rate": _fmt_ratio(het_n[sample_index], called_n[sample_index]),
-            "nonref_n": nonref_n[sample_index],
-            "nonref_rate": _fmt_ratio(nonref_n[sample_index], called_n[sample_index]),
-            "minor_genotype_n": minor_gt_n[sample_index],
-            "minor_genotype_rate": _fmt_ratio(minor_gt_n[sample_index], called_n[sample_index]),
-            "rare_alt_n": rare_alt_n[sample_index],
-            "rare_alt_rate": _fmt_ratio(rare_alt_n[sample_index], called_n[sample_index]),
-            "private_alt_n": private_alt_n[sample_index],
-            "private_alt_rate": _fmt_ratio(private_alt_n[sample_index], called_n[sample_index]),
+            "called_n": accumulator.called_n[sample_index],
+            "missing_n": accumulator.missing_n[sample_index],
+            "missing_rate": _fmt_ratio(accumulator.missing_n[sample_index], n_variants),
+            "het_n": accumulator.het_n[sample_index],
+            "het_rate": _fmt_ratio(
+                accumulator.het_n[sample_index],
+                accumulator.called_n[sample_index],
+            ),
+            "nonref_n": accumulator.nonref_n[sample_index],
+            "nonref_rate": _fmt_ratio(
+                accumulator.nonref_n[sample_index],
+                accumulator.called_n[sample_index],
+            ),
+            "minor_genotype_n": accumulator.minor_gt_n[sample_index],
+            "minor_genotype_rate": _fmt_ratio(
+                accumulator.minor_gt_n[sample_index],
+                accumulator.called_n[sample_index],
+            ),
+            "rare_alt_n": accumulator.rare_alt_n[sample_index],
+            "rare_alt_rate": _fmt_ratio(
+                accumulator.rare_alt_n[sample_index],
+                accumulator.called_n[sample_index],
+            ),
+            "private_alt_n": accumulator.private_alt_n[sample_index],
+            "private_alt_rate": _fmt_ratio(
+                accumulator.private_alt_n[sample_index],
+                accumulator.called_n[sample_index],
+            ),
             "median_call_freq": median_freq,
             "nearest_background": nearest_sample,
             "nearest_background_role": nearest_role,
@@ -1089,7 +1661,22 @@ def _analyze_window(
                 nearest_target_stats.similarity
             )
 
-    similarity_rows = _similarity_rows(window, samples, active_sample_indices, pairwise)
+    similarity_rows = (
+        _similarity_rows(window, samples, active_sample_indices, pairwise)
+        if emit_similarity_rows
+        else []
+    )
+    local_pca_rows = (
+        _local_pca_rows(
+            window=window,
+            samples=samples,
+            active_sample_indices=active_sample_indices,
+            sample_to_role=sample_to_role,
+            pairwise=pairwise,
+        )
+        if local_pca
+        else []
+    )
     target_rows = [r for r in sample_rows if r["cohort_role"] == "target"]
     offtarget_rows = [r for r in sample_rows if r["cohort_role"] == "off_target"]
     span_bp = max(window.end - window.start, 1)
@@ -1112,10 +1699,16 @@ def _analyze_window(
         "offtarget_mean_missing_rate": _mean_row_float(offtarget_rows, "missing_rate"),
         "target_mean_nonref_rate": _mean_row_float(target_rows, "nonref_rate"),
         "offtarget_mean_nonref_rate": _mean_row_float(offtarget_rows, "nonref_rate"),
-        "target_private_alt_n": private_alt_events_target,
-        "offtarget_private_alt_n": private_alt_events_offtarget,
-        "target_private_alt_rate": _fmt_ratio(private_alt_events_target, n_variants),
-        "offtarget_private_alt_rate": _fmt_ratio(private_alt_events_offtarget, n_variants),
+        "target_private_alt_n": accumulator.private_alt_events_target,
+        "offtarget_private_alt_n": accumulator.private_alt_events_offtarget,
+        "target_private_alt_rate": _fmt_ratio(
+            accumulator.private_alt_events_target,
+            n_variants,
+        ),
+        "offtarget_private_alt_rate": _fmt_ratio(
+            accumulator.private_alt_events_offtarget,
+            n_variants,
+        ),
         "top_nearest_background": top_nearest[0][0] if top_nearest else "NA",
         "top_nearest_background_n": top_nearest[0][1] if top_nearest else 0,
     }
@@ -1124,6 +1717,8 @@ def _analyze_window(
         nearest_target_similarity=nearest_target_similarity,
         window_row=window_row,
         similarity_rows=similarity_rows,
+        pairwise=pairwise,
+        local_pca_rows=local_pca_rows,
     )
 
 
@@ -1175,6 +1770,24 @@ def _make_record_windows(
     return windows
 
 
+def _record_window_count(
+    n_records: int,
+    window_records: int,
+    step_records: int,
+) -> int:
+    if n_records <= 0:
+        return 0
+    count = 0
+    start = 0
+    while start < n_records:
+        end = min(start + window_records, n_records)
+        count += 1
+        if end == n_records:
+            break
+        start += step_records
+    return count
+
+
 def _make_bp_windows(
     records: tuple[_VariantSnapshot, ...],
     window_bp: int,
@@ -1217,6 +1830,34 @@ def _make_window(
         mode=mode,
         variants=variants,
     )
+
+
+def _apply_counts(target: list[int], values: tuple[int, ...], sign: int) -> None:
+    for index, value in enumerate(values):
+        target[index] += sign * value
+
+
+def _active_pair_order(
+    active_sample_indices: tuple[int, ...],
+) -> tuple[tuple[int, int], ...]:
+    return tuple(
+        (left_index, right_index)
+        for left_pos, left_index in enumerate(active_sample_indices)
+        for right_index in active_sample_indices[left_pos + 1:]
+    )
+
+
+def _pairwise_similarity_from_counts(
+    pair_order: tuple[tuple[int, int], ...],
+    pair_matches: list[int],
+    pair_compared: list[int],
+) -> dict[tuple[int, int], _PairwiseStats]:
+    pairwise: dict[tuple[int, int], _PairwiseStats] = {}
+    for offset, pair in enumerate(pair_order):
+        compared = pair_compared[offset]
+        similarity = None if compared == 0 else pair_matches[offset] / compared
+        pairwise[pair] = _PairwiseStats(similarity=similarity, compared=compared)
+    return pairwise
 
 
 def _pairwise_similarity(
@@ -1293,6 +1934,69 @@ def _similarity_rows(
     return rows
 
 
+def _local_pca_rows(
+    window: _Window,
+    samples: tuple[str, ...],
+    active_sample_indices: tuple[int, ...],
+    sample_to_role: dict[str, str],
+    pairwise: dict[tuple[int, int], _PairwiseStats],
+) -> list[dict[str, object]]:
+    """Embed a window's local similarity matrix into two PCA-like axes."""
+    import numpy as np  # noqa: PLC0415
+
+    n_samples = len(active_sample_indices)
+    if n_samples == 0:
+        return []
+
+    distances = np.ones((n_samples, n_samples), dtype=float)
+    np.fill_diagonal(distances, 0.0)
+    compared_samples = [0] * n_samples
+    for left_pos, left_index in enumerate(active_sample_indices):
+        for right_pos, right_index in enumerate(active_sample_indices[left_pos + 1:]):
+            stats = pairwise.get((left_index, right_index))
+            if stats is None or stats.similarity is None:
+                continue
+            right_offset = left_pos + right_pos + 1
+            distances[left_pos, right_offset] = 1.0 - stats.similarity
+            distances[right_offset, left_pos] = 1.0 - stats.similarity
+            compared_samples[left_pos] += 1
+            compared_samples[right_offset] += 1
+
+    coords = np.zeros((n_samples, 2), dtype=float)
+    variance = [0.0, 0.0]
+    if n_samples > 1:
+        centered = np.eye(n_samples) - np.ones((n_samples, n_samples)) / n_samples
+        gram = -0.5 * centered @ (distances ** 2) @ centered
+        values, vectors = np.linalg.eigh(gram)
+        ordered = np.argsort(values)[::-1]
+        positive_axes = [axis for axis in ordered if values[axis] > 1e-12]
+        total_positive = float(sum(float(values[axis]) for axis in positive_axes))
+        for output_axis, source_axis in enumerate(positive_axes[:2]):
+            axis_value = float(values[source_axis])
+            coords[:, output_axis] = vectors[:, source_axis] * np.sqrt(axis_value)
+            if total_positive > 0:
+                variance[output_axis] = axis_value / total_positive
+
+    rows: list[dict[str, object]] = []
+    for offset, sample_index in enumerate(active_sample_indices):
+        sample = samples[sample_index]
+        rows.append({
+            "window_id": window.window_id,
+            "contig": window.contig,
+            "window_index": window.window_index,
+            "start": window.start,
+            "end": window.end,
+            "sample": sample,
+            "cohort_role": sample_to_role.get(sample, "other"),
+            "local_pc1": _fmt_float(float(coords[offset, 0])),
+            "local_pc2": _fmt_float(float(coords[offset, 1])),
+            "local_pc1_variance": _fmt_float(variance[0]),
+            "local_pc2_variance": _fmt_float(variance[1]),
+            "n_compared_samples": compared_samples[offset],
+        })
+    return rows
+
+
 def _add_similarity_summary(
     rows: list[dict[str, object]],
     totals: dict[tuple[str, str], float],
@@ -1306,6 +2010,27 @@ def _add_similarity_summary(
         sample_b = str(row["sample_b"])
         key = (sample_a, sample_b) if sample_a <= sample_b else (sample_b, sample_a)
         totals[key] += similarity
+        counts[key] += 1
+
+
+def _add_similarity_summary_from_window(
+    rows: _AnalyzedWindow,
+    samples: tuple[str, ...],
+    totals: dict[tuple[str, str], float],
+    counts: dict[tuple[str, str], int],
+) -> None:
+    if rows.similarity_rows:
+        _add_similarity_summary(rows.similarity_rows, totals=totals, counts=counts)
+        return
+
+    for left_index, right_index in rows.pairwise:
+        stats = rows.pairwise[(left_index, right_index)]
+        if stats.similarity is None:
+            continue
+        sample_a = samples[left_index]
+        sample_b = samples[right_index]
+        key = (sample_a, sample_b) if sample_a <= sample_b else (sample_b, sample_a)
+        totals[key] += stats.similarity
         counts[key] += 1
 
 

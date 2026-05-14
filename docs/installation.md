@@ -112,6 +112,22 @@ python -m pip install -e ".[dev]"
 If you use mamba or conda for development, create and activate the environment
 first, then run the editable install command inside it.
 
+## Optional Fast VCF Engine
+
+`privy landscape --vcf-engine auto` uses the optional `cyvcf2` parser when it
+is installed, otherwise it falls back to `pysam`. To enable the fast VCF
+engine from pip, install the optional extra:
+
+```bash
+python -m pip install ".[fast-vcf]"
+```
+
+For development with both tests and the optional VCF parser:
+
+```bash
+python -m pip install -e ".[dev,fast-vcf]"
+```
+
 ## Update to the Most Recent Version
 
 Users following active development can update an existing source checkout

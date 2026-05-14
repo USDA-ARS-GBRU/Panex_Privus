@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ from privy.io.tsv import TsvWriter
 from privy.landscape import (
     BACKGROUND_BLOCK_COLUMNS,
     CANDIDATE_INTROGRESSION_BLOCK_COLUMNS,
+    LANDSCAPE_LOCAL_PCA_COLUMNS,
     LANDSCAPE_SAMPLE_WINDOW_COLUMNS,
     LANDSCAPE_SIMILARITY_COLUMNS,
     LANDSCAPE_WINDOW_COLUMNS,
@@ -19,6 +21,9 @@ from privy.landscape import (
 from privy.utils.misc import now_iso
 
 log = logging.getLogger("privy.backends.landscape")
+
+SIMILARITY_OUTPUT_MODES = {"full", "summary", "none"}
+VCF_ENGINES = {"auto", "pysam", "cyvcf2"}
 
 
 def run_landscape_vcf(
@@ -42,18 +47,51 @@ def run_landscape_vcf(
     min_introgression_delta: float = 0.0,
     max_introgression_missing_rate: float = 0.5,
     min_introgression_windows: int = 1,
+    similarity_output: str = "summary",
+    vcf_engine: str = "auto",
+    local_pca: bool = False,
     write_plots: bool = True,
     plot_format: str = "png",
 ) -> None:
     """Run a VCF landscape analysis and write tables, plots, and metadata."""
+    if similarity_output not in SIMILARITY_OUTPUT_MODES:
+        raise ValueError(
+            "--similarity-output must be one of: full, summary, none."
+        )
+    if vcf_engine not in VCF_ENGINES:
+        raise ValueError("--vcf-engine must be one of: auto, pysam, cyvcf2.")
+
     outdir.mkdir(parents=True, exist_ok=True)
     log.info("Running VCF landscape analysis: %s", vcf)
-    log.info("Streaming large landscape tables while analyzing | outdir=%s", outdir)
-    with (
-        TsvWriter(outdir / "sample_windows.tsv", LANDSCAPE_SAMPLE_WINDOW_COLUMNS) as sample_writer,
-        TsvWriter(outdir / "windows.tsv", LANDSCAPE_WINDOW_COLUMNS) as window_writer,
-        TsvWriter(outdir / "similarity.tsv", LANDSCAPE_SIMILARITY_COLUMNS) as similarity_writer,
-    ):
+    log.info(
+        "Streaming large landscape tables while analyzing | outdir=%s | "
+        "similarity_output=%s | vcf_engine=%s | local_pca=%s",
+        outdir,
+        similarity_output,
+        vcf_engine,
+        local_pca,
+    )
+    with ExitStack() as stack:
+        sample_writer = stack.enter_context(
+            TsvWriter(outdir / "sample_windows.tsv", LANDSCAPE_SAMPLE_WINDOW_COLUMNS)
+        )
+        window_writer = stack.enter_context(
+            TsvWriter(outdir / "windows.tsv", LANDSCAPE_WINDOW_COLUMNS)
+        )
+        similarity_writer = (
+            stack.enter_context(
+                TsvWriter(outdir / "similarity.tsv", LANDSCAPE_SIMILARITY_COLUMNS)
+            )
+            if similarity_output == "full"
+            else None
+        )
+        local_pca_writer = (
+            stack.enter_context(
+                TsvWriter(outdir / "local_pca.tsv", LANDSCAPE_LOCAL_PCA_COLUMNS)
+            )
+            if local_pca
+            else None
+        )
         result = run_vcf_landscape(
             vcf_path=vcf,
             targets=targets,
@@ -77,18 +115,25 @@ def run_landscape_vcf(
             sample_row_writer=sample_writer,
             window_row_writer=window_writer,
             similarity_row_writer=similarity_writer,
+            local_pca_row_writer=local_pca_writer,
+            emit_similarity_rows=similarity_output == "full",
             retain_output_rows=write_plots,
             retain_similarity_rows=False,
+            retain_local_pca_rows=False,
+            local_pca=local_pca,
+            vcf_engine=vcf_engine,
         )
+
     log.info(
         "Landscape analysis complete | windows=%d | sample_window_rows=%d | "
         "background_blocks=%d | candidate_introgression_blocks=%d | "
-        "similarity_rows=%d",
+        "similarity_rows=%d | local_pca_rows=%d",
         result.n_window_rows,
         result.n_sample_rows,
         len(result.background_block_rows),
         len(result.candidate_introgression_rows),
         result.n_similarity_rows,
+        result.n_local_pca_rows,
     )
 
     log.info("Writing landscape block tables | outdir=%s", outdir)
@@ -99,6 +144,9 @@ def run_landscape_vcf(
         CANDIDATE_INTROGRESSION_BLOCK_COLUMNS,
     ) as writer:
         writer.write_rows(result.candidate_introgression_rows)
+    if similarity_output == "summary":
+        with TsvWriter(outdir / "similarity.tsv", LANDSCAPE_SIMILARITY_COLUMNS) as writer:
+            writer.write_rows(result.similarity_summary_rows)
 
     plot_paths: list[str] = []
     if write_plots:
@@ -150,6 +198,9 @@ def run_landscape_vcf(
             "min_introgression_delta": min_introgression_delta,
             "max_introgression_missing_rate": max_introgression_missing_rate,
             "min_introgression_windows": min_introgression_windows,
+            "similarity_output": similarity_output,
+            "vcf_engine": result.vcf_engine,
+            "local_pca": local_pca,
             "write_plots": write_plots,
             "plot_format": plot_format,
         },
@@ -167,14 +218,23 @@ def run_landscape_vcf(
             "n_candidate_introgression_blocks": len(
                 result.candidate_introgression_rows
             ),
-            "n_similarity_rows": result.n_similarity_rows,
+            "n_pairwise_window_similarity_rows": result.n_similarity_rows,
+            "n_local_pca_rows": result.n_local_pca_rows,
+            "n_similarity_rows": (
+                result.n_similarity_rows
+                if similarity_output == "full"
+                else len(result.similarity_summary_rows)
+                if similarity_output == "summary"
+                else 0
+            ),
         },
         "outputs": [
             "sample_windows.tsv",
             "windows.tsv",
             "background_blocks.tsv",
             "candidate_introgression_blocks.tsv",
-            "similarity.tsv",
+            *(["similarity.tsv"] if similarity_output != "none" else []),
+            *(["local_pca.tsv"] if local_pca else []),
             *plot_paths,
             "landscape.json",
         ],

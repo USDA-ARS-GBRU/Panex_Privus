@@ -166,9 +166,12 @@ privy landscape \
 
 `privy landscape` complements discovery. It writes per-sample window metrics,
 per-window target/off-target summaries, local background blocks, candidate
-donor-like or introgressed blocks, pairwise similarity tables, and first-pass
-heatmap/background-map figures. Use `--window-bp` and `--step-bp` when
-physical base-pair windows are easier to interpret than fixed-record windows.
+donor-like or introgressed blocks, compact or full pairwise similarity tables,
+and first-pass heatmap/background-map figures. Use `--similarity-output full`
+when you need every window-by-pair similarity row, `--similarity-output none`
+for lean large runs, and `--local-pca` for optional local-structure
+coordinates. Use `--window-bp` and `--step-bp` when physical base-pair windows
+are easier to interpret than fixed-record windows.
 
 Compare two scan outputs:
 
@@ -256,6 +259,7 @@ Landscape inspiration and citation sources include:
 
 - [VCFtools](https://vcftools.github.io/man_latest.html) and the VCF format paper
 - [scikit-allel](https://scikit-allel.readthedocs.io/)
+- [cyvcf2](https://github.com/brentp/cyvcf2)
 - [pixy](https://pixy.readthedocs.io/)
 - [VCF-kit](https://vcf-kit.readthedocs.io/en/latest/tajima/)
 - [PopGenome](https://www.rdocumentation.org/packages/PopGenome/versions/2.7.5/topics/sliding.window.transform-methods)

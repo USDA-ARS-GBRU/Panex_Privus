@@ -550,7 +550,11 @@ Landscape outputs:
 - `background_blocks.tsv`: adjacent windows merged by nearest local background
 - `candidate_introgression_blocks.tsv`: target windows merged when the nearest
   local background is an off-target sample
-- `similarity.tsv`: per-window pairwise genotype similarity
+- `similarity.tsv`: pairwise genotype similarity. By default this is a compact
+  genome-wide pair summary; use `--similarity-output full` for every
+  window-by-pair row or `--similarity-output none` to skip it.
+- `local_pca.tsv`: optional PCA-like local similarity coordinates, written
+  when `--local-pca` is used
 - `missingness_heatmap.png`: sample-by-window missingness
 - `private_burden_heatmap.png`: sample-by-window private ALT burden
 - `local_background_map.png`: nearest-background assignment along chromosomes
@@ -580,6 +584,9 @@ Key landscape options:
 | `--min-introgression-delta FLOAT` | Minimum advantage over the nearest target sample (default = 0.0) |
 | `--max-introgression-missing-rate FLOAT` | Maximum target missingness allowed in candidate introgression windows (default = 0.5) |
 | `--min-introgression-windows INT` | Minimum adjacent windows needed to emit a candidate block (default = 1) |
+| `--similarity-output TEXT` | Pairwise similarity table mode: `summary`, `full`, or `none` (default = summary) |
+| `--vcf-engine TEXT` | VCF parser: `auto`, `pysam`, or optional `cyvcf2` (default = auto) |
+| `--local-pca` / `--no-local-pca` | Write or skip optional local PCA coordinates (default = no local PCA) |
 | `--plots` / `--no-plots` | Write or skip landscape figures (default = plots) |
 
 Interpret local background blocks as exploratory shared-genomic-background

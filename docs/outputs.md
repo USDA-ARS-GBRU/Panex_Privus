@@ -46,7 +46,8 @@ choose with `--outdir`.
 | `windows.tsv` | One row per window with target/off-target summary metrics |
 | `background_blocks.tsv` | Adjacent sample windows merged by nearest local background assignment |
 | `candidate_introgression_blocks.tsv` | Target-sample blocks whose nearest local background is an off-target sample, reported as exploratory donor-like or candidate introgressed intervals |
-| `similarity.tsv` | Pairwise sample genotype similarity for each window |
+| `similarity.tsv` | Pairwise sample genotype similarity. Default mode writes genome-wide pair summaries; `--similarity-output full` writes every window-by-pair row |
+| `local_pca.tsv` | Optional PCA-like local similarity coordinates, written only with `--local-pca` |
 | `missingness_heatmap.png` | Sample-by-window missingness heatmap |
 | `private_burden_heatmap.png` | Sample-by-window private ALT burden heatmap |
 | `local_background_map.png` | Sample-by-window nearest-background map |
@@ -216,6 +217,38 @@ similarity, delta, missingness, and minimum-window filters.
 | `mean_similarity_delta` | Donor similarity minus nearest-target similarity |
 | `max_missing_rate` | Highest target missingness across windows in the block |
 | `evidence_class` | Exploratory evidence label for the block |
+
+### `similarity.tsv`
+
+`similarity.tsv` depends on `--similarity-output`.
+
+| Mode | Meaning |
+|------|---------|
+| `summary` | One genome-wide mean similarity row per sample pair. This is the default because it keeps large runs compact. |
+| `full` | One row per sample pair per window. Use this for custom local clustering, downstream window-level similarity analyses, or debugging small to moderate runs. |
+| `none` | Do not write `similarity.tsv`. Pairwise similarity is still computed internally for nearest-background and candidate-introgression calls. |
+
+Common columns are `sample_a`, `sample_b`, `similarity`, and
+`compared_variants`. In `full` mode, `window_id`, `contig`, `window_index`,
+`start`, and `end` identify the local window. In `summary` mode,
+`window_id=genome_mean` and `compared_variants` is the number of windows
+contributing to the mean similarity.
+
+### `local_pca.tsv`
+
+This optional file is written with `--local-pca`. It embeds each window's
+pairwise local similarity matrix into two PCA-like axes using classical
+distance embedding. It is intended as an exploratory local-structure view, not
+a formal ancestry model.
+
+| Column | Meaning |
+|--------|---------|
+| `window_id`, `contig`, `window_index`, `start`, `end` | Window identity and coordinates |
+| `sample` | Sample placed in the local similarity embedding |
+| `cohort_role` | Target or off-target role |
+| `local_pc1`, `local_pc2` | Two local similarity coordinates for this sample in this window |
+| `local_pc1_variance`, `local_pc2_variance` | Fraction of positive embedded variance represented by each axis |
+| `n_compared_samples` | Number of other samples with usable pairwise similarity to this sample in the window |
 
 ## Annotate Outputs
 
