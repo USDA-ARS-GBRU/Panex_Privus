@@ -72,11 +72,11 @@ Common global options:
 | Option | Description |
 |--------|-------------|
 | `--config PATH` | YAML configuration file |
-| `--project-name TEXT` | Project name written into outputs |
-| `--outdir PATH` | Default output directory |
-| `--threads INT` | Reserved for supported parallel paths |
-| `--log-level TEXT` | `debug`, `info`, `warning`, or `error` |
-| `--quiet` | Reduce console output |
+| `--project-name TEXT` | Project name written into outputs (default = `privy_run`) |
+| `--outdir PATH` | Default output directory (default = `.`) |
+| `--threads INT` | Reserved for supported parallel paths (default = 1) |
+| `--log-level TEXT` | `debug`, `info`, `warning`, or `error` (default = `info`) |
+| `--quiet` | Reduce console output (default = false) |
 | `--version` | Show package version |
 
 ## VCF Scan
@@ -127,7 +127,7 @@ Key scan options:
 | `--cohort-file PATH` | YAML or TSV cohort definition |
 | `--region TEXT` | Restrict to `contig:start-end` |
 | `--contig TEXT` | Restrict to one contig |
-| `--merge-distance INT` | Merge nearby hits into regions |
+| `--merge-distance INT` | Merge nearby hits into regions (default = 0) |
 
 See [Figures and Tables](figures-and-tables.md#privy-scan) for example scan
 tables and captions.
@@ -199,7 +199,7 @@ Key GFA options:
 |--------|-------------|
 | `--gfa PATH` | GFA graph file, `.gfa` or `.gfa.gz` |
 | `--gfa-index PATH` | Optional prebuilt Privy GFA index; auto-detected as `<GFA>.privy.gfaidx` when present |
-| `--min-segment-length INT` | Minimum GFA segment length |
+| `--min-segment-length INT` | Minimum GFA segment length (default = 1) |
 | `--region TEXT` | Restrict to `contig:start-end` |
 | `--contig TEXT` | Restrict to one contig |
 
@@ -269,9 +269,9 @@ Key BAM options:
 |--------|-------------|
 | `--bam PATH` | BAM support file; repeat for multiple files |
 | `--bam-manifest PATH` | TSV mapping BAM files to sample IDs |
-| `--bam-min-depth INT` | Minimum depth for informative evidence |
-| `--bam-min-alt-count INT` | Minimum alternate-supporting read count |
-| `--bam-min-alt-fraction FLOAT` | Minimum alternate allele fraction |
+| `--bam-min-depth INT` | Minimum depth for informative evidence (default = 8) |
+| `--bam-min-alt-count INT` | Minimum alternate-supporting read count (default = 2) |
+| `--bam-min-alt-fraction FLOAT` | Minimum alternate allele fraction (default = 0.2) |
 
 ## Run VCF and GFA Together
 
@@ -378,12 +378,8 @@ window stable even when variant density changes along the chromosome:
 ```bash
 privy landscape \
   --vcf variants.vcf.gz \
-  --targets T1 \
-  --targets T2 \
-  --targets T3 \
-  --off-targets O1 \
-  --off-targets O2 \
-  --off-targets O3 \
+  --targets T1 T2 T3 \
+  --off-targets O1 O2 O3 \
   --window-records 200 \
   --step-records 50 \
   --outdir results/landscape/
@@ -395,12 +391,8 @@ stable number of variants:
 ```bash
 privy landscape \
   --vcf variants.vcf.gz \
-  --targets T1 \
-  --targets T2 \
-  --targets T3 \
-  --off-targets O1 \
-  --off-targets O2 \
-  --off-targets O3 \
+  --targets T1 T2 T3 \
+  --off-targets O1 O2 O3 \
   --window-bp 1000000 \
   --step-bp 250000 \
   --outdir results/landscape-bp/
@@ -408,8 +400,8 @@ privy landscape \
 
 If you provide targets but omit off-targets, every other non-ignored sample in
 the VCF becomes off-target. You can also use `--targets-file`,
-`--off-targets-file`, `--ignore-samples`, and `--ignore-samples-file`, matching
-the pangenome command style.
+`--off-targets-file`, `--ignore-samples I1 I2`, and
+`--ignore-samples-file`, matching the scan command style.
 
 Landscape outputs:
 
@@ -430,21 +422,21 @@ Key landscape options:
 | Option | Description |
 |--------|-------------|
 | `--vcf PATH` | Multisample VCF or BCF |
-| `--targets TEXT` | Target sample name; repeat for multiple samples |
+| `--targets TEXT [TEXT ...]` | Target sample names |
 | `--targets-file PATH` | One target sample per line |
-| `--off-targets TEXT` | Off-target sample name; repeat for multiple samples |
-| `--window-records INT` | Number of VCF records per fixed-record window |
-| `--step-records INT` | Record step between windows |
+| `--off-targets TEXT [TEXT ...]` | Off-target sample names |
+| `--window-records INT` | Number of VCF records per fixed-record window (default = 200) |
+| `--step-records INT` | Record step between windows (default = 50) |
 | `--window-bp INT` | Use base-pair windows of this size |
-| `--step-bp INT` | Base-pair step; defaults to `--window-bp` |
-| `--rare-max-count INT` | Carrier-count threshold for rare ALT burden |
-| `--rare-max-freq FLOAT` | Carrier-frequency threshold for rare ALT burden |
-| `--min-background-similarity FLOAT` | Minimum nearest-sample similarity for assigning background blocks |
-| `--min-introgression-similarity FLOAT` | Minimum target-to-off-target similarity for candidate introgression blocks; defaults to `--min-background-similarity` |
-| `--min-introgression-delta FLOAT` | Minimum advantage over the nearest target sample |
-| `--max-introgression-missing-rate FLOAT` | Maximum target missingness allowed in candidate introgression windows |
-| `--min-introgression-windows INT` | Minimum adjacent windows needed to emit a candidate block |
-| `--plots` / `--no-plots` | Write or skip landscape figures |
+| `--step-bp INT` | Base-pair step (default = `--window-bp`) |
+| `--rare-max-count INT` | Carrier-count threshold for rare ALT burden (default = 1) |
+| `--rare-max-freq FLOAT` | Carrier-frequency threshold for rare ALT burden (default = 0.05) |
+| `--min-background-similarity FLOAT` | Minimum nearest-sample similarity for assigning background blocks (default = 0.65) |
+| `--min-introgression-similarity FLOAT` | Minimum target-to-off-target similarity for candidate introgression blocks (default = `--min-background-similarity`) |
+| `--min-introgression-delta FLOAT` | Minimum advantage over the nearest target sample (default = 0.0) |
+| `--max-introgression-missing-rate FLOAT` | Maximum target missingness allowed in candidate introgression windows (default = 0.5) |
+| `--min-introgression-windows INT` | Minimum adjacent windows needed to emit a candidate block (default = 1) |
+| `--plots` / `--no-plots` | Write or skip landscape figures (default = plots) |
 
 Interpret local background blocks as exploratory shared-genomic-background
 segments. They are useful for seeing which genomes are locally similar, but
@@ -494,13 +486,13 @@ Key compare options:
 |--------|-------------|
 | `--hits-a PATH` | First `hits.tsv` |
 | `--hits-b PATH` | Second `hits.tsv` |
-| `--source-a TEXT` | Optional label for source A |
-| `--source-b TEXT` | Optional label for source B |
-| `--overlap-mode TEXT` | Match mode: `contained`, `reciprocal`, or `any` |
-| `--min-reciprocal-overlap FLOAT` | Minimum overlap score for `contained` or `reciprocal` matching |
-| `--breakpoint-tolerance-bp INT` | Gap tolerance for near misses |
-| `--require-state-compatibility` | Require strictness compatibility |
-| `--no-normalize-contigs` | Compare contig names exactly as written |
+| `--source-a TEXT` | Optional label for source A (default = inferred from `locus_id`) |
+| `--source-b TEXT` | Optional label for source B (default = inferred from `locus_id`) |
+| `--overlap-mode TEXT` | Match mode: `contained`, `reciprocal`, or `any` (default = `contained`) |
+| `--min-reciprocal-overlap FLOAT` | Minimum overlap score for `contained` or `reciprocal` matching (default = 0.5) |
+| `--breakpoint-tolerance-bp INT` | Gap tolerance for near misses (default = 200) |
+| `--require-state-compatibility` | Require strictness compatibility (default = false) |
+| `--normalize-contigs` / `--no-normalize-contigs` | Normalize minigraph-cactus contig names before comparing (default = true) |
 
 See [Figures and Tables](figures-and-tables.md#privy-compare) for example
 compare tables, a compare-summary figure, and captions.

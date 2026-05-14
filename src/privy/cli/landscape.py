@@ -7,46 +7,49 @@ from pathlib import Path
 
 import typer
 
+from privy.cli.cohort_args import parse_grouped_cohort_args
 from privy.cli.context import get_state
 
 log = logging.getLogger("privy.cli.landscape")
 
+LANDSCAPE_HELP = (
+    "Create target/off-target-aware VCF sliding-window landscapes, local "
+    "background maps, and sample-similarity summaries.\n\n"
+    "[bold]Cohort syntax:[/bold] "
+    "--targets SAMPLE [SAMPLE ...] --off-targets SAMPLE [SAMPLE ...]"
+)
+
+LANDSCAPE_CONTEXT_SETTINGS = {
+    "allow_extra_args": True,
+    "ignore_unknown_options": True,
+}
+
 app = typer.Typer(
     name="landscape",
-    help=(
-        "Create target/off-target-aware VCF sliding-window landscapes, local "
-        "background maps, and sample-similarity summaries."
-    ),
+    help=LANDSCAPE_HELP,
+    context_settings=LANDSCAPE_CONTEXT_SETTINGS,
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
 
 
-@app.callback(invoke_without_command=True)
+@app.callback(
+    invoke_without_command=True,
+    context_settings=LANDSCAPE_CONTEXT_SETTINGS,
+)
 def landscape(
+    ctx: typer.Context,
     vcf: Path | None = typer.Option(
         None, "--vcf", metavar="PATH",
         help="Multisample VCF/BCF file to analyze.",
-    ),
-    targets: list[str] | None = typer.Option(
-        None, "--targets", metavar="TEXT",
-        help="Target sample name. Repeat flag for multiple samples.",
     ),
     targets_file: Path | None = typer.Option(
         None, "--targets-file", metavar="PATH",
         help="Text file with one target sample name per line.",
     ),
-    off_targets: list[str] | None = typer.Option(
-        None, "--off-targets", metavar="TEXT",
-        help="Off-target sample name. Repeat flag for multiple samples.",
-    ),
     off_targets_file: Path | None = typer.Option(
         None, "--off-targets-file", metavar="PATH",
         help="Text file with one off-target sample name per line.",
-    ),
-    ignore_samples: list[str] | None = typer.Option(
-        None, "--ignore-samples", metavar="TEXT",
-        help="Sample to exclude. Repeat flag for multiple samples.",
     ),
     ignore_samples_file: Path | None = typer.Option(
         None, "--ignore-samples-file", metavar="PATH",
@@ -145,9 +148,19 @@ def landscape(
         typer.echo("[error] --plot-format must be one of: png, svg, pdf.", err=True)
         raise typer.Exit(code=1)
 
-    target_list = _merge_sample_flags(targets, targets_file)
-    off_target_list = _merge_sample_flags(off_targets, off_targets_file)
-    ignored_list = _merge_sample_flags(ignore_samples, ignore_samples_file)
+    try:
+        cohort_cli_args = parse_grouped_cohort_args(ctx.args)
+        target_list = _merge_sample_flags(cohort_cli_args["targets"], targets_file)
+        off_target_list = _merge_sample_flags(
+            cohort_cli_args["off_targets"], off_targets_file
+        )
+        ignored_list = _merge_sample_flags(
+            cohort_cli_args["ignore_samples"], ignore_samples_file
+        )
+    except ValueError as exc:
+        typer.echo(f"[error] {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
     if not target_list:
         typer.echo(
             "[error] Provide target samples with --targets and/or --targets-file.",

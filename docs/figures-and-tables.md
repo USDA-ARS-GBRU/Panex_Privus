@@ -244,11 +244,8 @@ Example command:
 ```bash
 privy landscape \
   --vcf variants.vcf.gz \
-  --targets T1 \
-  --targets T2 \
-  --off-targets O1 \
-  --off-targets O2 \
-  --off-targets O3 \
+  --targets T1 T2 \
+  --off-targets O1 O2 O3 \
   --window-records 200 \
   --step-records 50 \
   --outdir results/landscape/

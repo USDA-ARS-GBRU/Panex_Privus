@@ -156,12 +156,8 @@ Explore genome-wide VCF landscapes with sliding windows:
 ```bash
 privy landscape \
   --vcf cohort.vcf.gz \
-  --targets Benning \
-  --targets Harosoy \
-  --targets Clark \
-  --off-targets Jack \
-  --off-targets Lee \
-  --off-targets Minsoy \
+  --targets Benning Harosoy Clark \
+  --off-targets Jack Lee Minsoy \
   --window-records 200 \
   --step-records 50 \
   --outdir results/landscape/

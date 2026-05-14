@@ -63,6 +63,44 @@ def test_landscape_cli_runs_vcf_and_writes_tables_and_plots(
     assert "local_background_map.png" in data["outputs"]
 
 
+def test_landscape_cli_accepts_grouped_cohort_sample_lists(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "landscape-grouped-out"
+    result = runner.invoke(
+        app,
+        [
+            "landscape",
+            "--vcf",
+            str(indexed_vcf),
+            "--targets",
+            "T1",
+            "T2",
+            "--off-targets",
+            "O1",
+            "O2",
+            "O3",
+            "--window-records",
+            "3",
+            "--step-records",
+            "3",
+            "--min-called-for-freq",
+            "0",
+            "--min-freq-values",
+            "0",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads((outdir / "landscape.json").read_text())
+    assert data["samples"]["target"] == ["T1", "T2"]
+    assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
+    assert data["summary"]["n_sample_window_rows"] == 15
+
+
 def test_landscape_cli_can_skip_plots(indexed_vcf: Path, tmp_path: Path) -> None:
     outdir = tmp_path / "landscape-no-plots"
     result = runner.invoke(

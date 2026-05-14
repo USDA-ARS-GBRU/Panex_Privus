@@ -49,7 +49,12 @@ app.command(
 )(scan.scan)
 app.add_typer(compare.app, name="compare")
 app.add_typer(pangenome.app, name="pangenome")
-app.add_typer(landscape.app, name="landscape")
+app.command(
+    name="landscape",
+    help=landscape.LANDSCAPE_HELP,
+    context_settings=landscape.LANDSCAPE_CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)(landscape.landscape)
 app.add_typer(report.app, name="report")
 app.add_typer(plot.app, name="plot")
 app.add_typer(annotate.app, name="annotate")

@@ -964,11 +964,13 @@ INPUT OPTIONS:
   --vcf PATH                 Multisample VCF or BCF
 
 COHORT OPTIONS:
-  --targets TEXT             Target sample name; repeat for multiple samples
+  --targets TEXT [TEXT ...]  Target sample names
   --targets-file PATH        Text file with one target sample per line
-  --off-targets TEXT         Off-target sample name; repeat for multiple samples
+  --off-targets TEXT [TEXT ...]
+                             Off-target sample names
   --off-targets-file PATH    Text file with one off-target sample per line
-  --ignore-samples TEXT      Sample to exclude; repeat for multiple samples
+  --ignore-samples TEXT [TEXT ...]
+                             Samples to exclude
 
 WINDOW OPTIONS:
   --window-records INT       Records per fixed-record window; default 200
@@ -1053,12 +1055,8 @@ EXAMPLES
   Build a VCF landscape:
     privy landscape \
       --vcf cohort.vcf.gz \
-      --targets Benning \
-      --targets Harosoy \
-      --targets Clark \
-      --off-targets Jack \
-      --off-targets Lee \
-      --off-targets Minsoy \
+      --targets Benning Harosoy Clark \
+      --off-targets Jack Lee Minsoy \
       --window-records 200 \
       --step-records 50 \
       --outdir results/landscape/

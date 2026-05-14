@@ -17,6 +17,7 @@ import typer
 import yaml
 from click.core import ParameterSource
 
+from privy.cli.cohort_args import parse_grouped_cohort_args
 from privy.cli.context import get_state
 from privy.core.cohort import CohortDefinition
 from privy.core.config import PrivyConfig, load_config
@@ -279,7 +280,7 @@ def scan(
 
     # ----------------------------------------------------------------- cohort
     try:
-        cohort_cli_args = _parse_grouped_cohort_args(ctx.args)
+        cohort_cli_args = parse_grouped_cohort_args(ctx.args)
     except ValueError as exc:
         typer.echo(f"[error] {exc}", err=True)
         raise typer.Exit(code=2) from exc
@@ -458,72 +459,6 @@ def scan(
     except NotImplementedError as exc:
         typer.echo(f"[error] Not implemented: {exc}", err=True)
         raise typer.Exit(code=2) from exc
-
-
-_GROUPED_COHORT_FLAGS = {
-    "--targets": "targets",
-    "--target": "targets",
-    "--off-targets": "off_targets",
-    "--off-target": "off_targets",
-    "--ignore-samples": "ignore_samples",
-    "--ignore-sample": "ignore_samples",
-}
-
-_GROUPED_COHORT_DISPLAY = {
-    "targets": "--targets",
-    "off_targets": "--off-targets",
-    "ignore_samples": "--ignore-samples",
-}
-
-
-def _parse_grouped_cohort_args(args: list[str]) -> dict[str, list[str] | None]:
-    """Parse cohort sample groups left over after Click parses regular options.
-
-    Typer's native ``list[str]`` option handling requires users to repeat the
-    flag for every value.  Privy's docs promise the friendlier form
-    ``--targets T1 T2 --off-targets O1 O2``, so the scan command leaves these
-    flags for a small dedicated parser.
-    """
-    values: dict[str, list[str]] = {
-        "targets": [],
-        "off_targets": [],
-        "ignore_samples": [],
-    }
-    provided: set[str] = set()
-    active_group: str | None = None
-
-    for token in args:
-        if token.startswith("--"):
-            flag, separator, inline_value = token.partition("=")
-            group = _GROUPED_COHORT_FLAGS.get(flag)
-            if group is None:
-                raise ValueError(f"No such option: {flag}")
-
-            active_group = group
-            provided.add(group)
-            if separator:
-                if not inline_value:
-                    raise ValueError(f"{flag} requires at least one sample name.")
-                values[group].append(inline_value)
-            continue
-
-        if active_group is None:
-            raise ValueError(
-                f"Unexpected argument {token!r}. Sample names must follow "
-                "--targets, --off-targets, or --ignore-samples."
-            )
-        values[active_group].append(token)
-
-    for group in provided:
-        if not values[group]:
-            raise ValueError(
-                f"{_GROUPED_COHORT_DISPLAY[group]} requires at least one sample name."
-            )
-
-    return {
-        group: values[group] if group in provided else None
-        for group in values
-    }
 
 
 def _apply_cli_overrides(
