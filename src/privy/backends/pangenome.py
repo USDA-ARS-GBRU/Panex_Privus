@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from privy.io.gfa import parse_gfa
-from privy.io.tsv import TsvWriter
+from privy.io.tsv import TsvWriter, read_tsv
 from privy.pangenome import (
     build_composition_rows,
     build_coverage_histogram_rows,
@@ -72,7 +72,7 @@ def run_pangenome_gfa(
     ignored_samples: list[str] | None = None,
     permutations: int = 100,
     seed: int = 42,
-    write_plots: bool = True,
+    write_plots: bool = False,
     plot_format: str = "png",
 ) -> None:
     """Run the first-pass GFA pangenome analysis."""
@@ -109,7 +109,7 @@ def run_pangenome_vcf(
     ignored_samples: list[str] | None = None,
     permutations: int = 100,
     seed: int = 42,
-    write_plots: bool = True,
+    write_plots: bool = False,
     plot_format: str = "png",
 ) -> None:
     """Run VCF allele-level pangenome analysis."""
@@ -144,7 +144,7 @@ def write_pangenome_outputs(
     input_path: Path,
     permutations: int,
     seed: int,
-    write_plots: bool = True,
+    write_plots: bool = False,
     plot_format: str = "png",
 ) -> None:
     """Write shared pangenome analysis outputs."""
@@ -166,6 +166,7 @@ def write_pangenome_outputs(
     if write_plots:
         from privy.plot.pangenome import plot_all_pangenome  # noqa: PLC0415
 
+        log.info("Rendering pangenome plots | format=%s", plot_format)
         plot_paths = [
             str(path.name)
             for path in plot_all_pangenome(
@@ -176,6 +177,7 @@ def write_pangenome_outputs(
                 output_format=plot_format,
             )
         ]
+        log.info("Rendered pangenome plots | count=%d", len(plot_paths))
 
     metadata: dict[str, Any] = {
         "created_at": now_iso(),
@@ -212,6 +214,78 @@ def write_pangenome_outputs(
         ],
     }
     (outdir / "pangenome.json").write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def run_pangenome_plots(
+    input_dir: Path,
+    plot_format: str = "png",
+    outdir: Path | None = None,
+) -> list[Path]:
+    """Render pangenome plots from existing pangenome TSV outputs."""
+    plot_outdir = outdir or input_dir
+    coverage_path = input_dir / "coverage_histogram.tsv"
+    composition_path = input_dir / "composition.tsv"
+    growth_path = input_dir / "growth_curves.tsv"
+    for path in (coverage_path, composition_path, growth_path):
+        if not path.exists():
+            raise FileNotFoundError(f"Pangenome table not found: {path}")
+
+    log.info(
+        "Loading existing pangenome tables for plotting | input_dir=%s | outdir=%s",
+        input_dir,
+        plot_outdir,
+    )
+    coverage_rows = read_tsv(coverage_path)
+    composition_rows = read_tsv(composition_path)
+    growth_rows = read_tsv(growth_path)
+
+    from privy.plot.pangenome import plot_all_pangenome  # noqa: PLC0415
+
+    log.info(
+        "Rendering pangenome plots from existing tables | format=%s | "
+        "coverage_rows=%d | composition_rows=%d | growth_rows=%d",
+        plot_format,
+        len(coverage_rows),
+        len(composition_rows),
+        len(growth_rows),
+    )
+    paths = plot_all_pangenome(
+        coverage_rows=coverage_rows,
+        composition_rows=composition_rows,
+        growth_rows=growth_rows,
+        outdir=plot_outdir,
+        output_format=plot_format,
+    )
+    if plot_outdir == input_dir:
+        _update_plot_metadata(input_dir, plot_format, paths)
+    log.info("Rendered pangenome plots from existing tables | count=%d", len(paths))
+    return paths
+
+
+def _update_plot_metadata(
+    outdir: Path,
+    plot_format: str,
+    plot_paths: list[Path],
+) -> None:
+    metadata_path = outdir / "pangenome.json"
+    if not metadata_path.exists():
+        return
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    parameters = metadata.setdefault("parameters", {})
+    if isinstance(parameters, dict):
+        parameters["write_plots"] = True
+        parameters["plot_format"] = plot_format
+    outputs = metadata.setdefault("outputs", [])
+    if isinstance(outputs, list):
+        existing = {str(item) for item in outputs}
+        for path in plot_paths:
+            if path.name not in existing:
+                outputs.append(path.name)
+                existing.add(path.name)
+    metadata_path.write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )

@@ -76,8 +76,11 @@ def pangenome(
         help="Random seed used for deterministic permutations.",
     ),
     write_plots: bool = typer.Option(
-        True, "--plots/--no-plots",
-        help="Write first-pass pangenome plots alongside TSV outputs.",
+        False, "--plots/--no-plots",
+        help=(
+            "Write pangenome plots immediately. By default, pangenome writes "
+            "data tables only; use privy plot --plot-set pangenome afterwards."
+        ),
     ),
     plot_format: str = typer.Option(
         "png", "--plot-format", metavar="TEXT",

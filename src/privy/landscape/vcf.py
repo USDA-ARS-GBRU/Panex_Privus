@@ -332,9 +332,9 @@ def run_vcf_landscape(
     min_freq_values: int = 10,
     min_background_similarity: float = 0.65,
     min_introgression_similarity: float | None = None,
-    min_introgression_delta: float = 0.0,
+    min_introgression_delta: float = 0.05,
     max_introgression_missing_rate: float = 0.5,
-    min_introgression_windows: int = 1,
+    min_introgression_windows: int = 10,
     progress_interval_seconds: float = 30.0,
     sample_row_writer: Any | None = None,
     window_row_writer: Any | None = None,
@@ -817,9 +817,9 @@ def build_candidate_introgression_blocks(
     target_samples: tuple[str, ...],
     nearest_target_similarity: dict[tuple[str, str], float] | None = None,
     min_introgression_similarity: float = 0.65,
-    min_introgression_delta: float = 0.0,
+    min_introgression_delta: float = 0.05,
     max_introgression_missing_rate: float = 0.5,
-    min_introgression_windows: int = 1,
+    min_introgression_windows: int = 10,
 ) -> list[dict[str, object]]:
     """Merge adjacent donor-like target windows into candidate introgression blocks.
 

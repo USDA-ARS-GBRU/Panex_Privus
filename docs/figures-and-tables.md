@@ -411,14 +411,16 @@ overlap between input sources.
 
 ## `privy plot`
 
-`privy plot` turns scan and compare outputs into diagnostic figures. These
-figures are useful for presentations and reports, and can be exported as SVG or
-PDF for publication layout work.
+`privy plot` turns existing Privy outputs into figures. The `scan` plot set
+uses scan and compare outputs for diagnostic figures; the `landscape` and
+`pangenome` plot sets render figures from existing result directories. Figures
+can be exported as SVG or PDF for publication layout work.
 
 Example command:
 
 ```bash
 privy plot \
+  --plot-set scan \
   --hits results/vcf/hits.tsv \
   --evidence results/vcf/evidence.tsv \
   --compare results/compare/compare.tsv \

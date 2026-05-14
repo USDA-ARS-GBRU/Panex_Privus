@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger("privy.plot.landscape")
 
 
 def plot_landscape_heatmap(
@@ -185,7 +188,9 @@ def plot_all_landscape(
 ) -> list[Path]:
     """Generate all first-pass landscape plots."""
     del window_rows
-    return [
+    paths: list[Path] = []
+    log.info("Rendering missingness heatmap")
+    paths.append(
         plot_landscape_heatmap(
             sample_rows,
             outdir,
@@ -194,7 +199,10 @@ def plot_all_landscape(
             title="Windowed missingness",
             cmap="mako" if _has_colormap("mako") else "viridis",
             output_format=output_format,
-        ),
+        )
+    )
+    log.info("Rendering private ALT burden heatmap")
+    paths.append(
         plot_landscape_heatmap(
             sample_rows,
             outdir,
@@ -203,26 +211,33 @@ def plot_all_landscape(
             title="Windowed private ALT burden",
             cmap="rocket" if _has_colormap("rocket") else "plasma",
             output_format=output_format,
-        ),
-        plot_local_background_map(sample_rows, outdir, output_format=output_format),
-        plot_similarity_cluster_map(similarity_rows, outdir, output_format=output_format),
-    ]
+        )
+    )
+    log.info("Rendering local background map")
+    paths.append(plot_local_background_map(sample_rows, outdir, output_format=output_format))
+    log.info("Rendering similarity cluster map")
+    paths.append(plot_similarity_cluster_map(similarity_rows, outdir, output_format=output_format))
+    return paths
 
 
 def _sample_order(rows: list[dict[str, Any]]) -> list[str]:
     samples: list[str] = []
+    seen: set[str] = set()
     for row in rows:
         sample = str(row["sample"])
-        if sample not in samples:
+        if sample not in seen:
+            seen.add(sample)
             samples.append(sample)
     return samples
 
 
 def _window_order_from_sample_rows(rows: list[dict[str, Any]]) -> list[str]:
     windows: list[str] = []
+    seen: set[str] = set()
     for row in rows:
         window = str(row["window_id"])
-        if window not in windows:
+        if window not in seen:
+            seen.add(window)
             windows.append(window)
     return windows
 
@@ -246,6 +261,8 @@ def _style_window_axis(ax: Any, windows: list[str], sample_rows: list[dict[str, 
         window = str(row["window_id"])
         contigs.setdefault(window, str(row["contig"]))
         starts.setdefault(window, int(row["start"]))
+        if len(contigs) == len(windows):
+            break
     tick_positions: list[int] = []
     tick_labels: list[str] = []
     last_contig: str | None = None

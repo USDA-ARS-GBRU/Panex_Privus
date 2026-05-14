@@ -32,9 +32,9 @@ directory you choose with `--outdir`.
 | `coverage_histogram.tsv` | Coverage histogram by feature count and bp |
 | `composition.tsv` | Core, accessory, private, and absent feature totals |
 | `growth_curves.tsv` | Permutation-based pangenome growth data |
-| `pangenome_growth.png` | Growth curves for full, target, and off-target groups |
-| `pangenome_coverage.png` | Feature coverage distribution |
-| `pangenome_composition.png` | Group composition plot |
+| `pangenome_growth.png` | Optional growth curves from `--plots` or `privy plot --plot-set pangenome` |
+| `pangenome_coverage.png` | Optional feature coverage distribution from `--plots` or `privy plot --plot-set pangenome` |
+| `pangenome_composition.png` | Optional group composition plot from `--plots` or `privy plot --plot-set pangenome` |
 | `pangenome.json` | Run metadata, resolved groups, parameters, and output list |
 
 `privy landscape` writes VCF sliding-window summaries to the directory you
@@ -48,10 +48,10 @@ choose with `--outdir`.
 | `candidate_introgression_blocks.tsv` | Target-sample blocks whose nearest local background is an off-target sample, reported as exploratory donor-like or candidate introgressed intervals |
 | `similarity.tsv` | Pairwise sample genotype similarity. Default mode writes genome-wide pair summaries; `--similarity-output full` writes every window-by-pair row |
 | `local_pca.tsv` | Optional PCA-like local similarity coordinates, written only with `--local-pca` |
-| `missingness_heatmap.png` | Sample-by-window missingness heatmap |
-| `private_burden_heatmap.png` | Sample-by-window private ALT burden heatmap |
-| `local_background_map.png` | Sample-by-window nearest-background map |
-| `similarity_cluster_map.png` | Clustered mean sample-similarity heatmap |
+| `missingness_heatmap.png` | Optional sample-by-window missingness heatmap from `--plots` or `privy plot --plot-set landscape` |
+| `private_burden_heatmap.png` | Optional sample-by-window private ALT burden heatmap from `--plots` or `privy plot --plot-set landscape` |
+| `local_background_map.png` | Optional sample-by-window nearest-background map from `--plots` or `privy plot --plot-set landscape` |
+| `similarity_cluster_map.png` | Optional clustered mean sample-similarity heatmap from `--plots` or `privy plot --plot-set landscape` |
 | `landscape.json` | Run metadata, resolved groups, parameters, and output list |
 
 ## Key `hits.tsv` Columns

@@ -1,8 +1,7 @@
 """``privy plot`` — focused evidence visualization.
 
-Generates publication-quality diagnostic figures from privy scan and
-compare outputs.  Designed to explain findings, not to replace a genome
-browser.
+Generates publication-quality diagnostic figures from existing Privy output
+tables.  Designed to explain findings, not to replace a genome browser.
 """
 
 from __future__ import annotations
@@ -17,15 +16,19 @@ from privy.core.config import PrivyConfig, load_config
 
 log = logging.getLogger("privy.cli.plot")
 
+PLOT_SETS = {"scan", "landscape", "pangenome"}
+
 app = typer.Typer(
     name="plot",
     help=(
-        "Generate focused diagnostic plots from privy scan and compare outputs.\n\n"
-        "[bold]Plot types:[/bold] "
+        "Generate focused diagnostic plots from existing Privy outputs.\n\n"
+        "[bold]Plot sets:[/bold] scan | landscape | pangenome\n\n"
+        "[bold]Scan plot types:[/bold] "
         "locus_panel | strictness_bar | score_distribution | "
         "support_bar | compare_summary | all\n\n"
-        "Pass [bold]--plot-type all[/bold] (default) to generate every applicable "
-        "figure for the given inputs."
+        "Use [bold]--plot-set scan[/bold] for the current scan/compare plots, "
+        "or point [bold]--input-dir[/bold] at a landscape or pangenome result "
+        "directory."
     ),
     rich_markup_mode="rich",
     no_args_is_help=True,
@@ -35,9 +38,17 @@ app = typer.Typer(
 @app.callback(invoke_without_command=True)
 def plot(
     # ---------------------------------------------------------------- inputs
-    hits: Path = typer.Option(
-        ..., "--hits", metavar="PATH",
-        help="hits.tsv from privy scan (required).",
+    plot_set: str = typer.Option(
+        "scan", "--plot-set", metavar="TEXT",
+        help="Plot set to render: scan, landscape, or pangenome.",
+    ),
+    input_dir: Path | None = typer.Option(
+        None, "--input-dir", metavar="PATH",
+        help="Existing landscape or pangenome result directory to plot.",
+    ),
+    hits: Path | None = typer.Option(
+        None, "--hits", metavar="PATH",
+        help="hits.tsv from privy scan (required for --plot-set scan).",
     ),
     regions: Path | None = typer.Option(
         None, "--regions", metavar="PATH",
@@ -92,11 +103,71 @@ def plot(
         help="Output directory (overrides global --outdir).",
     ),
 ) -> None:
-    """Generate focused diagnostic plots from privy scan and compare outputs."""
-    from privy.plot.loci import run_plot  # noqa: PLC0415
-
+    """Generate focused diagnostic plots from existing Privy outputs."""
     state = get_state()
     effective_outdir = outdir or state.outdir
+    normalized_plot_set = plot_set.lower()
+
+    if normalized_plot_set not in PLOT_SETS:
+        typer.echo(
+            "[error] --plot-set must be one of: scan, landscape, pangenome.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if output_format not in {"png", "svg", "pdf"}:
+        typer.echo("[error] --output-format must be one of: png, svg, pdf.", err=True)
+        raise typer.Exit(code=1)
+
+    if normalized_plot_set == "landscape":
+        source_dir = input_dir or effective_outdir
+        plot_outdir = outdir if input_dir is not None and outdir is not None else None
+        try:
+            from privy.backends.landscape import run_landscape_plots  # noqa: PLC0415
+
+            generated = run_landscape_plots(
+                input_dir=source_dir,
+                plot_format=output_format,
+                outdir=plot_outdir,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            typer.echo(f"[error] {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not state.quiet:
+            for path in generated:
+                typer.echo(f"  {path}")
+        return
+
+    if normalized_plot_set == "pangenome":
+        source_dir = input_dir or effective_outdir
+        plot_outdir = outdir if input_dir is not None and outdir is not None else None
+        try:
+            from privy.backends.pangenome import run_pangenome_plots  # noqa: PLC0415
+
+            generated = run_pangenome_plots(
+                input_dir=source_dir,
+                plot_format=output_format,
+                outdir=plot_outdir,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            typer.echo(f"[error] {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not state.quiet:
+            for path in generated:
+                typer.echo(f"  {path}")
+        return
+
+    if input_dir is not None:
+        typer.echo("[error] --input-dir is only used for landscape or pangenome plots.",
+                   err=True)
+        raise typer.Exit(code=1)
+    if hits is None:
+        typer.echo("[error] --hits is required for --plot-set scan.", err=True)
+        raise typer.Exit(code=1)
+    if not hits.exists():
+        typer.echo(f"[error] --hits not found: {hits}", err=True)
+        raise typer.Exit(code=1)
+
+    from privy.plot.loci import run_plot  # noqa: PLC0415
 
     cfg: PrivyConfig
     if state.config_path is not None:
@@ -105,12 +176,12 @@ def plot(
         from privy.core.config import default_config  # noqa: PLC0415
         cfg = default_config()
 
-    if not hits.exists():
-        typer.echo(f"[error] --hits not found: {hits}", err=True)
-        raise typer.Exit(code=1)
-
     effective_outdir.mkdir(parents=True, exist_ok=True)
-    log.info("Starting plot | type=%s outdir=%s", plot_type, effective_outdir)
+    log.info(
+        "Starting plot | set=scan | type=%s | outdir=%s",
+        plot_type,
+        effective_outdir,
+    )
 
     generated = run_plot(
         hits=hits,

@@ -10,7 +10,7 @@ Usage::
     privy compare   --hits-a results/vcf/hits.tsv --hits-b results/gfa/hits.tsv \
                     --outdir results/compare/
     privy report    --hits results/vcf/hits.tsv --outdir report/
-    privy plot      --hits results/vcf/hits.tsv --top-n 10 --outdir plots/
+    privy plot      --plot-set scan --hits results/vcf/hits.tsv --top-n 10 --outdir plots/
     privy annotate  --hits results/vcf/hits.tsv --gff annotation.gff3.gz --outdir annotated/
     privy export    --hits results/vcf/hits.tsv --regions results/vcf/regions.tsv --outdir exported/
     privy index gfa --gfa pangenome.gfa.gz

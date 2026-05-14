@@ -115,7 +115,7 @@ def landscape(
         ),
     ),
     min_introgression_delta: float = typer.Option(
-        0.0, "--min-introgression-delta", metavar="FLOAT", min=0.0, max=1.0,
+        0.05, "--min-introgression-delta", metavar="FLOAT", min=0.0, max=1.0,
         help=(
             "Minimum similarity advantage of the nearest off-target over the "
             "nearest target sample."
@@ -126,7 +126,7 @@ def landscape(
         help="Maximum target-sample missingness allowed in candidate introgression windows.",
     ),
     min_introgression_windows: int = typer.Option(
-        1, "--min-introgression-windows", metavar="INTEGER", min=1,
+        10, "--min-introgression-windows", metavar="INTEGER", min=1,
         help="Minimum adjacent windows required to emit a candidate introgression block.",
     ),
     similarity_output: str = typer.Option(
@@ -142,8 +142,11 @@ def landscape(
         help="Write exploratory local PCA coordinates from each window similarity matrix.",
     ),
     write_plots: bool = typer.Option(
-        True, "--plots/--no-plots",
-        help="Write landscape figures alongside TSV outputs.",
+        False, "--plots/--no-plots",
+        help=(
+            "Write landscape figures immediately. By default, landscape writes "
+            "data tables only; use privy plot --plot-set landscape afterwards."
+        ),
     ),
     plot_format: str = typer.Option(
         "png", "--plot-format", metavar="TEXT",
@@ -151,21 +154,22 @@ def landscape(
     ),
     outdir: Path | None = typer.Option(
         None, "--outdir", metavar="PATH",
-        help="Output directory for landscape tables and plots.",
+        help="Output directory for landscape tables.",
     ),
 ) -> None:
     """Create VCF window metrics and local background maps."""
     state = get_state()
     effective_outdir = outdir or state.outdir
 
+    if plot_format not in {"png", "svg", "pdf"}:
+        typer.echo("[error] --plot-format must be one of: png, svg, pdf.", err=True)
+        raise typer.Exit(code=1)
+
     if vcf is None:
         typer.echo("[error] Provide a VCF input with --vcf.", err=True)
         raise typer.Exit(code=1)
     if not vcf.exists():
         typer.echo(f"[error] VCF file not found: {vcf}", err=True)
-        raise typer.Exit(code=1)
-    if plot_format not in {"png", "svg", "pdf"}:
-        typer.echo("[error] --plot-format must be one of: png, svg, pdf.", err=True)
         raise typer.Exit(code=1)
     if similarity_output not in {"full", "summary", "none"}:
         typer.echo(

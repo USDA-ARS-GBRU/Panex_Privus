@@ -39,12 +39,11 @@ def test_pangenome_cli_runs_gfa_with_inferred_offtargets(tmp_path: Path) -> None
     assert (outdir / "coverage_histogram.tsv").exists()
     assert (outdir / "composition.tsv").exists()
     assert (outdir / "growth_curves.tsv").exists()
-    assert (outdir / "pangenome_growth.png").exists()
-    assert (outdir / "pangenome_coverage.png").exists()
-    assert (outdir / "pangenome_composition.png").exists()
+    assert not (outdir / "pangenome_growth.png").exists()
     data = json.loads((outdir / "pangenome.json").read_text())
     assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
-    assert "pangenome_growth.png" in data["outputs"]
+    assert data["parameters"]["write_plots"] is False
+    assert "pangenome_growth.png" not in data["outputs"]
 
 
 def test_pangenome_cli_runs_gfa_gz_with_inferred_offtargets(tmp_path: Path) -> None:
@@ -214,6 +213,7 @@ def test_pangenome_cli_runs_vcf_with_inferred_offtargets(
             "T2",
             "--permutations",
             "2",
+            "--plots",
             "--outdir",
             str(outdir),
         ],

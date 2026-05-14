@@ -35,6 +35,7 @@ def test_landscape_cli_runs_vcf_and_writes_tables_and_plots(
             "0",
             "--min-freq-values",
             "0",
+            "--plots",
             "--outdir",
             str(outdir),
         ],
@@ -101,6 +102,8 @@ def test_landscape_cli_accepts_grouped_cohort_sample_lists(
     assert data["summary"]["n_sample_window_rows"] == 15
     assert data["parameters"]["similarity_output"] == "summary"
     assert data["parameters"]["vcf_engine"] in {"pysam", "cyvcf2"}
+    assert data["parameters"]["min_introgression_delta"] == 0.05
+    assert data["parameters"]["min_introgression_windows"] == 10
 
 
 def test_landscape_cli_accepts_cohort_file(
@@ -248,7 +251,6 @@ def test_landscape_cli_can_skip_plots(indexed_vcf: Path, tmp_path: Path) -> None
             "3",
             "--step-records",
             "3",
-            "--no-plots",
             "--outdir",
             str(outdir),
         ],

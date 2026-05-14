@@ -167,11 +167,25 @@ privy landscape \
 `privy landscape` complements discovery. It writes per-sample window metrics,
 per-window target/off-target summaries, local background blocks, candidate
 donor-like or introgressed blocks, compact or full pairwise similarity tables,
-and first-pass heatmap/background-map figures. Use `--similarity-output full`
-when you need every window-by-pair similarity row, `--similarity-output none`
-for lean large runs, and `--local-pca` for optional local-structure
-coordinates. Use `--window-bp` and `--step-bp` when physical base-pair windows
-are easier to interpret than fixed-record windows.
+and run metadata. Use `--similarity-output full` when you need every
+window-by-pair similarity row, `--similarity-output none` for lean large runs,
+and `--local-pca` for optional local-structure coordinates. Use `--window-bp`
+and `--step-bp` when physical base-pair windows are easier to interpret than
+fixed-record windows.
+
+Render figures from existing pangenome or landscape results:
+
+```bash
+privy plot \
+  --plot-set landscape \
+  --input-dir results/landscape/ \
+  --output-format pdf
+
+privy plot \
+  --plot-set pangenome \
+  --input-dir results/pangenome/ \
+  --output-format pdf
+```
 
 Compare two scan outputs:
 
@@ -231,8 +245,9 @@ Operational commands:
 - `privy export`
 - `privy index`
 - `privy landscape`
+- `privy pangenome`
 
-The current test suite has 670 passing unit and integration tests.
+The current test suite has 683 passing unit and integration tests.
 
 ## Contact
 

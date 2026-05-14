@@ -441,7 +441,9 @@ from `privy scan`: a scan looks for target-private candidates, while pangenome
 analysis describes the feature space those candidates come from.
 
 GFA segments and VCF alternate alleles both use the same feature-matrix model,
-so the same tables and plots are available for graph and variant inputs.
+so the same tables are available for graph and variant inputs. Plots are
+generated afterwards with `privy plot --plot-set pangenome`, or immediately
+with `--plots` when you want a single command to make both tables and figures.
 
 ```bash
 privy pangenome \
@@ -493,10 +495,22 @@ Pangenome outputs:
   samples for each group
 - `composition.tsv`: core, accessory, private, and absent feature counts
 - `growth_curves.tsv`: permutation-based pangenome growth data
-- `pangenome_growth.png`: full, target, and off-target growth curves
-- `pangenome_coverage.png`: feature coverage distribution
-- `pangenome_composition.png`: stacked composition summary
 - `pangenome.json`: run metadata, resolved groups, and output list
+
+Render pangenome figures from an existing pangenome output directory:
+
+```bash
+privy plot \
+  --plot-set pangenome \
+  --input-dir results/pangenome/ \
+  --output-format pdf
+```
+
+Pangenome plot outputs:
+
+- `pangenome_growth.pdf`: full, target, and off-target growth curves
+- `pangenome_coverage.pdf`: feature coverage distribution
+- `pangenome_composition.pdf`: stacked composition summary
 
 See [Figures and Tables](figures-and-tables.md) for example output snippets,
 figure captions, and guidance on using pangenome plots in research reports or
@@ -555,11 +569,23 @@ Landscape outputs:
   window-by-pair row or `--similarity-output none` to skip it.
 - `local_pca.tsv`: optional PCA-like local similarity coordinates, written
   when `--local-pca` is used
-- `missingness_heatmap.png`: sample-by-window missingness
-- `private_burden_heatmap.png`: sample-by-window private ALT burden
-- `local_background_map.png`: nearest-background assignment along chromosomes
-- `similarity_cluster_map.png`: clustered mean sample-similarity heatmap
 - `landscape.json`: run metadata, resolved samples, parameters, and outputs
+
+Render landscape figures from an existing landscape output directory:
+
+```bash
+privy plot \
+  --plot-set landscape \
+  --input-dir results/landscape/ \
+  --output-format pdf
+```
+
+Landscape plot outputs:
+
+- `missingness_heatmap.pdf`: sample-by-window missingness
+- `private_burden_heatmap.pdf`: sample-by-window private ALT burden
+- `local_background_map.pdf`: nearest-background assignment along chromosomes
+- `similarity_cluster_map.pdf`: clustered mean sample-similarity heatmap
 
 Key landscape options:
 
@@ -581,13 +607,35 @@ Key landscape options:
 | `--rare-max-freq FLOAT` | Carrier-frequency threshold for rare ALT burden (default = 0.05) |
 | `--min-background-similarity FLOAT` | Minimum nearest-sample similarity for assigning background blocks (default = 0.65) |
 | `--min-introgression-similarity FLOAT` | Minimum target-to-off-target similarity for candidate introgression blocks (default = `--min-background-similarity`) |
-| `--min-introgression-delta FLOAT` | Minimum advantage over the nearest target sample (default = 0.0) |
+| `--min-introgression-delta FLOAT` | Minimum advantage over the nearest target sample (default = 0.05) |
 | `--max-introgression-missing-rate FLOAT` | Maximum target missingness allowed in candidate introgression windows (default = 0.5) |
-| `--min-introgression-windows INT` | Minimum adjacent windows needed to emit a candidate block (default = 1) |
+| `--min-introgression-windows INT` | Minimum adjacent windows needed to emit a candidate block (default = 10) |
 | `--similarity-output TEXT` | Pairwise similarity table mode: `summary`, `full`, or `none` (default = summary) |
 | `--vcf-engine TEXT` | VCF parser: `auto`, `pysam`, or `cyvcf2` (default = auto) |
 | `--local-pca` / `--no-local-pca` | Write or skip optional local PCA coordinates (default = no local PCA) |
-| `--plots` / `--no-plots` | Write or skip landscape figures (default = plots) |
+| `--plot-format TEXT` | Plot format for immediate `--plots`: `png`, `svg`, or `pdf` (default = png) |
+| `--plots` / `--no-plots` | Write or skip landscape figures during analysis (default = no plots) |
+
+For large runs, it is often better to separate table generation from plotting:
+
+```bash
+privy landscape \
+  --vcf variants.vcf.gz \
+  --targets T1 T2 T3 \
+  --off-targets O1 O2 O3 \
+  --window-records 200 \
+  --step-records 50 \
+  --outdir results/landscape/
+
+privy plot \
+  --plot-set landscape \
+  --input-dir results/landscape/ \
+  --output-format pdf
+```
+
+Use `pdf` or `svg` when you need vector text and axes for publication. Dense
+heatmap panels may still be embedded as raster image layers inside the vector
+file, which keeps very large windowed plots usable.
 
 Interpret local background blocks as exploratory shared-genomic-background
 segments. They are useful for seeing which genomes are locally similar, but
@@ -680,12 +728,15 @@ tables and captions.
 
 ## Plot Diagnostics
 
-Use `privy plot` to make quick diagnostic figures from scan and compare outputs.
-These plots are meant to help you see ranking, score distributions, strictness
-classes, BAM evidence, and VCF/GFA concordance at a glance.
+Use `privy plot` to make figures from existing output tables. The default
+`--plot-set scan` makes quick diagnostic figures from scan and compare outputs:
+ranking, score distributions, strictness classes, BAM evidence, and VCF/GFA
+concordance at a glance. The `landscape` and `pangenome` plot sets render
+figures from existing result directories after those analyses finish.
 
 ```bash
 privy plot \
+  --plot-set scan \
   --hits results/vcf/hits.tsv \
   --evidence results/vcf/evidence.tsv \
   --compare results/compare/compare.tsv \

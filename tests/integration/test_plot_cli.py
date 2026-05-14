@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,8 @@ from typer.testing import CliRunner
 from privy.cli.main import app
 from privy.core.config import default_config
 from privy.plot.loci import run_plot
+
+GFA_PATH = Path(__file__).parent.parent / "data" / "small_cohort.gfa"
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -253,6 +256,7 @@ class TestPlotCli:
         outdir = tmp_path / "out"
         result = runner.invoke(app, [
             "plot",
+            "--plot-set", "scan",
             "--hits", str(hits),
             "--plot-type", "strictness_bar",
             "--dpi", "72",
@@ -300,3 +304,65 @@ class TestPlotCli:
         ])
         assert result.exit_code == 0, result.output
         assert (outdir / "compare_summary.png").exists()
+
+    def test_landscape_plot_set_renders_existing_tables(
+        self, indexed_vcf: Path, tmp_path: Path, runner: CliRunner
+    ) -> None:
+        outdir = tmp_path / "landscape-data"
+        result = runner.invoke(app, [
+            "landscape",
+            "--vcf", str(indexed_vcf),
+            "--targets", "T1", "T2",
+            "--window-records", "3",
+            "--step-records", "3",
+            "--outdir", str(outdir),
+        ])
+        assert result.exit_code == 0, result.output
+        assert not (outdir / "missingness_heatmap.svg").exists()
+
+        plot_result = runner.invoke(app, [
+            "plot",
+            "--plot-set", "landscape",
+            "--input-dir", str(outdir),
+            "--output-format", "svg",
+        ])
+
+        assert plot_result.exit_code == 0, plot_result.output
+        assert (outdir / "missingness_heatmap.svg").exists()
+        assert (outdir / "private_burden_heatmap.svg").exists()
+        assert (outdir / "local_background_map.svg").exists()
+        assert (outdir / "similarity_cluster_map.svg").exists()
+        data = json.loads((outdir / "landscape.json").read_text())
+        assert data["parameters"]["write_plots"] is True
+        assert data["parameters"]["plot_format"] == "svg"
+        assert "missingness_heatmap.svg" in data["outputs"]
+
+    def test_pangenome_plot_set_renders_existing_tables(
+        self, tmp_path: Path, runner: CliRunner
+    ) -> None:
+        outdir = tmp_path / "pangenome-data"
+        result = runner.invoke(app, [
+            "pangenome",
+            "--gfa", str(GFA_PATH),
+            "--targets", "T1", "T2",
+            "--permutations", "1",
+            "--outdir", str(outdir),
+        ])
+        assert result.exit_code == 0, result.output
+        assert not (outdir / "pangenome_growth.svg").exists()
+
+        plot_result = runner.invoke(app, [
+            "plot",
+            "--plot-set", "pangenome",
+            "--input-dir", str(outdir),
+            "--output-format", "svg",
+        ])
+
+        assert plot_result.exit_code == 0, plot_result.output
+        assert (outdir / "pangenome_growth.svg").exists()
+        assert (outdir / "pangenome_coverage.svg").exists()
+        assert (outdir / "pangenome_composition.svg").exists()
+        data = json.loads((outdir / "pangenome.json").read_text())
+        assert data["parameters"]["write_plots"] is True
+        assert data["parameters"]["plot_format"] == "svg"
+        assert "pangenome_growth.svg" in data["outputs"]

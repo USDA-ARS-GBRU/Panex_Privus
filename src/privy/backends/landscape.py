@@ -8,7 +8,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
-from privy.io.tsv import TsvWriter
+from privy.io.tsv import TsvWriter, read_tsv
 from privy.landscape import (
     BACKGROUND_BLOCK_COLUMNS,
     CANDIDATE_INTROGRESSION_BLOCK_COLUMNS,
@@ -44,13 +44,13 @@ def run_landscape_vcf(
     min_freq_values: int = 10,
     min_background_similarity: float = 0.65,
     min_introgression_similarity: float | None = None,
-    min_introgression_delta: float = 0.0,
+    min_introgression_delta: float = 0.05,
     max_introgression_missing_rate: float = 0.5,
-    min_introgression_windows: int = 1,
+    min_introgression_windows: int = 10,
     similarity_output: str = "summary",
     vcf_engine: str = "auto",
     local_pca: bool = False,
-    write_plots: bool = True,
+    write_plots: bool = False,
     plot_format: str = "png",
 ) -> None:
     """Run a VCF landscape analysis and write tables, plots, and metadata."""
@@ -244,3 +244,76 @@ def run_landscape_vcf(
         encoding="utf-8",
     )
     log.info("Wrote landscape metadata: %s", outdir / "landscape.json")
+
+
+def run_landscape_plots(
+    input_dir: Path,
+    plot_format: str = "png",
+    outdir: Path | None = None,
+) -> list[Path]:
+    """Render landscape plots from existing TSV outputs."""
+    plot_outdir = outdir or input_dir
+    sample_windows = input_dir / "sample_windows.tsv"
+    windows = input_dir / "windows.tsv"
+    similarity = input_dir / "similarity.tsv"
+    if not sample_windows.exists():
+        raise FileNotFoundError(f"Landscape table not found: {sample_windows}")
+    if not windows.exists():
+        raise FileNotFoundError(f"Landscape table not found: {windows}")
+
+    log.info(
+        "Loading existing landscape tables for plotting | input_dir=%s | outdir=%s",
+        input_dir,
+        plot_outdir,
+    )
+    sample_rows = read_tsv(sample_windows)
+    window_rows = read_tsv(windows)
+    similarity_rows = read_tsv(similarity) if similarity.exists() else []
+
+    from privy.plot.landscape import plot_all_landscape  # noqa: PLC0415
+
+    log.info(
+        "Rendering landscape plots from existing tables | format=%s | "
+        "sample_rows=%d | windows=%d | similarity_rows=%d",
+        plot_format,
+        len(sample_rows),
+        len(window_rows),
+        len(similarity_rows),
+    )
+    paths = plot_all_landscape(
+        sample_rows=sample_rows,
+        window_rows=window_rows,
+        similarity_rows=similarity_rows,
+        outdir=plot_outdir,
+        output_format=plot_format,
+    )
+    if plot_outdir == input_dir:
+        _update_plot_metadata(input_dir, plot_format, paths)
+    log.info("Rendered landscape plots from existing tables | count=%d", len(paths))
+    return paths
+
+
+def _update_plot_metadata(
+    outdir: Path,
+    plot_format: str,
+    plot_paths: list[Path],
+) -> None:
+    metadata_path = outdir / "landscape.json"
+    if not metadata_path.exists():
+        return
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    parameters = metadata.setdefault("parameters", {})
+    if isinstance(parameters, dict):
+        parameters["write_plots"] = True
+        parameters["plot_format"] = plot_format
+    outputs = metadata.setdefault("outputs", [])
+    if isinstance(outputs, list):
+        existing = {str(item) for item in outputs}
+        for path in plot_paths:
+            if path.name not in existing:
+                outputs.append(path.name)
+                existing.add(path.name)
+    metadata_path.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )

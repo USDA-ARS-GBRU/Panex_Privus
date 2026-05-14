@@ -100,7 +100,7 @@ Responsibilities:
 	•	summarize full, target, and off-target feature presence
 	•	report core/accessory/private/absent composition
 	•	build feature coverage histograms and pangenome growth curves
-	•	emit pangenome tables, plots, and run metadata
+	•	emit pangenome tables and run metadata
 
 privy landscape
 
@@ -113,7 +113,7 @@ Responsibilities:
 	•	summarize target/off-target window-level context
 	•	compute pairwise local genotype similarity
 	•	merge adjacent nearest-background assignments into local background blocks
-	•	emit heatmaps, local background maps, similarity cluster maps, and run metadata
+	•	emit window tables, block tables, similarity summaries, and run metadata
 
 privy report
 
@@ -131,9 +131,10 @@ privy plot
 Visualization engine.
 
 Responsibilities:
-	•	generate focused, publication-quality plots
-	•	explain loci and regions
-	•	visualize genotype patterns and support layers
+	•	generate focused, publication-quality plots from existing output tables
+	•	explain loci and regions from scan and compare outputs
+	•	render landscape and pangenome plots after data generation
+	•	visualize genotype patterns, support layers, and run-level summaries
 	•	avoid becoming a general-purpose genome browser
 
 privy annotate
@@ -713,7 +714,7 @@ COMMANDS:
   pangenome Summarize full, target, and off-target pangenomes
   landscape Create VCF sliding-window landscapes and local background maps
   report    Generate ranked summaries, QC tables, and Markdown/HTML reports
-  plot      Create focused summary and locus diagnostic plots
+  plot      Create plots from existing scan, landscape, or pangenome outputs
   annotate  Intersect private loci with GFF3 gene annotations
   export    Export scan hits and regions to downstream genome-tool formats
   index     Build reusable indexes for supported inputs
@@ -921,12 +922,14 @@ REPORT NOTES:
 
 
 PLOT
-  Generate focused plots for loci, regions, and summary diagnostics.
+  Generate plots from existing scan, landscape, or pangenome outputs.
 
 USAGE:
   privy plot [OPTIONS]
 
 INPUT OPTIONS:
+  --plot-set TEXT            scan, landscape, or pangenome; default scan
+  --input-dir PATH           Existing landscape or pangenome result directory
   --hits PATH                hits.tsv
   --regions PATH             regions.tsv
   --evidence PATH            evidence.tsv
@@ -955,6 +958,8 @@ PLOT OPTIONS:
 
 PLOT NOTES:
   - Focused explanatory plots, not a genome browser
+  - scan plots use --hits and optional scan/compare tables
+  - landscape and pangenome plots use --input-dir
   - Designed for diagnostics and publication-ready figure generation
 
 LANDSCAPE
@@ -1000,7 +1005,9 @@ LANDSCAPE OPTIONS:
   --vcf-engine TEXT          VCF parser: auto, pysam, cyvcf2
   --local-pca / --no-local-pca
                              Write or skip local PCA coordinate table
-  --plots / --no-plots       Write or skip landscape figures
+  --plot-format TEXT         png, svg, or pdf for immediate --plots
+  --plots / --no-plots       Write or skip landscape figures during analysis;
+                             default no plots
 
 LANDSCAPE OUTPUTS:
   sample_windows.tsv
@@ -1010,10 +1017,10 @@ LANDSCAPE OUTPUTS:
   similarity.tsv
   local_pca.tsv
   landscape.json
-  missingness_heatmap.png
-  private_burden_heatmap.png
-  local_background_map.png
-  similarity_cluster_map.png
+  missingness_heatmap.png (from privy plot --plot-set landscape)
+  private_burden_heatmap.png (from privy plot --plot-set landscape)
+  local_background_map.png (from privy plot --plot-set landscape)
+  similarity_cluster_map.png (from privy plot --plot-set landscape)
 
 LANDSCAPE NOTES:
   - Complements discovery; does not replace privy scan
@@ -1058,9 +1065,16 @@ EXAMPLES
 
   Plot top loci:
     privy plot \
+      --plot-set scan \
       --hits results/vcf/hits.tsv \
       --top-n 10 \
       --outdir plots/
+
+  Plot an existing VCF landscape:
+    privy plot \
+      --plot-set landscape \
+      --input-dir results/landscape/ \
+      --output-format pdf
 
   Build a VCF landscape:
     privy landscape \

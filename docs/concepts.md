@@ -38,10 +38,10 @@ The main design rules are:
 | `privy scan` | Which loci or graph segments match the target-private pattern? | VCF or GFA, optional BAM support | `hits.tsv`, `regions.tsv`, evidence, QC, run metadata |
 | `privy index gfa` | Can a large GFA be pre-indexed for faster repeated scans? | GFA | `<GFA>.privy.gfaidx` or a user-chosen index path |
 | `privy pangenome` | What is the full, target, and off-target feature composition? | GFA segments or VCF alternate alleles | Feature summary, coverage histogram, composition, growth curves |
-| `privy landscape` | How do VCF metrics change across chromosomes in sliding windows? | Multisample VCF or BCF | Window tables, similarity tables, local background blocks, candidate introgression blocks, heatmaps |
+| `privy landscape` | How do VCF metrics change across chromosomes in sliding windows? | Multisample VCF or BCF | Window tables, similarity tables, local background blocks, candidate introgression blocks |
 | `privy compare` | Do two scan result sets support the same loci? | Two `hits.tsv` files | `compare.tsv`, summary table, metadata |
 | `privy report` | How should scan outputs be summarized for collaborators? | Scan and optional compare outputs | Ranked tables, summaries, Markdown/HTML report |
-| `privy plot` | What quick diagnostic figures summarize a run? | Scan and optional compare outputs | Locus, strictness, score, evidence, and compare plots |
+| `privy plot` | What figures summarize an existing run? | Scan, landscape, or pangenome outputs | Scan diagnostics, landscape maps, and pangenome plots |
 | `privy annotate` | Which candidates overlap gene models? | `hits.tsv`, GFF3 | Annotated hits and annotation summary |
 | `privy export` | How can candidates move into genome browsers or downstream tools? | `hits.tsv`, `regions.tsv` | BED or GFF3 tracks |
 
@@ -543,9 +543,10 @@ surprising, the source of truth is still the underlying TSV and JSON output.
 
 ## `privy plot`
 
-`privy plot` creates diagnostic figures from scan and compare tables. The
-figures are designed for quick review of ranking, strictness, evidence, and
-comparison patterns.
+`privy plot` creates figures from existing output tables. The default
+`--plot-set scan` creates diagnostic figures from scan and compare tables.
+`--plot-set landscape` and `--plot-set pangenome` render figures from existing
+result directories after those analyses finish.
 
 Typical figures include:
 
@@ -554,8 +555,11 @@ Typical figures include:
 - score distributions
 - evidence class summaries
 - compare match-class summaries
+- landscape heatmaps and local background maps
+- pangenome growth, coverage, and composition plots
 
-Plotting does not alter hit calls, scores, or regions.
+Plotting does not alter hit calls, scores, regions, window metrics, or
+pangenome summaries.
 
 ## `privy annotate`
 
