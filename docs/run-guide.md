@@ -585,7 +585,7 @@ Key landscape options:
 | `--max-introgression-missing-rate FLOAT` | Maximum target missingness allowed in candidate introgression windows (default = 0.5) |
 | `--min-introgression-windows INT` | Minimum adjacent windows needed to emit a candidate block (default = 1) |
 | `--similarity-output TEXT` | Pairwise similarity table mode: `summary`, `full`, or `none` (default = summary) |
-| `--vcf-engine TEXT` | VCF parser: `auto`, `pysam`, or optional `cyvcf2` (default = auto) |
+| `--vcf-engine TEXT` | VCF parser: `auto`, `pysam`, or `cyvcf2` (default = auto) |
 | `--local-pca` / `--no-local-pca` | Write or skip optional local PCA coordinates (default = no local PCA) |
 | `--plots` / `--no-plots` | Write or skip landscape figures (default = plots) |
 

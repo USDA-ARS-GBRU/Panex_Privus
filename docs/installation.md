@@ -112,20 +112,21 @@ python -m pip install -e ".[dev]"
 If you use mamba or conda for development, create and activate the environment
 first, then run the editable install command inside it.
 
-## Optional Fast VCF Engine
+## VCF Parser Dependencies
 
-`privy landscape --vcf-engine auto` uses the optional `cyvcf2` parser when it
-is installed, otherwise it falls back to `pysam`. To enable the fast VCF
-engine from pip, install the optional extra:
+Regular `pip install .` installs both VCF parser backends used by Panex
+Privus: `cyvcf2` for fast landscape VCF reading and `pysam` as the stable
+fallback parser. `privy landscape --vcf-engine auto` uses `cyvcf2` when it is
+available.
 
 ```bash
-python -m pip install ".[fast-vcf]"
+python -m pip install .
 ```
 
-For development with both tests and the optional VCF parser:
+For development:
 
 ```bash
-python -m pip install -e ".[dev,fast-vcf]"
+python -m pip install -e ".[dev]"
 ```
 
 ## Update to the Most Recent Version

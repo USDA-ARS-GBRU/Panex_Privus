@@ -739,7 +739,7 @@ def _resolve_vcf_engine(requested: str) -> str:
             import cyvcf2  # noqa: F401, PLC0415
         except ImportError as exc:
             raise ValueError(
-                "cyvcf2 is not installed. Install panex-privus[fast-vcf] "
+                "cyvcf2 is not installed. Reinstall Panex Privus "
                 "or use --vcf-engine pysam."
             ) from exc
         return "cyvcf2"
