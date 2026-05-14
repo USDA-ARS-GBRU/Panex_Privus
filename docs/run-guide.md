@@ -128,10 +128,17 @@ the cohort file.
 
 ## Command Shape
 
-Global options come before the subcommand:
+Panex Privus commands have two layers of options:
+
+1. global options for `privy` itself
+2. subcommand options for `scan`, `pangenome`, `landscape`, `compare`, and the
+   other workflow steps
+
+Global options must come before the subcommand. Subcommand-specific options
+come after it:
 
 ```bash
-privy --config configs/privy.yaml --project-name soybean-protein scan ...
+privy --config configs/privy.yaml --project-name soybean-protein scan --vcf variants.vcf.gz ...
 ```
 
 Common global options:
@@ -145,6 +152,70 @@ Common global options:
 | `--log-level TEXT` | `debug`, `info`, `warning`, or `error` (default = `info`) |
 | `--quiet` | Reduce console output (default = false) |
 | `--version` | Show package version |
+
+### Using `--config`
+
+`--config PATH` points to a YAML file with reusable project settings. It is most
+useful when you want the same cohort, thresholds, scoring weights, and compare
+settings to be recorded and reused across runs.
+
+The config file is optional. Any section you omit falls back to package
+defaults. Explicit command-line flags override values from the config file.
+
+Minimal example:
+
+```yaml
+project_name: soybean_privy_scan
+
+cohorts:
+  targets: [T1, T2, T3]
+  off_targets: [O1, O2, O3]
+  ignored_samples: []
+
+scan:
+  min_target_support: 1.0
+  max_off_target_support: 0.0
+  merge_distance: 1000
+  min_qual: 30
+  pass_only: true
+
+gfa:
+  min_segment_length: 1
+
+compare:
+  overlap_mode: contained
+  min_reciprocal_overlap: 0.5
+```
+
+Use it like this:
+
+```bash
+privy --config configs/privy.yaml scan \
+  --vcf variants.vcf.gz \
+  --outdir results/
+```
+
+In that command, the target/off-target samples can come from
+`configs/privy.yaml`. You can still override them at run time:
+
+```bash
+privy --config configs/privy.yaml scan \
+  --vcf variants.vcf.gz \
+  --targets T4 T5 \
+  --off-targets O4 O5 O6 \
+  --outdir results/
+```
+
+`--config` and `--cohort-file` are related but not identical:
+
+- `--config` is a broader YAML settings file. It can include cohorts and many
+  analysis parameters.
+- `--cohort-file` only defines sample roles: target, off-target, and ignored.
+  Use it when you want the same cohort file for `scan`, `pangenome`, and
+  `landscape`.
+- For `privy scan`, role-specific CLI inputs such as `--targets` or
+  `--targets-file` override `--cohort-file`, and `--cohort-file` overrides the
+  `cohorts:` section of `--config`.
 
 ## VCF Scan
 
