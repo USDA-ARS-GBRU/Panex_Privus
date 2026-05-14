@@ -7,7 +7,11 @@ from pathlib import Path
 
 import typer
 
-from privy.cli.cohort_args import parse_grouped_cohort_args
+from privy.cli.cohort_args import (
+    collect_sample_values,
+    load_cohort_file,
+    parse_grouped_cohort_args,
+)
 from privy.cli.context import get_state
 
 log = logging.getLogger("privy.cli.landscape")
@@ -54,6 +58,10 @@ def landscape(
     ignore_samples_file: Path | None = typer.Option(
         None, "--ignore-samples-file", metavar="PATH",
         help="Text file with one sample name to ignore per line.",
+    ),
+    cohort_file: Path | None = typer.Option(
+        None, "--cohort-file", metavar="PATH",
+        help="Optional cohort definition file (TSV or YAML).",
     ),
     window_records: int = typer.Option(
         200, "--window-records", metavar="INTEGER", min=1,
@@ -150,20 +158,53 @@ def landscape(
 
     try:
         cohort_cli_args = parse_grouped_cohort_args(ctx.args)
-        target_list = _merge_sample_flags(cohort_cli_args["targets"], targets_file)
-        off_target_list = _merge_sample_flags(
-            cohort_cli_args["off_targets"], off_targets_file
+        cohort_from_file = (
+            load_cohort_file(cohort_file) if cohort_file is not None else None
         )
-        ignored_list = _merge_sample_flags(
-            cohort_cli_args["ignore_samples"], ignore_samples_file
+        cli_targets = collect_sample_values(
+            cohort_cli_args["targets"],
+            targets_file,
         )
-    except ValueError as exc:
+        cli_off_targets = collect_sample_values(
+            cohort_cli_args["off_targets"],
+            off_targets_file,
+        )
+        cli_ignored = collect_sample_values(
+            cohort_cli_args["ignore_samples"],
+            ignore_samples_file,
+        )
+    except (FileNotFoundError, ValueError) as exc:
         typer.echo(f"[error] {exc}", err=True)
         raise typer.Exit(code=2) from exc
 
+    target_list = (
+        cli_targets
+        if cli_targets is not None
+        else (list(cohort_from_file.targets) if cohort_from_file is not None else [])
+    )
+    off_target_list = (
+        cli_off_targets
+        if cli_off_targets is not None
+        else (
+            list(cohort_from_file.off_targets)
+            if cohort_from_file is not None
+            else []
+        )
+    )
+    ignored_list = (
+        cli_ignored
+        if cli_ignored is not None
+        else (
+            list(cohort_from_file.ignored_samples)
+            if cohort_from_file is not None
+            else []
+        )
+    )
+
     if not target_list:
         typer.echo(
-            "[error] Provide target samples with --targets and/or --targets-file.",
+            "[error] Provide target samples with --targets, --targets-file, "
+            "or --cohort-file.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -200,25 +241,3 @@ def landscape(
         raise typer.Exit(code=1) from exc
 
     typer.echo(f"privy landscape complete. Outputs in: {effective_outdir}")
-
-
-def _merge_sample_flags(values: list[str] | None, path: Path | None) -> list[str]:
-    merged: list[str] = []
-    for value in values or []:
-        if value.strip():
-            merged.append(value.strip())
-    if path is not None:
-        if not path.exists():
-            raise FileNotFoundError(f"Sample list file not found: {path}")
-        merged.extend(_read_sample_list(path))
-    return list(dict.fromkeys(merged))
-
-
-def _read_sample_list(path: Path) -> list[str]:
-    samples: list[str] = []
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        samples.append(line.split()[0])
-    return samples

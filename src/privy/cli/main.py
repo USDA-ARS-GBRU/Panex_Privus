@@ -48,7 +48,12 @@ app.command(
     no_args_is_help=True,
 )(scan.scan)
 app.add_typer(compare.app, name="compare")
-app.add_typer(pangenome.app, name="pangenome")
+app.command(
+    name="pangenome",
+    help=pangenome.PANGENOME_HELP,
+    context_settings=pangenome.PANGENOME_CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)(pangenome.pangenome)
 app.command(
     name="landscape",
     help=landscape.LANDSCAPE_HELP,

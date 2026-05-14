@@ -126,15 +126,13 @@ Example commands:
 ```bash
 privy pangenome \
   --gfa tests/data/small_cohort.gfa \
-  --targets T1 \
-  --targets T2 \
+  --targets T1 T2 \
   --permutations 25 \
   --outdir docs/assets/examples/pangenome-gfa
 
 privy pangenome \
   --vcf tests/data/small_cohort.vcf \
-  --targets T1 \
-  --targets T2 \
+  --targets T1 T2 \
   --permutations 25 \
   --outdir docs/assets/examples/pangenome-vcf
 ```

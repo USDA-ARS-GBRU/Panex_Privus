@@ -94,6 +94,11 @@ privy scan \
   --outdir results/
 ```
 
+All cohort-aware commands accept the same cohort inputs: grouped sample flags
+such as `--targets Benning Harosoy Clark`, role-specific files such as
+`--targets-file targets.txt`, or a single YAML/TSV cohort file with
+`--cohort-file cohort.tsv`.
+
 For large GFA graphs, build the reusable Privy GFA index first. This can take
 some time, but later scans auto-detect the sidecar index and skip the expensive
 GFA walk-parsing step:
@@ -134,9 +139,7 @@ Analyze the graph pangenome and target/off-target sub-pangenomes:
 ```bash
 privy pangenome \
   --gfa pangenome.gfa.gz \
-  --targets Benning \
-  --targets Harosoy \
-  --targets Clark \
+  --targets Benning Harosoy Clark \
   --outdir results/pangenome/
 ```
 
@@ -145,9 +148,7 @@ Run the same pangenome summaries from VCF alleles:
 ```bash
 privy pangenome \
   --vcf cohort.vcf.gz \
-  --targets Benning \
-  --targets Harosoy \
-  --targets Clark \
+  --targets Benning Harosoy Clark \
   --outdir results/pangenome/
 ```
 

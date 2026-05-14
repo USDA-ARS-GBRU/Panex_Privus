@@ -9,15 +9,17 @@ dispatches to source-specific scan backends.
 
 from __future__ import annotations
 
-import csv
 import logging
 from pathlib import Path
 
 import typer
-import yaml
 from click.core import ParameterSource
 
-from privy.cli.cohort_args import parse_grouped_cohort_args
+from privy.cli.cohort_args import (
+    collect_sample_values,
+    load_cohort_file,
+    parse_grouped_cohort_args,
+)
 from privy.cli.context import get_state
 from privy.core.cohort import CohortDefinition
 from privy.core.config import PrivyConfig, load_config
@@ -81,6 +83,18 @@ def scan(
     cohort_file: Path | None = typer.Option(
         None, "--cohort-file", metavar="PATH",
         help="Optional cohort definition file (TSV or YAML).",
+    ),
+    targets_file: Path | None = typer.Option(
+        None, "--targets-file", metavar="PATH",
+        help="Text file with one target sample name per line.",
+    ),
+    off_targets_file: Path | None = typer.Option(
+        None, "--off-targets-file", metavar="PATH",
+        help="Text file with one off-target sample name per line.",
+    ),
+    ignore_samples_file: Path | None = typer.Option(
+        None, "--ignore-samples-file", metavar="PATH",
+        help="Text file with one sample name to ignore per line.",
     ),
     # ------------------------------------------------------------- discovery
     mode: str = typer.Option(
@@ -281,27 +295,54 @@ def scan(
     # ----------------------------------------------------------------- cohort
     try:
         cohort_cli_args = parse_grouped_cohort_args(ctx.args)
-    except ValueError as exc:
+        cohort_from_file = (
+            load_cohort_file(cohort_file) if cohort_file is not None else None
+        )
+        cli_targets = collect_sample_values(
+            cohort_cli_args["targets"],
+            targets_file,
+        )
+        cli_off_targets = collect_sample_values(
+            cohort_cli_args["off_targets"],
+            off_targets_file,
+        )
+        cli_ignored = collect_sample_values(
+            cohort_cli_args["ignore_samples"],
+            ignore_samples_file,
+        )
+    except (FileNotFoundError, ValueError) as exc:
         typer.echo(f"[error] {exc}", err=True)
         raise typer.Exit(code=2) from exc
 
-    cohort_from_file = _load_cohort_file(cohort_file) if cohort_file is not None else None
-
-    # CLI cohort flags take precedence over cohort file, which takes precedence over config
-    effective_targets: list[str] = (
-        cohort_cli_args["targets"]
-        or (list(cohort_from_file.targets) if cohort_from_file is not None else None)
-        or list(cfg.cohorts.targets)
+    # Explicit CLI role inputs take precedence over the cohort file, which takes
+    # precedence over config. Each role resolves independently so users can
+    # override only the target, off-target, or ignored side when needed.
+    effective_targets = (
+        cli_targets
+        if cli_targets is not None
+        else (
+            list(cohort_from_file.targets)
+            if cohort_from_file is not None
+            else list(cfg.cohorts.targets)
+        )
     )
-    effective_off_targets: list[str] = (
-        cohort_cli_args["off_targets"]
-        or (list(cohort_from_file.off_targets) if cohort_from_file is not None else None)
-        or list(cfg.cohorts.off_targets)
+    effective_off_targets = (
+        cli_off_targets
+        if cli_off_targets is not None
+        else (
+            list(cohort_from_file.off_targets)
+            if cohort_from_file is not None
+            else list(cfg.cohorts.off_targets)
+        )
     )
-    effective_ignored: list[str] = (
-        cohort_cli_args["ignore_samples"]
-        or (list(cohort_from_file.ignored_samples) if cohort_from_file is not None else None)
-        or list(cfg.cohorts.ignored_samples)
+    effective_ignored = (
+        cli_ignored
+        if cli_ignored is not None
+        else (
+            list(cohort_from_file.ignored_samples)
+            if cohort_from_file is not None
+            else list(cfg.cohorts.ignored_samples)
+        )
     )
 
     if not effective_targets or not effective_off_targets:
@@ -566,76 +607,3 @@ def _provided_updates(
 def _was_provided(ctx: typer.Context, param_name: str) -> bool:
     """Return True when a parameter came from an explicit CLI flag."""
     return ctx.get_parameter_source(param_name) is ParameterSource.COMMANDLINE
-
-
-def _load_cohort_file(path: Path) -> CohortDefinition:
-    """Load a cohort definition from YAML or TSV."""
-    if not path.exists():
-        raise FileNotFoundError(f"Cohort file not found: {path}")
-
-    suffix = path.suffix.lower()
-    if suffix in {".yaml", ".yml"}:
-        return _load_cohort_yaml(path)
-    if suffix == ".tsv":
-        return _load_cohort_tsv(path)
-    raise ValueError(
-        f"Unsupported cohort file format: {path.suffix!r}. Use .yaml, .yml, or .tsv."
-    )
-
-
-def _load_cohort_yaml(path: Path) -> CohortDefinition:
-    """Load a cohort definition from YAML."""
-    with open(path, encoding="utf-8") as fh:
-        raw = yaml.safe_load(fh) or {}
-
-    if "cohorts" in raw and isinstance(raw["cohorts"], dict):
-        raw = raw["cohorts"]
-
-    return CohortDefinition.from_lists(
-        targets=list(raw.get("targets", [])),
-        off_targets=list(raw.get("off_targets", [])),
-        ignored_samples=list(raw.get("ignored_samples", [])),
-    )
-
-
-def _load_cohort_tsv(path: Path) -> CohortDefinition:
-    """Load a cohort definition from a TSV with sample/role columns."""
-    with open(path, newline="", encoding="utf-8") as fh:
-        reader = csv.DictReader(fh, delimiter="\t")
-        if reader.fieldnames is None:
-            raise ValueError("Cohort TSV is missing a header row.")
-
-        fieldnames = set(reader.fieldnames)
-        sample_field = "sample_id" if "sample_id" in fieldnames else "sample"
-        role_field = "cohort_role" if "cohort_role" in fieldnames else "role"
-
-        if sample_field not in fieldnames or role_field not in fieldnames:
-            raise ValueError(
-                "Cohort TSV must contain sample_id/sample and cohort_role/role columns."
-            )
-
-        targets: list[str] = []
-        off_targets: list[str] = []
-        ignored: list[str] = []
-
-        for row in reader:
-            sample = (row.get(sample_field) or "").strip()
-            role = (row.get(role_field) or "").strip().lower()
-            if not sample:
-                continue
-            if role in {"target", "targets"}:
-                targets.append(sample)
-            elif role in {"off_target", "off-target", "offtarget", "background"}:
-                off_targets.append(sample)
-            elif role in {"ignored", "ignore"}:
-                ignored.append(sample)
-            else:
-                raise ValueError(
-                    f"Unsupported cohort role {role!r} for sample {sample!r} in {path}."
-                )
-
-    return CohortDefinition.from_lists(
-        targets=targets,
-        off_targets=off_targets,
-        ignored_samples=ignored,
-    )

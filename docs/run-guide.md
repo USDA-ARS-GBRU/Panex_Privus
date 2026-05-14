@@ -59,6 +59,73 @@ GFA `W` lines store the sample name directly. GFA `P` path names often look like
 `#`. If you run VCF and GFA scans together, check both lists and use names that
 match the samples in the inputs you expect each backend to evaluate.
 
+## Define Cohorts
+
+All cohort-aware commands use the same cohort syntax:
+
+- `privy scan`
+- `privy pangenome`
+- `privy landscape`
+
+The most direct form is to list samples after grouped flags:
+
+```bash
+--targets T1 T2 T3 --off-targets O1 O2 O3
+```
+
+You can also put one sample per line in role-specific text files:
+
+```bash
+--targets-file targets.txt --off-targets-file off_targets.txt
+```
+
+Use `--ignore-samples I1 I2` or `--ignore-samples-file ignored.txt` for samples
+present in the input that should be excluded from both groups.
+
+For reproducible runs, prefer a single cohort file. The canonical TSV format
+has a header with `sample_id` and `cohort_role` columns. Valid roles are
+`target`, `off_target`, and `ignored`.
+
+```text
+sample_id	cohort_role
+T1	target
+T2	target
+T3	target
+O1	off_target
+O2	off_target
+O3	off_target
+LowCoverage1	ignored
+```
+
+Save that as `cohort.tsv` and pass it to any cohort-aware command:
+
+```bash
+privy scan --vcf variants.vcf.gz --cohort-file cohort.tsv --outdir results/
+privy pangenome --gfa pangenome.gfa.gz --cohort-file cohort.tsv --outdir results/pangenome/
+privy landscape --vcf variants.vcf.gz --cohort-file cohort.tsv --outdir results/landscape/
+```
+
+YAML cohort files are also accepted:
+
+```yaml
+targets:
+  - T1
+  - T2
+  - T3
+off_targets:
+  - O1
+  - O2
+  - O3
+ignored_samples:
+  - LowCoverage1
+```
+
+`privy scan` requires at least one target and one off-target sample. `privy
+pangenome` and `privy landscape` can infer off-targets from every non-target,
+non-ignored sample in the input when `off_targets` are omitted. If you combine
+forms, explicit role flags and role-specific files override that same role from
+the cohort file.
+
 ## Command Shape
 
 Global options come before the subcommand:
@@ -123,7 +190,11 @@ Key scan options:
 |--------|-------------|
 | `--vcf PATH` | Indexed multisample VCF |
 | `--targets TEXT [TEXT ...]` | Target sample names, for example `--targets T1 T2 T3` |
+| `--targets-file PATH` | One target sample per line |
 | `--off-targets TEXT [TEXT ...]` | Off-target sample names, for example `--off-targets O1 O2 O3` |
+| `--off-targets-file PATH` | One off-target sample per line |
+| `--ignore-samples TEXT [TEXT ...]` | Samples to exclude from both groups |
+| `--ignore-samples-file PATH` | One ignored sample per line |
 | `--cohort-file PATH` | YAML or TSV cohort definition |
 | `--region TEXT` | Restrict to `contig:start-end` |
 | `--contig TEXT` | Restrict to one contig |
@@ -304,9 +375,7 @@ so the same tables and plots are available for graph and variant inputs.
 ```bash
 privy pangenome \
   --gfa pangenome.gfa.gz \
-  --targets T1 \
-  --targets T2 \
-  --targets T3 \
+  --targets T1 T2 T3 \
   --outdir results/pangenome/
 ```
 
@@ -315,14 +384,13 @@ For a VCF, each alternate allele is treated as one pangenome feature:
 ```bash
 privy pangenome \
   --vcf variants.vcf.gz \
-  --targets T1 \
-  --targets T2 \
-  --targets T3 \
+  --targets T1 T2 T3 \
   --outdir results/pangenome/
 ```
 
 If you provide targets but omit off-targets, Panex Privus treats every other
-sample in the GFA or VCF as off-target. You can also use list files:
+sample in the GFA or VCF as off-target. You can also use list files or a cohort
+file:
 
 ```bash
 privy pangenome \
@@ -340,7 +408,7 @@ directories under the chosen output directory:
 privy pangenome \
   --gfa pangenome.gfa.gz \
   --vcf variants.vcf.gz \
-  --targets-file targets.txt \
+  --cohort-file cohort.tsv \
   --outdir results/pangenome/
 ```
 
@@ -401,7 +469,8 @@ privy landscape \
 If you provide targets but omit off-targets, every other non-ignored sample in
 the VCF becomes off-target. You can also use `--targets-file`,
 `--off-targets-file`, `--ignore-samples I1 I2`, and
-`--ignore-samples-file`, matching the scan command style.
+`--ignore-samples-file`, or use `--cohort-file cohort.tsv`, matching the scan
+and pangenome command style.
 
 Landscape outputs:
 
@@ -425,6 +494,10 @@ Key landscape options:
 | `--targets TEXT [TEXT ...]` | Target sample names |
 | `--targets-file PATH` | One target sample per line |
 | `--off-targets TEXT [TEXT ...]` | Off-target sample names |
+| `--off-targets-file PATH` | One off-target sample per line |
+| `--ignore-samples TEXT [TEXT ...]` | Samples to exclude from both groups |
+| `--ignore-samples-file PATH` | One ignored sample per line |
+| `--cohort-file PATH` | YAML or TSV cohort definition |
 | `--window-records INT` | Number of VCF records per fixed-record window (default = 200) |
 | `--step-records INT` | Record step between windows (default = 50) |
 | `--window-bp INT` | Use base-pair windows of this size |

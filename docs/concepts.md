@@ -101,6 +101,10 @@ In `privy scan`, targets and off-targets define the discovery pattern. In
 off-targets are omitted, Panex Privus can infer the off-target group as every
 non-target, non-ignored sample in the input.
 
+`privy scan`, `privy pangenome`, and `privy landscape` all accept the same
+cohort inputs: grouped `--targets`/`--off-targets` flags, role-specific sample
+list files, or a YAML/TSV file passed with `--cohort-file`.
+
 ## What "Private" Means
 
 The word **private** appears in several contexts. These meanings are related

@@ -743,10 +743,13 @@ PRIMARY INPUT OPTIONS:
 
 COHORT OPTIONS:
   --targets TEXT [TEXT ...]      Target sample names
+  --targets-file PATH            Text file with one target sample per line
   --off-targets TEXT [TEXT ...]  Off-target sample names
+  --off-targets-file PATH        Text file with one off-target sample per line
   --ignore-samples TEXT [TEXT ...]
                                  Samples to ignore during discovery
-  --cohort-file PATH             Optional cohort definition file
+  --ignore-samples-file PATH     Text file with one sample name to ignore per line
+  --cohort-file PATH             Optional cohort definition file (TSV or YAML)
 
 DISCOVERY OPTIONS:
   --mode TEXT                Discovery mode. Supported:
@@ -971,6 +974,8 @@ COHORT OPTIONS:
   --off-targets-file PATH    Text file with one off-target sample per line
   --ignore-samples TEXT [TEXT ...]
                              Samples to exclude
+  --ignore-samples-file PATH Text file with one sample name to ignore per line
+  --cohort-file PATH         Optional cohort definition file (TSV or YAML)
 
 WINDOW OPTIONS:
   --window-records INT       Records per fixed-record window; default 200

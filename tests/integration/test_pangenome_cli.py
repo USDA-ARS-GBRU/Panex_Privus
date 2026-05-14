@@ -108,6 +108,70 @@ def test_pangenome_cli_accepts_target_and_offtarget_list_files(tmp_path: Path) -
     assert s2_target["target_private"] == "True"
 
 
+def test_pangenome_cli_accepts_grouped_cohort_values(tmp_path: Path) -> None:
+    outdir = tmp_path / "pangenome-grouped-out"
+    result = runner.invoke(
+        app,
+        [
+            "pangenome",
+            "--gfa",
+            str(GFA_PATH),
+            "--targets",
+            "T1",
+            "T2",
+            "--off-targets",
+            "O1",
+            "O2",
+            "O3",
+            "--permutations",
+            "1",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads((outdir / "pangenome.json").read_text())
+    assert data["samples"]["target"] == ["T1", "T2"]
+    assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
+
+
+def test_pangenome_cli_accepts_cohort_file(tmp_path: Path) -> None:
+    outdir = tmp_path / "pangenome-cohort-file-out"
+    cohort_tsv = tmp_path / "cohort.tsv"
+    cohort_tsv.write_text(
+        "sample_id\tcohort_role\n"
+        "T1\ttarget\n"
+        "T2\ttarget\n"
+        "O1\toff_target\n"
+        "O2\toff_target\n"
+        "O3\toff_target\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "pangenome",
+            "--gfa",
+            str(GFA_PATH),
+            "--cohort-file",
+            str(cohort_tsv),
+            "--permutations",
+            "1",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads((outdir / "pangenome.json").read_text())
+    assert data["samples"]["target"] == ["T1", "T2"]
+    assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
+
+
 def test_pangenome_cli_can_skip_plots(tmp_path: Path) -> None:
     outdir = tmp_path / "pangenome-no-plots"
     result = runner.invoke(

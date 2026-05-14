@@ -380,3 +380,33 @@ def test_scan_cli_loads_cohort_from_tsv_file(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert (outdir / "gfa" / "hits.tsv").exists()
+
+
+def test_scan_cli_accepts_target_and_offtarget_list_files(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "vcf-list-file-cohort-out"
+    targets_file = tmp_path / "targets.txt"
+    off_targets_file = tmp_path / "offtargets.txt"
+    targets_file.write_text("T1\nT2\n", encoding="utf-8")
+    off_targets_file.write_text("O1\nO2\nO3\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "scan",
+            "--vcf",
+            str(indexed_vcf),
+            "--targets-file",
+            str(targets_file),
+            "--off-targets-file",
+            str(off_targets_file),
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    run_data = json.loads((outdir / "vcf" / "run.json").read_text())
+    assert run_data["cohort"]["targets"] == ["T1", "T2"]
+    assert run_data["cohort"]["off_targets"] == ["O1", "O2", "O3"]

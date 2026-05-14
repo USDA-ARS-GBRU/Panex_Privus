@@ -101,6 +101,45 @@ def test_landscape_cli_accepts_grouped_cohort_sample_lists(
     assert data["summary"]["n_sample_window_rows"] == 15
 
 
+def test_landscape_cli_accepts_cohort_file(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "landscape-cohort-file-out"
+    cohort_yaml = tmp_path / "cohort.yaml"
+    cohort_yaml.write_text(
+        "targets: [T1, T2]\n"
+        "off_targets: [O1, O2, O3]\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "landscape",
+            "--vcf",
+            str(indexed_vcf),
+            "--cohort-file",
+            str(cohort_yaml),
+            "--window-records",
+            "3",
+            "--step-records",
+            "3",
+            "--min-called-for-freq",
+            "0",
+            "--min-freq-values",
+            "0",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads((outdir / "landscape.json").read_text())
+    assert data["samples"]["target"] == ["T1", "T2"]
+    assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
+
+
 def test_landscape_cli_can_skip_plots(indexed_vcf: Path, tmp_path: Path) -> None:
     outdir = tmp_path / "landscape-no-plots"
     result = runner.invoke(

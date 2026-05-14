@@ -90,10 +90,13 @@ O2	off_target
 LowQualitySample	ignored
 ```
 
-Use either with:
+Use either with any cohort-aware command:
 
 ```bash
 privy scan --vcf variants.vcf.gz --cohort-file cohort.tsv --outdir results/
+privy pangenome --gfa pangenome.gfa.gz --cohort-file cohort.tsv --outdir pangenome/
+privy landscape --vcf variants.vcf.gz --cohort-file cohort.tsv --outdir landscape/
 ```
 
-CLI sample flags override cohort-file entries when both are supplied.
+CLI sample flags and role-specific files such as `--targets-file` override the
+same role from the cohort file when both are supplied.
