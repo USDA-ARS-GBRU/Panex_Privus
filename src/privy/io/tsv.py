@@ -205,6 +205,11 @@ class TsvWriter:
         for row in rows:
             self.write_row(row)
 
+    def flush(self) -> None:
+        """Flush buffered rows to disk."""
+        if self._fh is not None:
+            self._fh.flush()
+
 
 def read_tsv(path: Path) -> list[dict[str, str]]:
     """Read a tab-separated file and return a list of row dicts."""

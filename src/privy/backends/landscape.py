@@ -48,43 +48,50 @@ def run_landscape_vcf(
     """Run a VCF landscape analysis and write tables, plots, and metadata."""
     outdir.mkdir(parents=True, exist_ok=True)
     log.info("Running VCF landscape analysis: %s", vcf)
-    result = run_vcf_landscape(
-        vcf_path=vcf,
-        targets=targets,
-        off_targets=off_targets,
-        ignored_samples=ignored_samples,
-        window_records=window_records,
-        step_records=step_records,
-        window_bp=window_bp,
-        step_bp=step_bp,
-        pass_only=pass_only,
-        min_qual=min_qual,
-        rare_max_count=rare_max_count,
-        rare_max_freq=rare_max_freq,
-        min_called_for_freq=min_called_for_freq,
-        min_freq_values=min_freq_values,
-        min_background_similarity=min_background_similarity,
-        min_introgression_similarity=min_introgression_similarity,
-        min_introgression_delta=min_introgression_delta,
-        max_introgression_missing_rate=max_introgression_missing_rate,
-        min_introgression_windows=min_introgression_windows,
-    )
+    log.info("Streaming large landscape tables while analyzing | outdir=%s", outdir)
+    with (
+        TsvWriter(outdir / "sample_windows.tsv", LANDSCAPE_SAMPLE_WINDOW_COLUMNS) as sample_writer,
+        TsvWriter(outdir / "windows.tsv", LANDSCAPE_WINDOW_COLUMNS) as window_writer,
+        TsvWriter(outdir / "similarity.tsv", LANDSCAPE_SIMILARITY_COLUMNS) as similarity_writer,
+    ):
+        result = run_vcf_landscape(
+            vcf_path=vcf,
+            targets=targets,
+            off_targets=off_targets,
+            ignored_samples=ignored_samples,
+            window_records=window_records,
+            step_records=step_records,
+            window_bp=window_bp,
+            step_bp=step_bp,
+            pass_only=pass_only,
+            min_qual=min_qual,
+            rare_max_count=rare_max_count,
+            rare_max_freq=rare_max_freq,
+            min_called_for_freq=min_called_for_freq,
+            min_freq_values=min_freq_values,
+            min_background_similarity=min_background_similarity,
+            min_introgression_similarity=min_introgression_similarity,
+            min_introgression_delta=min_introgression_delta,
+            max_introgression_missing_rate=max_introgression_missing_rate,
+            min_introgression_windows=min_introgression_windows,
+            sample_row_writer=sample_writer,
+            window_row_writer=window_writer,
+            similarity_row_writer=similarity_writer,
+            retain_output_rows=write_plots,
+            retain_similarity_rows=False,
+        )
     log.info(
         "Landscape analysis complete | windows=%d | sample_window_rows=%d | "
         "background_blocks=%d | candidate_introgression_blocks=%d | "
         "similarity_rows=%d",
-        len(result.window_rows),
-        len(result.sample_rows),
+        result.n_window_rows,
+        result.n_sample_rows,
         len(result.background_block_rows),
         len(result.candidate_introgression_rows),
-        len(result.similarity_rows),
+        result.n_similarity_rows,
     )
 
-    log.info("Writing landscape tables | outdir=%s", outdir)
-    with TsvWriter(outdir / "sample_windows.tsv", LANDSCAPE_SAMPLE_WINDOW_COLUMNS) as writer:
-        writer.write_rows(result.sample_rows)
-    with TsvWriter(outdir / "windows.tsv", LANDSCAPE_WINDOW_COLUMNS) as writer:
-        writer.write_rows(result.window_rows)
+    log.info("Writing landscape block tables | outdir=%s", outdir)
     with TsvWriter(outdir / "background_blocks.tsv", BACKGROUND_BLOCK_COLUMNS) as writer:
         writer.write_rows(result.background_block_rows)
     with TsvWriter(
@@ -92,8 +99,6 @@ def run_landscape_vcf(
         CANDIDATE_INTROGRESSION_BLOCK_COLUMNS,
     ) as writer:
         writer.write_rows(result.candidate_introgression_rows)
-    with TsvWriter(outdir / "similarity.tsv", LANDSCAPE_SIMILARITY_COLUMNS) as writer:
-        writer.write_rows(result.similarity_rows)
 
     plot_paths: list[str] = []
     if write_plots:
@@ -105,7 +110,9 @@ def run_landscape_vcf(
             for path in plot_all_landscape(
                 sample_rows=result.sample_rows,
                 window_rows=result.window_rows,
-                similarity_rows=result.similarity_rows,
+                similarity_rows=(
+                    result.similarity_rows or result.similarity_summary_rows
+                ),
                 outdir=outdir,
                 output_format=plot_format,
             )
@@ -154,13 +161,13 @@ def run_landscape_vcf(
         },
         "summary": {
             "n_samples": len(result.groups.full),
-            "n_windows": len(result.window_rows),
-            "n_sample_window_rows": len(result.sample_rows),
+            "n_windows": result.n_window_rows,
+            "n_sample_window_rows": result.n_sample_rows,
             "n_background_blocks": len(result.background_block_rows),
             "n_candidate_introgression_blocks": len(
                 result.candidate_introgression_rows
             ),
-            "n_similarity_rows": len(result.similarity_rows),
+            "n_similarity_rows": result.n_similarity_rows,
         },
         "outputs": [
             "sample_windows.tsv",

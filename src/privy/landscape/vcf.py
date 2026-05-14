@@ -13,7 +13,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean, median
-from typing import Literal
+from typing import Any, Literal
 
 from privy.io.vcf import (
     Genotype,
@@ -140,6 +140,10 @@ class LandscapeResult:
     background_block_rows: list[dict[str, object]]
     candidate_introgression_rows: list[dict[str, object]]
     similarity_rows: list[dict[str, object]]
+    similarity_summary_rows: list[dict[str, object]]
+    n_sample_rows: int
+    n_window_rows: int
+    n_similarity_rows: int
 
 
 @dataclass(frozen=True)
@@ -168,6 +172,14 @@ class _PairwiseStats:
     compared: int
 
 
+@dataclass(frozen=True)
+class _AnalyzedContig:
+    window_counter: int
+    window_row_count: int
+    sample_row_count: int
+    similarity_row_count: int
+
+
 def run_vcf_landscape(
     vcf_path: Path,
     targets: list[str],
@@ -189,6 +201,11 @@ def run_vcf_landscape(
     max_introgression_missing_rate: float = 0.5,
     min_introgression_windows: int = 1,
     progress_interval_seconds: float = 30.0,
+    sample_row_writer: Any | None = None,
+    window_row_writer: Any | None = None,
+    similarity_row_writer: Any | None = None,
+    retain_output_rows: bool = True,
+    retain_similarity_rows: bool = True,
 ) -> LandscapeResult:
     """Run sliding-window VCF landscape analysis.
 
@@ -256,12 +273,18 @@ def run_vcf_landscape(
     window_rows: list[dict[str, object]] = []
     similarity_rows: list[dict[str, object]] = []
     background_rows_input: list[dict[str, object]] = []
+    nearest_target_similarity: dict[tuple[str, str], float] = {}
+    similarity_totals: dict[tuple[str, str], float] = defaultdict(float)
+    similarity_counts: dict[tuple[str, str], int] = defaultdict(int)
 
     contig_records: list[_VariantSnapshot] = []
     current_contig: str | None = None
     current_contig_input_records = 0
     current_contig_kept_records = 0
     window_counter = 0
+    window_row_count = 0
+    sample_row_count = 0
+    similarity_row_count = 0
     records_seen = 0
     records_kept = 0
     skipped_no_alt = 0
@@ -286,12 +309,13 @@ def run_vcf_landscape(
             records_seen,
             records_kept,
             current_contig_kept_records,
-            len(window_rows),
+            window_row_count,
             now - started_at,
         )
 
     def finish_current_contig() -> None:
         nonlocal window_counter, contigs_analyzed, last_stream_progress_at
+        nonlocal window_row_count, sample_row_count, similarity_row_count
         if current_contig is None:
             return
         if not contig_records:
@@ -312,10 +336,10 @@ def run_vcf_landscape(
             current_contig,
             len(contig_records),
             current_contig_input_records,
-            len(window_rows),
+            window_row_count,
             time.monotonic() - started_at,
         )
-        window_counter = _analyze_contig_windows(
+        contig_result = _analyze_contig_windows(
             records=tuple(contig_records),
             mode=mode,
             window_counter_start=window_counter,
@@ -327,6 +351,9 @@ def run_vcf_landscape(
             window_rows=window_rows,
             similarity_rows=similarity_rows,
             background_rows_input=background_rows_input,
+            nearest_target_similarity=nearest_target_similarity,
+            similarity_totals=similarity_totals,
+            similarity_counts=similarity_counts,
             window_records=window_records,
             step_records=step_records,
             window_bp=window_bp,
@@ -337,7 +364,20 @@ def run_vcf_landscape(
             min_freq_values=min_freq_values,
             progress_interval_seconds=progress_interval_seconds,
             progress_started_at=started_at,
+            total_windows_start=window_row_count,
+            total_sample_rows_start=sample_row_count,
+            total_similarity_rows_start=similarity_row_count,
+            sample_row_writer=sample_row_writer,
+            window_row_writer=window_row_writer,
+            similarity_row_writer=similarity_row_writer,
+            retain_output_rows=retain_output_rows,
+            retain_similarity_rows=retain_similarity_rows,
         )
+        window_counter = contig_result.window_counter
+        window_row_count += contig_result.window_row_count
+        sample_row_count += contig_result.sample_row_count
+        similarity_row_count += contig_result.similarity_row_count
+        _flush_row_writers(sample_row_writer, window_row_writer, similarity_row_writer)
         contigs_analyzed += 1
         last_stream_progress_at = time.monotonic()
         log.info(
@@ -345,9 +385,9 @@ def run_vcf_landscape(
             "sample_window_rows=%d | similarity_rows=%d | elapsed=%.1fs",
             current_contig,
             window_counter - before_windows,
-            len(window_rows),
-            len(sample_rows),
-            len(similarity_rows),
+            window_row_count,
+            sample_row_count,
+            similarity_row_count,
             last_stream_progress_at - started_at,
         )
 
@@ -400,13 +440,13 @@ def run_vcf_landscape(
         skipped_no_alt,
         skipped_filter,
         skipped_qual,
-        len(window_rows),
+        window_row_count,
         time.monotonic() - started_at,
     )
     log.info(
         "Building local background blocks | sample_window_rows=%d | "
         "min_similarity=%.3f",
-        len(background_rows_input),
+        sample_row_count,
         min_background_similarity,
     )
     block_rows = build_background_blocks(
@@ -415,15 +455,17 @@ def run_vcf_landscape(
     )
     log.info("Built local background blocks | blocks=%d", len(block_rows))
     log.info(
-        "Building candidate introgression blocks | similarity_rows=%d | "
-        "min_windows=%d",
-        len(similarity_rows),
+        "Building candidate introgression blocks | sample_window_rows=%d | "
+        "similarity_rows=%d | min_windows=%d",
+        sample_row_count,
+        similarity_row_count,
         min_introgression_windows,
     )
     introgression_rows = build_candidate_introgression_blocks(
         sample_window_rows=background_rows_input,
-        similarity_rows=similarity_rows,
+        similarity_rows=similarity_rows if retain_similarity_rows else None,
         target_samples=groups.target,
+        nearest_target_similarity=nearest_target_similarity,
         min_introgression_similarity=(
             min_background_similarity
             if min_introgression_similarity is None
@@ -447,6 +489,13 @@ def run_vcf_landscape(
         background_block_rows=block_rows,
         candidate_introgression_rows=introgression_rows,
         similarity_rows=similarity_rows,
+        similarity_summary_rows=_similarity_summary_rows(
+            similarity_totals,
+            similarity_counts,
+        ),
+        n_sample_rows=sample_row_count,
+        n_window_rows=window_row_count,
+        n_similarity_rows=similarity_row_count,
     )
 
 
@@ -517,8 +566,9 @@ def build_background_blocks(
 
 def build_candidate_introgression_blocks(
     sample_window_rows: list[dict[str, object]],
-    similarity_rows: list[dict[str, object]],
+    similarity_rows: list[dict[str, object]] | None,
     target_samples: tuple[str, ...],
+    nearest_target_similarity: dict[tuple[str, str], float] | None = None,
     min_introgression_similarity: float = 0.65,
     min_introgression_delta: float = 0.0,
     max_introgression_missing_rate: float = 0.5,
@@ -534,9 +584,10 @@ def build_candidate_introgression_blocks(
     available.
     """
     target_set = set(target_samples)
-    nearest_target_similarity = _nearest_target_similarity_by_window(
-        similarity_rows,
-        target_set,
+    nearest_target_similarity = (
+        nearest_target_similarity
+        if nearest_target_similarity is not None
+        else _nearest_target_similarity_by_window(similarity_rows or [], target_set)
     )
 
     grouped: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
@@ -747,6 +798,9 @@ def _analyze_contig_windows(
     window_rows: list[dict[str, object]],
     similarity_rows: list[dict[str, object]],
     background_rows_input: list[dict[str, object]],
+    nearest_target_similarity: dict[tuple[str, str], float],
+    similarity_totals: dict[tuple[str, str], float],
+    similarity_counts: dict[tuple[str, str], int],
     window_records: int,
     step_records: int,
     window_bp: int | None,
@@ -757,9 +811,22 @@ def _analyze_contig_windows(
     min_freq_values: int,
     progress_interval_seconds: float = 30.0,
     progress_started_at: float | None = None,
-) -> int:
+    total_windows_start: int = 0,
+    total_sample_rows_start: int = 0,
+    total_similarity_rows_start: int = 0,
+    sample_row_writer: Any | None = None,
+    window_row_writer: Any | None = None,
+    similarity_row_writer: Any | None = None,
+    retain_output_rows: bool = True,
+    retain_similarity_rows: bool = True,
+) -> _AnalyzedContig:
     if not records:
-        return window_counter_start
+        return _AnalyzedContig(
+            window_counter=window_counter_start,
+            window_row_count=0,
+            sample_row_count=0,
+            similarity_row_count=0,
+        )
 
     contig = records[0].contig
     windows = _make_record_windows(records, window_records, step_records)
@@ -779,6 +846,9 @@ def _analyze_contig_windows(
     last_progress_at = time.monotonic()
     started_at = progress_started_at or last_progress_at
     window_counter = window_counter_start
+    window_row_count = 0
+    sample_row_count = 0
+    similarity_row_count = 0
     for local_index, window_variants in enumerate(windows, 1):
         window_counter += 1
         window = _make_window(
@@ -798,10 +868,29 @@ def _analyze_contig_windows(
             min_called_for_freq=min_called_for_freq,
             min_freq_values=min_freq_values,
         )
-        sample_rows.extend(rows.sample_rows)
-        window_rows.append(rows.window_row)
-        similarity_rows.extend(rows.similarity_rows)
+        window_row_count += 1
+        sample_row_count += len(rows.sample_rows)
+        similarity_row_count += len(rows.similarity_rows)
+
+        if sample_row_writer is not None:
+            sample_row_writer.write_rows(rows.sample_rows)
+        if window_row_writer is not None:
+            window_row_writer.write_row(rows.window_row)
+        if similarity_row_writer is not None:
+            similarity_row_writer.write_rows(rows.similarity_rows)
+
+        if retain_output_rows:
+            sample_rows.extend(rows.sample_rows)
+            window_rows.append(rows.window_row)
+        if retain_similarity_rows:
+            similarity_rows.extend(rows.similarity_rows)
         background_rows_input.extend(rows.sample_rows)
+        nearest_target_similarity.update(rows.nearest_target_similarity)
+        _add_similarity_summary(
+            rows.similarity_rows,
+            totals=similarity_totals,
+            counts=similarity_counts,
+        )
         if progress_interval_seconds > 0:
             now = time.monotonic()
             if now - last_progress_at >= progress_interval_seconds:
@@ -813,18 +902,24 @@ def _analyze_contig_windows(
                     contig,
                     local_index,
                     len(windows),
-                    len(window_rows),
-                    len(sample_rows),
-                    len(similarity_rows),
+                    total_windows_start + window_row_count,
+                    total_sample_rows_start + sample_row_count,
+                    total_similarity_rows_start + similarity_row_count,
                     now - started_at,
                 )
 
-    return window_counter
+    return _AnalyzedContig(
+        window_counter=window_counter,
+        window_row_count=window_row_count,
+        sample_row_count=sample_row_count,
+        similarity_row_count=similarity_row_count,
+    )
 
 
 @dataclass(frozen=True)
 class _AnalyzedWindow:
     sample_rows: list[dict[str, object]]
+    nearest_target_similarity: dict[tuple[str, str], float]
     window_row: dict[str, object]
     similarity_rows: list[dict[str, object]]
 
@@ -935,12 +1030,20 @@ def _analyze_window(
     pairwise = _pairwise_similarity(samples, active_sample_indices, pair_match_counts,
                                     pair_compared_counts)
     nearest = _nearest_backgrounds(samples, active_sample_indices, pairwise)
+    nearest_targets = _nearest_backgrounds(
+        samples,
+        active_sample_indices,
+        pairwise,
+        candidate_indices=target_indices,
+    )
 
     midpoint = window.start + ((window.end - window.start) // 2)
     sample_rows: list[dict[str, object]] = []
+    nearest_target_similarity: dict[tuple[str, str], float] = {}
     for sample_index in active_sample_indices:
         sample = samples[sample_index]
         nearest_index, nearest_stats = nearest[sample_index]
+        _nearest_target_index, nearest_target_stats = nearest_targets[sample_index]
         nearest_sample = "NA" if nearest_index is None else samples[nearest_index]
         nearest_role = (
             "NA" if nearest_index is None else sample_to_role.get(nearest_sample, "other")
@@ -981,6 +1084,10 @@ def _analyze_window(
             "similarity_compared_variants": nearest_stats.compared,
         }
         sample_rows.append(row)
+        if sample_index in target_indices and nearest_target_stats.similarity is not None:
+            nearest_target_similarity[(window.window_id, sample)] = (
+                nearest_target_stats.similarity
+            )
 
     similarity_rows = _similarity_rows(window, samples, active_sample_indices, pairwise)
     target_rows = [r for r in sample_rows if r["cohort_role"] == "target"]
@@ -1014,6 +1121,7 @@ def _analyze_window(
     }
     return _AnalyzedWindow(
         sample_rows=sample_rows,
+        nearest_target_similarity=nearest_target_similarity,
         window_row=window_row,
         similarity_rows=similarity_rows,
     )
@@ -1132,12 +1240,14 @@ def _nearest_backgrounds(
     samples: tuple[str, ...],
     active_sample_indices: tuple[int, ...],
     pairwise: dict[tuple[int, int], _PairwiseStats],
+    candidate_indices: set[int] | None = None,
 ) -> dict[int, tuple[int | None, _PairwiseStats]]:
+    candidates = set(active_sample_indices) if candidate_indices is None else candidate_indices
     nearest: dict[int, tuple[int | None, _PairwiseStats]] = {}
     for sample_index in active_sample_indices:
         best_index: int | None = None
         best_stats = _PairwiseStats(similarity=None, compared=0)
-        for other_index in active_sample_indices:
+        for other_index in candidates:
             if sample_index == other_index:
                 continue
             pair = (
@@ -1181,6 +1291,52 @@ def _similarity_rows(
                 "compared_variants": stats.compared,
             })
     return rows
+
+
+def _add_similarity_summary(
+    rows: list[dict[str, object]],
+    totals: dict[tuple[str, str], float],
+    counts: dict[tuple[str, str], int],
+) -> None:
+    for row in rows:
+        similarity = _to_optional_float(row["similarity"])
+        if similarity is None:
+            continue
+        sample_a = str(row["sample_a"])
+        sample_b = str(row["sample_b"])
+        key = (sample_a, sample_b) if sample_a <= sample_b else (sample_b, sample_a)
+        totals[key] += similarity
+        counts[key] += 1
+
+
+def _similarity_summary_rows(
+    totals: dict[tuple[str, str], float],
+    counts: dict[tuple[str, str], int],
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for sample_a, sample_b in sorted(totals):
+        count = counts[(sample_a, sample_b)]
+        if count == 0:
+            continue
+        rows.append({
+            "window_id": "genome_mean",
+            "contig": "genome",
+            "window_index": 0,
+            "start": 0,
+            "end": 0,
+            "sample_a": sample_a,
+            "sample_b": sample_b,
+            "similarity": _fmt_float(totals[(sample_a, sample_b)] / count),
+            "compared_variants": count,
+        })
+    return rows
+
+
+def _flush_row_writers(*writers: Any | None) -> None:
+    for writer in writers:
+        flush = getattr(writer, "flush", None)
+        if flush is not None:
+            flush()
 
 
 def _sample_roles(groups: PangenomeGroups) -> dict[str, str]:
