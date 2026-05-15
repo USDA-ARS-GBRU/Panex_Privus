@@ -321,6 +321,21 @@ use 0-based half-open coordinates.
 non-reference burden, private ALT burden, variant density, and the most common
 nearest-background assignment.
 
+### Table: VCF Filter Summary (`filter_summary.tsv`)
+
+| metric | value | description |
+|--------|-------|-------------|
+| `records_seen` | 9 | VCF records encountered before landscape filtering. |
+| `records_kept` | 4 | VCF records retained for window construction. |
+| `skipped_variant_type` | 1 | Records skipped by `--variant-type`. |
+
+**Table title.** Landscape VCF prefilter audit.
+
+**Caption.** Record-level counts for the filters applied before windows are
+constructed. Include this table or its key counts when reporting filtered
+SNP-density landscapes, because window density depends directly on the records
+retained by the pass/QUAL/type/missingness/carrier filters.
+
 ### Table: Local Background Blocks (`background_blocks.tsv`)
 
 | block_id | sample | contig | start | end | n_windows | nearest_background | mean_similarity |
@@ -347,6 +362,15 @@ closest to an off-target sample and passes the configured similarity,
 missingness, delta, and minimum-window filters. Interpret these rows as
 candidate donor-like or introgressed intervals for follow-up, not definitive
 introgression calls.
+
+### Figure: Variant Density Profile
+
+**Figure title.** Windowed VCF record density by chromosome.
+
+**Caption.** Line profile of `density_variants_per_kb` from `windows.tsv`.
+When `privy landscape` is run with `--variant-type snp` and optional filters
+such as `--biallelic-only`, this becomes a filtered SNP-density profile in the
+same spirit as VCFtools-style SNP-density bins.
 
 ### Figure: Missingness Heatmap
 

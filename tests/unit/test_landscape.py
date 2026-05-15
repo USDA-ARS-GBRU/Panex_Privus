@@ -67,6 +67,32 @@ def test_vcf_landscape_background_blocks_merge_nearest_assignments(indexed_vcf: 
     assert any(row["nearest_background"] == "T2" for row in t1_blocks)
 
 
+def test_vcf_landscape_variant_prefilters_emit_filter_summary(indexed_vcf: Path) -> None:
+    result = run_vcf_landscape(
+        indexed_vcf,
+        targets=["T1", "T2"],
+        window_records=10,
+        step_records=10,
+        variant_type="snp",
+        biallelic_only=True,
+        max_site_missing_rate=0.25,
+        min_alt_carriers=2,
+        max_alt_carrier_freq=0.6,
+        min_called_for_freq=0,
+        min_freq_values=0,
+    )
+
+    summary = {row["metric"]: row["value"] for row in result.filter_summary_rows}
+    assert summary["records_seen"] == 9
+    assert summary["records_kept"] == 4
+    assert summary["skipped_filter"] == 1
+    assert summary["skipped_variant_type"] == 1
+    assert summary["skipped_multiallelic"] == 1
+    assert summary["skipped_site_missing_rate"] == 1
+    assert summary["skipped_min_alt_carriers"] == 1
+    assert result.window_rows[0]["n_variants"] == 4
+
+
 def test_vcf_landscape_reports_candidate_introgression_blocks(tmp_path: Path) -> None:
     vcf = _write_indexed_vcf(
         tmp_path,

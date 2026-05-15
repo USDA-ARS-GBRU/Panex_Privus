@@ -44,11 +44,13 @@ choose with `--outdir`.
 |------|---------|
 | `sample_windows.tsv` | One row per sample per window with missingness, genotype burden, private/rare ALT burden, and nearest local background |
 | `windows.tsv` | One row per window with target/off-target summary metrics |
+| `filter_summary.tsv` | Record-level VCF filtering audit counts, including pass/QUAL/type/missingness/carrier-frequency filters |
 | `background_blocks.tsv` | Adjacent sample windows merged by nearest local background assignment |
 | `candidate_introgression_blocks.tsv` | Target-sample blocks whose nearest local background is an off-target sample, reported as exploratory donor-like or candidate introgressed intervals |
 | `similarity.tsv` | Pairwise sample genotype similarity. Default mode writes every window-by-pair row for chromosome-level plotting; `--similarity-output summary` writes compact genome-wide pair means |
 | `local_pca.tsv` | Optional PCA-like local similarity coordinates, written only with `--local-pca` |
 | `plots/landscape_plot_index.tsv` | Optional index of figures rendered by `privy plot --plot-set landscape` |
+| `plots/variant_density_profile.<contig>.png` | Optional window-level variant density profile; with `--variant-type snp`, this is a SNP-density profile |
 | `plots/missingness_heatmap.<contig>.png` | Optional sample-by-window missingness heatmap from `privy plot --plot-set landscape` |
 | `plots/private_burden_heatmap.<contig>.png` | Optional sample-by-window private ALT burden heatmap from `privy plot --plot-set landscape` |
 | `plots/local_background_map.<contig>.png` | Optional sample-by-window nearest-background map from `privy plot --plot-set landscape` |
@@ -186,6 +188,14 @@ mode and window size parameters in `landscape.json`.
 | `target_private_alt_rate` | Target-private ALT events per VCF record in the window |
 | `offtarget_private_alt_rate` | Off-target-private ALT events per VCF record in the window |
 | `top_nearest_background` | Most frequent nearest-background assignment in the window |
+
+### `filter_summary.tsv`
+
+| Column | Meaning |
+|--------|---------|
+| `metric` | Filtering count or derived filtering metric |
+| `value` | Count or formatted numeric value |
+| `description` | Short explanation of the metric |
 
 ### `background_blocks.tsv`
 

@@ -551,6 +551,28 @@ privy landscape \
   --outdir results/landscape-bp/
 ```
 
+To reproduce a classic filtered SNP-density workflow inside `privy landscape`,
+filter to biallelic SNP records and use fixed base-pair windows:
+
+```bash
+privy landscape \
+  --vcf variants.vcf.gz \
+  --targets T1 T2 T3 \
+  --off-targets O1 O2 O3 \
+  --variant-type snp \
+  --biallelic-only \
+  --max-site-missing-rate 0.2 \
+  --min-alt-carriers 2 \
+  --window-bp 1000000 \
+  --step-bp 250000 \
+  --plots \
+  --outdir results/landscape-snp-density/
+```
+
+The resulting `windows.tsv` contains `density_variants_per_kb`, and the plot
+set writes `variant_density_profile.*` figures. Because the records were
+filtered to SNPs first, those density values are SNPs per kilobase.
+
 If you provide targets but omit off-targets, every other non-ignored sample in
 the VCF becomes off-target. You can also use `--targets-file`,
 `--off-targets-file`, `--ignore-samples I1 I2`, and
@@ -561,6 +583,7 @@ Landscape outputs:
 
 - `sample_windows.tsv`: per-sample metrics for every emitted window
 - `windows.tsv`: target/off-target summary metrics for every window
+- `filter_summary.tsv`: audit counts for record-level VCF filters
 - `background_blocks.tsv`: adjacent windows merged by nearest local background
 - `candidate_introgression_blocks.tsv`: target windows merged when the nearest
   local background is an off-target sample
@@ -584,6 +607,8 @@ privy plot \
 Landscape plot outputs:
 
 - `plots/landscape_plot_index.tsv`: index of rendered landscape plots
+- `plots/variant_density_profile.<contig>.pdf`: window-level variant density;
+  when `--variant-type snp` was used, this is SNP density
 - `plots/missingness_heatmap.<contig>.pdf`: sample-by-window missingness
 - `plots/private_burden_heatmap.<contig>.pdf`: sample-by-window private ALT burden
 - `plots/local_background_map.<contig>.pdf`: nearest-background assignment
@@ -606,6 +631,13 @@ Key landscape options:
 | `--step-records INT` | Record step between windows (default = 50) |
 | `--window-bp INT` | Use base-pair windows of this size |
 | `--step-bp INT` | Base-pair step (default = `--window-bp`) |
+| `--variant-type TEXT` | Variant class to include: `all`, `snp`, `indel`, or `sv` (default = all) |
+| `--biallelic-only` | Restrict to records with exactly one ALT allele |
+| `--max-site-missing-rate FLOAT` | Maximum missing genotype fraction across active samples before windowing |
+| `--require-active-alt` | Keep only records where at least one target/off-target sample carries an ALT allele |
+| `--min-alt-carriers INT` | Minimum number of active samples carrying any ALT allele |
+| `--min-alt-carrier-freq FLOAT` | Minimum active-sample ALT carrier frequency |
+| `--max-alt-carrier-freq FLOAT` | Maximum active-sample ALT carrier frequency |
 | `--rare-max-count INT` | Carrier-count threshold for rare ALT burden (default = 1) |
 | `--rare-max-freq FLOAT` | Carrier-frequency threshold for rare ALT burden (default = 0.05) |
 | `--min-background-similarity FLOAT` | Minimum nearest-sample similarity for assigning background blocks (default = 0.65) |

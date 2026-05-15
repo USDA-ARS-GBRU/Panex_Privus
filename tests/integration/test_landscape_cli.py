@@ -44,9 +44,11 @@ def test_landscape_cli_runs_vcf_and_writes_tables_and_plots(
     assert result.exit_code == 0, result.output
     assert (outdir / "sample_windows.tsv").exists()
     assert (outdir / "windows.tsv").exists()
+    assert (outdir / "filter_summary.tsv").exists()
     assert (outdir / "background_blocks.tsv").exists()
     assert (outdir / "candidate_introgression_blocks.tsv").exists()
     assert (outdir / "similarity.tsv").exists()
+    assert (outdir / "variant_density_profile.png").exists()
     assert (outdir / "missingness_heatmap.png").exists()
     assert (outdir / "private_burden_heatmap.png").exists()
     assert (outdir / "local_background_map.png").exists()
@@ -60,7 +62,9 @@ def test_landscape_cli_runs_vcf_and_writes_tables_and_plots(
     data = json.loads((outdir / "landscape.json").read_text())
     assert data["analysis"] == "landscape"
     assert data["parameters"]["window_mode"] == "records"
+    assert "filter_summary.tsv" in data["outputs"]
     assert "candidate_introgression_blocks.tsv" in data["outputs"]
+    assert "variant_density_profile.png" in data["outputs"]
     assert "local_background_map.png" in data["outputs"]
 
 
@@ -143,6 +147,52 @@ def test_landscape_cli_accepts_cohort_file(
     data = json.loads((outdir / "landscape.json").read_text())
     assert data["samples"]["target"] == ["T1", "T2"]
     assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
+
+
+def test_landscape_cli_accepts_variant_prefilters(
+    indexed_vcf: Path, tmp_path: Path
+) -> None:
+    outdir = tmp_path / "landscape-filtered-out"
+    result = runner.invoke(
+        app,
+        [
+            "landscape",
+            "--vcf",
+            str(indexed_vcf),
+            "--targets",
+            "T1",
+            "T2",
+            "--variant-type",
+            "snp",
+            "--biallelic-only",
+            "--max-site-missing-rate",
+            "0.25",
+            "--min-alt-carriers",
+            "2",
+            "--max-alt-carrier-freq",
+            "0.6",
+            "--window-records",
+            "10",
+            "--step-records",
+            "10",
+            "--no-plots",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    summary = {
+        row["metric"]: row["value"]
+        for row in read_tsv(outdir / "filter_summary.tsv")
+    }
+    assert summary["records_kept"] == "4"
+    assert summary["skipped_variant_type"] == "1"
+    assert summary["skipped_multiallelic"] == "1"
+    data = json.loads((outdir / "landscape.json").read_text())
+    assert data["parameters"]["variant_type"] == "snp"
+    assert data["parameters"]["biallelic_only"] is True
+    assert data["parameters"]["max_site_missing_rate"] == 0.25
 
 
 def test_landscape_cli_can_skip_pairwise_similarity_output(

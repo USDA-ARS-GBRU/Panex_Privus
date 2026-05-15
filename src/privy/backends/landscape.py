@@ -6,12 +6,13 @@ import json
 import logging
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from privy.io.tsv import TsvWriter, read_tsv
 from privy.landscape import (
     BACKGROUND_BLOCK_COLUMNS,
     CANDIDATE_INTROGRESSION_BLOCK_COLUMNS,
+    LANDSCAPE_FILTER_SUMMARY_COLUMNS,
     LANDSCAPE_LOCAL_PCA_COLUMNS,
     LANDSCAPE_SAMPLE_WINDOW_COLUMNS,
     LANDSCAPE_SIMILARITY_COLUMNS,
@@ -49,6 +50,13 @@ def run_landscape_vcf(
     step_bp: int | None = None,
     pass_only: bool = True,
     min_qual: float | None = None,
+    variant_type: Literal["all", "snp", "indel", "sv"] = "all",
+    biallelic_only: bool = False,
+    max_site_missing_rate: float | None = None,
+    require_active_alt: bool = False,
+    min_alt_carriers: int = 0,
+    min_alt_carrier_freq: float | None = None,
+    max_alt_carrier_freq: float | None = None,
     rare_max_count: int = 1,
     rare_max_freq: float = 0.05,
     min_called_for_freq: int = 10,
@@ -71,6 +79,8 @@ def run_landscape_vcf(
         )
     if vcf_engine not in VCF_ENGINES:
         raise ValueError("--vcf-engine must be one of: auto, pysam, cyvcf2.")
+    if variant_type not in {"all", "snp", "indel", "sv"}:
+        raise ValueError("--variant-type must be one of: all, snp, indel, sv.")
 
     outdir.mkdir(parents=True, exist_ok=True)
     log.info("Running VCF landscape analysis: %s", vcf)
@@ -114,6 +124,13 @@ def run_landscape_vcf(
             step_bp=step_bp,
             pass_only=pass_only,
             min_qual=min_qual,
+            variant_type=variant_type,
+            biallelic_only=biallelic_only,
+            max_site_missing_rate=max_site_missing_rate,
+            require_active_alt=require_active_alt,
+            min_alt_carriers=min_alt_carriers,
+            min_alt_carrier_freq=min_alt_carrier_freq,
+            max_alt_carrier_freq=max_alt_carrier_freq,
             rare_max_count=rare_max_count,
             rare_max_freq=rare_max_freq,
             min_called_for_freq=min_called_for_freq,
@@ -148,6 +165,8 @@ def run_landscape_vcf(
     )
 
     log.info("Writing landscape block tables | outdir=%s", outdir)
+    with TsvWriter(outdir / "filter_summary.tsv", LANDSCAPE_FILTER_SUMMARY_COLUMNS) as writer:
+        writer.write_rows(result.filter_summary_rows)
     with TsvWriter(outdir / "background_blocks.tsv", BACKGROUND_BLOCK_COLUMNS) as writer:
         writer.write_rows(result.background_block_rows)
     with TsvWriter(
@@ -196,6 +215,13 @@ def run_landscape_vcf(
             **window_parameters,
             "pass_only": pass_only,
             "min_qual": min_qual,
+            "variant_type": variant_type,
+            "biallelic_only": biallelic_only,
+            "max_site_missing_rate": max_site_missing_rate,
+            "require_active_alt": require_active_alt,
+            "min_alt_carriers": min_alt_carriers,
+            "min_alt_carrier_freq": min_alt_carrier_freq,
+            "max_alt_carrier_freq": max_alt_carrier_freq,
             "rare_max_count": rare_max_count,
             "rare_max_freq": rare_max_freq,
             "min_called_for_freq": min_called_for_freq,
@@ -242,6 +268,7 @@ def run_landscape_vcf(
         "outputs": [
             "sample_windows.tsv",
             "windows.tsv",
+            "filter_summary.tsv",
             "background_blocks.tsv",
             "candidate_introgression_blocks.tsv",
             *(["similarity.tsv"] if similarity_output != "none" else []),

@@ -19,6 +19,7 @@ from typing import Any, Literal
 from privy.io.vcf import (
     Genotype,
     VariantRecordLike,
+    classify_variant_type,
     get_vcf_samples,
     has_alt_allele,
     is_missing_genotype,
@@ -27,6 +28,7 @@ from privy.io.vcf import (
 from privy.pangenome.model import PangenomeGroups, resolve_pangenome_groups
 
 WindowMode = Literal["records", "bp"]
+LandscapeVariantType = Literal["all", "snp", "indel", "sv"]
 
 log = logging.getLogger("privy.landscape.vcf")
 
@@ -143,6 +145,12 @@ LANDSCAPE_LOCAL_PCA_COLUMNS = [
     "n_compared_samples",
 ]
 
+LANDSCAPE_FILTER_SUMMARY_COLUMNS = [
+    "metric",
+    "value",
+    "description",
+]
+
 
 @dataclass(frozen=True)
 class LandscapeResult:
@@ -158,6 +166,7 @@ class LandscapeResult:
     similarity_rows: list[dict[str, object]]
     similarity_summary_rows: list[dict[str, object]]
     local_pca_rows: list[dict[str, object]]
+    filter_summary_rows: list[dict[str, object]]
     n_sample_rows: int
     n_window_rows: int
     n_similarity_rows: int
@@ -189,6 +198,15 @@ class _Window:
 class _PairwiseStats:
     similarity: float | None
     compared: int
+
+
+@dataclass(frozen=True)
+class _ActiveVariantStats:
+    called_n: int
+    missing_n: int
+    missing_rate: float
+    alt_carrier_n: int
+    alt_carrier_freq: float
 
 
 @dataclass(frozen=True)
@@ -326,6 +344,13 @@ def run_vcf_landscape(
     step_bp: int | None = None,
     pass_only: bool = True,
     min_qual: float | None = None,
+    variant_type: LandscapeVariantType = "all",
+    biallelic_only: bool = False,
+    max_site_missing_rate: float | None = None,
+    require_active_alt: bool = False,
+    min_alt_carriers: int = 0,
+    min_alt_carrier_freq: float | None = None,
+    max_alt_carrier_freq: float | None = None,
     rare_max_count: int = 1,
     rare_max_freq: float = 0.05,
     min_called_for_freq: int = 10,
@@ -361,6 +386,28 @@ def run_vcf_landscape(
         raise ValueError("window_records must be positive.")
     if step_records <= 0:
         raise ValueError("step_records must be positive.")
+    if variant_type not in {"all", "snp", "indel", "sv"}:
+        raise ValueError("variant_type must be one of: all, snp, indel, sv.")
+    if max_site_missing_rate is not None and (
+        max_site_missing_rate < 0 or max_site_missing_rate > 1
+    ):
+        raise ValueError("max_site_missing_rate must be between 0 and 1.")
+    if min_alt_carriers < 0:
+        raise ValueError("min_alt_carriers must be non-negative.")
+    if min_alt_carrier_freq is not None and (
+        min_alt_carrier_freq < 0 or min_alt_carrier_freq > 1
+    ):
+        raise ValueError("min_alt_carrier_freq must be between 0 and 1.")
+    if max_alt_carrier_freq is not None and (
+        max_alt_carrier_freq < 0 or max_alt_carrier_freq > 1
+    ):
+        raise ValueError("max_alt_carrier_freq must be between 0 and 1.")
+    if (
+        min_alt_carrier_freq is not None
+        and max_alt_carrier_freq is not None
+        and min_alt_carrier_freq > max_alt_carrier_freq
+    ):
+        raise ValueError("min_alt_carrier_freq cannot exceed max_alt_carrier_freq.")
     if rare_max_count < 0:
         raise ValueError("rare_max_count must be non-negative.")
     if rare_max_freq < 0 or rare_max_freq > 1:
@@ -439,6 +486,13 @@ def run_vcf_landscape(
     skipped_no_alt = 0
     skipped_filter = 0
     skipped_qual = 0
+    skipped_variant_type = 0
+    skipped_multiallelic = 0
+    skipped_site_missing_rate = 0
+    skipped_no_active_alt = 0
+    skipped_min_alt_carriers = 0
+    skipped_min_alt_carrier_freq = 0
+    skipped_max_alt_carrier_freq = 0
     contigs_seen = 0
     contigs_analyzed = 0
 
@@ -571,7 +625,8 @@ def run_vcf_landscape(
             log.info("Landscape reading contig %s", current_contig)
 
         current_contig_input_records += 1
-        if record.alts is None:
+        alts = record.alts
+        if alts is None:
             skipped_no_alt += 1
             maybe_log_stream_progress()
             continue
@@ -583,10 +638,54 @@ def run_vcf_landscape(
             skipped_qual += 1
             maybe_log_stream_progress()
             continue
+        if biallelic_only and len(alts) != 1:
+            skipped_multiallelic += 1
+            maybe_log_stream_progress()
+            continue
+        if variant_type != "all" and not _record_matches_variant_type(
+            record.ref,
+            alts,
+            variant_type,
+        ):
+            skipped_variant_type += 1
+            maybe_log_stream_progress()
+            continue
+
+        snapshot = _snapshot_record(record, samples)
+        variant_stats = _active_variant_stats(snapshot, active_sample_indices)
+        if (
+            max_site_missing_rate is not None
+            and variant_stats.missing_rate > max_site_missing_rate
+        ):
+            skipped_site_missing_rate += 1
+            maybe_log_stream_progress()
+            continue
+        if require_active_alt and variant_stats.alt_carrier_n == 0:
+            skipped_no_active_alt += 1
+            maybe_log_stream_progress()
+            continue
+        if variant_stats.alt_carrier_n < min_alt_carriers:
+            skipped_min_alt_carriers += 1
+            maybe_log_stream_progress()
+            continue
+        if (
+            min_alt_carrier_freq is not None
+            and variant_stats.alt_carrier_freq < min_alt_carrier_freq
+        ):
+            skipped_min_alt_carrier_freq += 1
+            maybe_log_stream_progress()
+            continue
+        if (
+            max_alt_carrier_freq is not None
+            and variant_stats.alt_carrier_freq > max_alt_carrier_freq
+        ):
+            skipped_max_alt_carrier_freq += 1
+            maybe_log_stream_progress()
+            continue
 
         records_kept += 1
         current_contig_kept_records += 1
-        contig_records.append(_snapshot_record(record, samples))
+        contig_records.append(snapshot)
         maybe_log_stream_progress()
 
     finish_current_contig()
@@ -594,8 +693,11 @@ def run_vcf_landscape(
     log.info(
         "Landscape VCF read complete | contigs_seen=%d | contigs_analyzed=%d | "
         "records_seen=%d | records_kept=%d | skipped_no_alt=%d | "
-        "skipped_filter=%d | skipped_qual=%d | windows=%d | local_pca_rows=%d | "
-        "elapsed=%.1fs",
+        "skipped_filter=%d | skipped_qual=%d | skipped_variant_type=%d | "
+        "skipped_multiallelic=%d | skipped_site_missing_rate=%d | "
+        "skipped_no_active_alt=%d | skipped_min_alt_carriers=%d | "
+        "skipped_min_alt_carrier_freq=%d | skipped_max_alt_carrier_freq=%d | "
+        "windows=%d | local_pca_rows=%d | elapsed=%.1fs",
         contigs_seen,
         contigs_analyzed,
         records_seen,
@@ -603,9 +705,30 @@ def run_vcf_landscape(
         skipped_no_alt,
         skipped_filter,
         skipped_qual,
+        skipped_variant_type,
+        skipped_multiallelic,
+        skipped_site_missing_rate,
+        skipped_no_active_alt,
+        skipped_min_alt_carriers,
+        skipped_min_alt_carrier_freq,
+        skipped_max_alt_carrier_freq,
         window_row_count,
         local_pca_row_count,
         time.monotonic() - started_at,
+    )
+    filter_summary_rows = _filter_summary_rows(
+        records_seen=records_seen,
+        records_kept=records_kept,
+        skipped_no_alt=skipped_no_alt,
+        skipped_filter=skipped_filter,
+        skipped_qual=skipped_qual,
+        skipped_variant_type=skipped_variant_type,
+        skipped_multiallelic=skipped_multiallelic,
+        skipped_site_missing_rate=skipped_site_missing_rate,
+        skipped_no_active_alt=skipped_no_active_alt,
+        skipped_min_alt_carriers=skipped_min_alt_carriers,
+        skipped_min_alt_carrier_freq=skipped_min_alt_carrier_freq,
+        skipped_max_alt_carrier_freq=skipped_max_alt_carrier_freq,
     )
     log.info(
         "Building local background blocks | sample_window_rows=%d | "
@@ -658,12 +781,86 @@ def run_vcf_landscape(
             similarity_counts,
         ),
         local_pca_rows=local_pca_rows,
+        filter_summary_rows=filter_summary_rows,
         n_sample_rows=sample_row_count,
         n_window_rows=window_row_count,
         n_similarity_rows=similarity_row_count,
         n_local_pca_rows=local_pca_row_count,
         vcf_engine=resolved_vcf_engine,
     )
+
+
+def _record_matches_variant_type(
+    ref: str,
+    alts: tuple[str, ...],
+    variant_type: LandscapeVariantType,
+) -> bool:
+    if variant_type == "all":
+        return True
+    return any(classify_variant_type(ref, alt) == variant_type for alt in alts)
+
+
+def _active_variant_stats(
+    snapshot: _VariantSnapshot,
+    active_sample_indices: tuple[int, ...],
+) -> _ActiveVariantStats:
+    called_n = 0
+    missing_n = 0
+    alt_carriers: set[int] = set()
+    active_sample_set = set(active_sample_indices)
+    for sample_index in active_sample_indices:
+        gt = snapshot.genotypes[sample_index]
+        if gt is None or is_missing_genotype(gt):
+            missing_n += 1
+            continue
+        called_n += 1
+    for carriers in snapshot.alt_carriers:
+        alt_carriers.update(carriers & active_sample_set)
+
+    active_n = len(active_sample_indices)
+    missing_rate = 0.0 if active_n == 0 else missing_n / active_n
+    alt_carrier_n = len(alt_carriers)
+    alt_carrier_freq = 0.0 if active_n == 0 else alt_carrier_n / active_n
+    return _ActiveVariantStats(
+        called_n=called_n,
+        missing_n=missing_n,
+        missing_rate=missing_rate,
+        alt_carrier_n=alt_carrier_n,
+        alt_carrier_freq=alt_carrier_freq,
+    )
+
+
+def _filter_summary_rows(**counts: int) -> list[dict[str, object]]:
+    descriptions = {
+        "records_seen": "VCF records encountered before landscape filtering.",
+        "records_kept": "VCF records retained for window construction.",
+        "skipped_no_alt": "Records skipped because ALT was absent.",
+        "skipped_filter": "Records skipped by --pass-only.",
+        "skipped_qual": "Records skipped by --min-qual.",
+        "skipped_variant_type": "Records skipped by --variant-type.",
+        "skipped_multiallelic": "Records skipped by --biallelic-only.",
+        "skipped_site_missing_rate": "Records skipped by --max-site-missing-rate.",
+        "skipped_no_active_alt": "Records skipped by --require-active-alt.",
+        "skipped_min_alt_carriers": "Records skipped by --min-alt-carriers.",
+        "skipped_min_alt_carrier_freq": "Records skipped by --min-alt-carrier-freq.",
+        "skipped_max_alt_carrier_freq": "Records skipped by --max-alt-carrier-freq.",
+    }
+    rows = [
+        {
+            "metric": metric,
+            "value": value,
+            "description": descriptions[metric],
+        }
+        for metric, value in counts.items()
+    ]
+    seen = counts.get("records_seen", 0)
+    kept = counts.get("records_kept", 0)
+    rows.append({
+        "metric": "kept_fraction",
+        "value": "NA" if seen == 0 else _fmt_float(kept / seen),
+        "description": "Fraction of encountered VCF records retained for windows.",
+    })
+    return rows
 
 
 def build_background_blocks(

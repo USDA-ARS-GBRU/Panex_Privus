@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Literal, cast
 
 import typer
 
@@ -86,6 +87,34 @@ def landscape(
     min_qual: float | None = typer.Option(
         None, "--min-qual", metavar="FLOAT",
         help="Minimum VCF QUAL to include.",
+    ),
+    variant_type: str = typer.Option(
+        "all", "--variant-type", metavar="TEXT",
+        help="Variant class to include: all, snp, indel, or sv.",
+    ),
+    biallelic_only: bool = typer.Option(
+        False, "--biallelic-only/--allow-multiallelic",
+        help="Use only records with exactly one ALT allele.",
+    ),
+    max_site_missing_rate: float | None = typer.Option(
+        None, "--max-site-missing-rate", metavar="FLOAT", min=0.0, max=1.0,
+        help="Maximum per-record missing genotype fraction across active samples.",
+    ),
+    require_active_alt: bool = typer.Option(
+        False, "--require-active-alt/--allow-no-active-alt",
+        help="Require at least one target/off-target sample to carry an ALT allele.",
+    ),
+    min_alt_carriers: int = typer.Option(
+        0, "--min-alt-carriers", metavar="INTEGER", min=0,
+        help="Minimum number of active samples carrying any ALT allele.",
+    ),
+    min_alt_carrier_freq: float | None = typer.Option(
+        None, "--min-alt-carrier-freq", metavar="FLOAT", min=0.0, max=1.0,
+        help="Minimum active-sample ALT carrier frequency.",
+    ),
+    max_alt_carrier_freq: float | None = typer.Option(
+        None, "--max-alt-carrier-freq", metavar="FLOAT", min=0.0, max=1.0,
+        help="Maximum active-sample ALT carrier frequency.",
     ),
     rare_max_count: int = typer.Option(
         1, "--rare-max-count", metavar="INTEGER", min=0,
@@ -180,6 +209,20 @@ def landscape(
     if vcf_engine not in {"auto", "pysam", "cyvcf2"}:
         typer.echo("[error] --vcf-engine must be one of: auto, pysam, cyvcf2.", err=True)
         raise typer.Exit(code=1)
+    if variant_type not in {"all", "snp", "indel", "sv"}:
+        typer.echo("[error] --variant-type must be one of: all, snp, indel, sv.", err=True)
+        raise typer.Exit(code=1)
+    if (
+        min_alt_carrier_freq is not None
+        and max_alt_carrier_freq is not None
+        and min_alt_carrier_freq > max_alt_carrier_freq
+    ):
+        typer.echo(
+            "[error] --min-alt-carrier-freq cannot exceed --max-alt-carrier-freq.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    variant_type_filter = cast(Literal["all", "snp", "indel", "sv"], variant_type)
 
     try:
         cohort_cli_args = parse_grouped_cohort_args(ctx.args)
@@ -249,6 +292,13 @@ def landscape(
             step_bp=step_bp,
             pass_only=pass_only,
             min_qual=min_qual,
+            variant_type=variant_type_filter,
+            biallelic_only=biallelic_only,
+            max_site_missing_rate=max_site_missing_rate,
+            require_active_alt=require_active_alt,
+            min_alt_carriers=min_alt_carriers,
+            min_alt_carrier_freq=min_alt_carrier_freq,
+            max_alt_carrier_freq=max_alt_carrier_freq,
             rare_max_count=rare_max_count,
             rare_max_freq=rare_max_freq,
             min_called_for_freq=min_called_for_freq,

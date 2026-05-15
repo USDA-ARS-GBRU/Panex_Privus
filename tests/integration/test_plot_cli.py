@@ -329,12 +329,14 @@ class TestPlotCli:
         ])
 
         assert plot_result.exit_code == 0, plot_result.output
+        assert (plot_dir / "variant_density_profile.chr1.svg").exists()
         assert (plot_dir / "missingness_heatmap.chr1.svg").exists()
         assert (plot_dir / "private_burden_heatmap.chr1.svg").exists()
         assert (plot_dir / "local_background_map.chr1.svg").exists()
         assert (plot_dir / "similarity_cluster_map.chr1.svg").exists()
         assert (plot_dir / "landscape_plot_index.tsv").exists()
         index_rows = (plot_dir / "landscape_plot_index.tsv").read_text()
+        assert "variant_density_profile\tchromosome\tchr1" in index_rows
         assert "missingness_heatmap\tchromosome\tchr1" in index_rows
         data = json.loads((outdir / "landscape.json").read_text())
         assert data["parameters"]["write_plots"] is True
@@ -367,6 +369,7 @@ class TestPlotCli:
         ])
 
         assert plot_result.exit_code == 0, plot_result.output
+        assert (plot_dir / "variant_density_profile.svg").exists()
         assert (plot_dir / "missingness_heatmap.svg").exists()
         assert (plot_dir / "private_burden_heatmap.svg").exists()
         assert (plot_dir / "local_background_map.svg").exists()

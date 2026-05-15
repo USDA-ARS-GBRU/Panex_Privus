@@ -184,6 +184,66 @@ def plot_similarity_cluster_map(
     return outpath
 
 
+def plot_variant_density_profile(
+    window_rows: list[dict[str, Any]],
+    outdir: Path,
+    filename_stem: str = "variant_density_profile",
+    title: str = "Variant density profile",
+    width: float = 10.0,
+    height: float = 3.8,
+    dpi: int = 150,
+    output_format: str = "png",
+) -> Path:
+    """Plot window-level variant density across one contig or the whole genome."""
+    import matplotlib  # noqa: PLC0415
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+
+    from privy.plot.themes import apply_privy_theme  # noqa: PLC0415
+
+    apply_privy_theme()
+    outdir.mkdir(parents=True, exist_ok=True)
+    ordered_rows = sorted(
+        window_rows,
+        key=lambda row: (
+            _contig_sort_key(str(row.get("contig", ""))),
+            int(row.get("window_index", 0)),
+            int(row.get("start", 0)),
+        ),
+    )
+
+    fig_width = max(width, min(18.0, 3.0 + len(ordered_rows) * 0.12))
+    fig, ax = plt.subplots(figsize=(fig_width, height))
+    if not ordered_rows:
+        ax.text(0.5, 0.5, "No window rows", ha="center", va="center",
+                transform=ax.transAxes, fontsize=12, color="#888888")
+    else:
+        values = np.array([
+            _to_optional_float(row.get("density_variants_per_kb")) or 0.0
+            for row in ordered_rows
+        ])
+        contigs = [str(row.get("contig", "")) for row in ordered_rows]
+        unique_contigs = list(dict.fromkeys(contigs))
+        if len(unique_contigs) == 1:
+            x = np.array([int(row.get("midpoint", 0)) / 1_000_000 for row in ordered_rows])
+            ax.set_xlabel("Position (Mb)")
+        else:
+            x = np.arange(len(ordered_rows))
+            _style_window_axis_from_window_rows(ax, ordered_rows)
+            ax.set_xlabel("Window")
+        ax.plot(x, values, color="#0868ac", linewidth=1.8, marker="o", markersize=2.8)
+        ax.fill_between(x, 0, values, color="#0868ac", alpha=0.15)
+        ax.set_ylim(bottom=0)
+        ax.set_ylabel("Variants / kb")
+
+    ax.set_title(title)
+    outpath = outdir / f"{filename_stem}.{output_format}"
+    fig.savefig(outpath, dpi=dpi)
+    plt.close(fig)
+    return outpath
+
+
 def plot_all_landscape(
     sample_rows: list[dict[str, Any]],
     window_rows: list[dict[str, Any]],
@@ -253,12 +313,28 @@ def plot_landscape_set(
             contig_sample_rows = [
                 row for row in sample_rows if str(row.get("contig")) == contig
             ]
+            contig_window_rows = [
+                row for row in window_rows if str(row.get("contig")) == contig
+            ]
             contig_similarity_rows = [
                 row for row in similarity_rows if str(row.get("contig")) == contig
             ]
             if not contig_sample_rows:
                 continue
 
+            log.info("Rendering variant density profile | contig=%s", contig)
+            append_plot(
+                plot_variant_density_profile(
+                    contig_window_rows,
+                    outdir,
+                    filename_stem=f"variant_density_profile.{safe_contig}",
+                    title=f"Windowed variant density: {contig}",
+                    output_format=output_format,
+                ),
+                "variant_density_profile",
+                "chromosome",
+                contig,
+            )
             log.info("Rendering missingness heatmap | contig=%s", contig)
             append_plot(
                 plot_landscape_heatmap(
@@ -318,6 +394,19 @@ def plot_landscape_set(
                 )
 
     if plot_scope in {"genome", "both"}:
+        log.info("Rendering variant density profile | scope=genome")
+        append_plot(
+            plot_variant_density_profile(
+                window_rows,
+                outdir,
+                filename_stem="variant_density_profile",
+                title="Windowed variant density",
+                output_format=output_format,
+            ),
+            "variant_density_profile",
+            "genome",
+            "genome",
+        )
         log.info("Rendering missingness heatmap | scope=genome")
         append_plot(
             plot_landscape_heatmap(
@@ -492,6 +581,32 @@ def _style_window_axis(ax: Any, windows: list[str], sample_rows: list[dict[str, 
         tick_labels = [f"{starts.get(windows[i], 0) // 1000} kb" for i in tick_positions]
     ax.set_xticks(tick_positions)
     ax.set_xticklabels(tick_labels, rotation=45, ha="right")
+
+
+def _style_window_axis_from_window_rows(ax: Any, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        return
+    tick_positions: list[int] = []
+    tick_labels: list[str] = []
+    last_contig: str | None = None
+    for i, row in enumerate(rows):
+        contig = str(row.get("contig", ""))
+        if contig != last_contig:
+            tick_positions.append(i)
+            tick_labels.append(contig)
+            if i > 0:
+                ax.axvline(i - 0.5, color="#d0d0d0", linewidth=1.0)
+            last_contig = contig
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(tick_labels, rotation=45, ha="right")
+
+
+def _contig_sort_key(contig: str) -> tuple[str, int | str]:
+    match = re.fullmatch(r"([A-Za-z_]*)(\d+)", contig)
+    if match is None:
+        return (contig, contig)
+    prefix, number = match.groups()
+    return (prefix, int(number))
 
 
 def _mean_similarity_matrix(samples: list[str], rows: list[dict[str, Any]]) -> Any:

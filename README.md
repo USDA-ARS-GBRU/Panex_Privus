@@ -172,7 +172,10 @@ similarity plots ready for `privy plot --plot-set landscape`; use
 `--similarity-output summary` or `none` for leaner large runs. Use
 `--local-pca` for optional local-structure coordinates. Use `--window-bp` and
 `--step-bp` when physical base-pair windows are easier to interpret than
-fixed-record windows.
+fixed-record windows. For filtered SNP-density landscapes, add filters such as
+`--variant-type snp`, `--biallelic-only`, `--max-site-missing-rate`, and
+`--min-alt-carriers`; `windows.tsv` reports density and the landscape plot set
+writes a `variant_density_profile` figure.
 
 Render figures from existing pangenome or landscape results:
 
