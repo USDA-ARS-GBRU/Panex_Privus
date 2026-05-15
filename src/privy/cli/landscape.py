@@ -130,7 +130,7 @@ def landscape(
         help="Minimum adjacent windows required to emit a candidate introgression block.",
     ),
     similarity_output: str = typer.Option(
-        "summary", "--similarity-output", metavar="TEXT",
+        "full", "--similarity-output", metavar="TEXT",
         help="Pairwise similarity output mode: full, summary, or none.",
     ),
     vcf_engine: str = typer.Option(

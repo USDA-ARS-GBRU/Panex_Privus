@@ -464,8 +464,9 @@ name is chosen. The nearest background can be a target or an off-target; it is
 a local similarity assignment, not a claim about ancestry by itself.
 
 `--similarity-output` controls how much of the pairwise similarity matrix is
-written to disk. `summary` writes one genome-wide mean row per sample pair and
-is the default for large VCFs. `full` writes every sample-pair-by-window row.
+written to disk. `full` writes every sample-pair-by-window row and is the
+default because chromosome-level landscape plots use those local similarities.
+`summary` writes one genome-wide mean row per sample pair for leaner runs.
 `none` skips the similarity table while still computing the internal local
 similarity values needed for nearest-background and candidate-introgression
 calls.

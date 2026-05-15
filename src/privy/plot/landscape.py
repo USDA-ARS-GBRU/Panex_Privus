@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -69,6 +70,8 @@ def plot_landscape_heatmap(
 def plot_local_background_map(
     sample_rows: list[dict[str, Any]],
     outdir: Path,
+    filename_stem: str = "local_background_map",
+    title: str = "Local background map",
     width: float = 10.0,
     height: float = 5.5,
     dpi: int = 150,
@@ -125,10 +128,10 @@ def plot_local_background_map(
             ax.legend(handles=handles, title="Nearest background", loc="upper left",
                       bbox_to_anchor=(1.01, 1.0), borderaxespad=0)
 
-    ax.set_title("Local background map")
+    ax.set_title(title)
     ax.set_xlabel("Window")
     ax.set_ylabel("Sample")
-    outpath = outdir / f"local_background_map.{output_format}"
+    outpath = outdir / f"{filename_stem}.{output_format}"
     fig.savefig(outpath, dpi=dpi)
     plt.close(fig)
     return outpath
@@ -137,6 +140,8 @@ def plot_local_background_map(
 def plot_similarity_cluster_map(
     similarity_rows: list[dict[str, Any]],
     outdir: Path,
+    filename_stem: str = "similarity_cluster_map",
+    title: str = "Local similarity cluster map",
     width: float = 7.0,
     height: float = 6.0,
     dpi: int = 150,
@@ -172,8 +177,8 @@ def plot_similarity_cluster_map(
         ax.set_yticks(range(len(ordered_samples)))
         ax.set_yticklabels(ordered_samples)
 
-    ax.set_title("Local similarity cluster map")
-    outpath = outdir / f"similarity_cluster_map.{output_format}"
+    ax.set_title(title)
+    outpath = outdir / f"{filename_stem}.{output_format}"
     fig.savefig(outpath, dpi=dpi)
     plt.close(fig)
     return outpath
@@ -187,37 +192,242 @@ def plot_all_landscape(
     output_format: str = "png",
 ) -> list[Path]:
     """Generate all first-pass landscape plots."""
-    del window_rows
-    paths: list[Path] = []
-    log.info("Rendering missingness heatmap")
-    paths.append(
-        plot_landscape_heatmap(
-            sample_rows,
-            outdir,
-            value_column="missing_rate",
-            filename_stem="missingness_heatmap",
-            title="Windowed missingness",
-            cmap="mako" if _has_colormap("mako") else "viridis",
-            output_format=output_format,
-        )
+    paths, _index_rows = plot_landscape_set(
+        sample_rows=sample_rows,
+        window_rows=window_rows,
+        similarity_rows=similarity_rows,
+        outdir=outdir,
+        output_format=output_format,
+        plot_scope="genome",
+        contigs=None,
     )
-    log.info("Rendering private ALT burden heatmap")
-    paths.append(
-        plot_landscape_heatmap(
-            sample_rows,
-            outdir,
-            value_column="private_alt_rate",
-            filename_stem="private_burden_heatmap",
-            title="Windowed private ALT burden",
-            cmap="rocket" if _has_colormap("rocket") else "plasma",
-            output_format=output_format,
-        )
-    )
-    log.info("Rendering local background map")
-    paths.append(plot_local_background_map(sample_rows, outdir, output_format=output_format))
-    log.info("Rendering similarity cluster map")
-    paths.append(plot_similarity_cluster_map(similarity_rows, outdir, output_format=output_format))
     return paths
+
+
+def plot_landscape_set(
+    sample_rows: list[dict[str, Any]],
+    window_rows: list[dict[str, Any]],
+    similarity_rows: list[dict[str, Any]],
+    outdir: Path,
+    output_format: str = "png",
+    plot_scope: str = "chromosome",
+    contigs: list[str] | None = None,
+) -> tuple[list[Path], list[dict[str, Any]]]:
+    """Generate landscape plots and an index describing each figure."""
+    if plot_scope not in {"chromosome", "genome", "both"}:
+        raise ValueError("--plot-scope must be one of: chromosome, genome, both.")
+    if plot_scope == "genome" and contigs:
+        raise ValueError("--contig and --contigs require chromosome or both plot scope.")
+
+    paths: list[Path] = []
+    index_rows: list[dict[str, Any]] = []
+    selected_contigs = _selected_contigs(sample_rows, contigs)
+    window_stats = _window_stats(window_rows)
+
+    def append_plot(
+        path: Path,
+        plot_type: str,
+        scope: str,
+        contig: str,
+    ) -> None:
+        paths.append(path)
+        stats = (
+            window_stats.get(contig, {"n_windows": 0, "start": 0, "end": 0})
+            if scope == "chromosome"
+            else _genome_stats(window_stats)
+        )
+        index_rows.append({
+            "plot_type": plot_type,
+            "plot_scope": scope,
+            "contig": contig if scope == "chromosome" else "genome",
+            "path": path.name,
+            "n_windows": stats["n_windows"],
+            "start": stats["start"],
+            "end": stats["end"],
+            "output_format": output_format,
+        })
+
+    if plot_scope in {"chromosome", "both"}:
+        for contig in selected_contigs:
+            safe_contig = _safe_filename_component(contig)
+            contig_sample_rows = [
+                row for row in sample_rows if str(row.get("contig")) == contig
+            ]
+            contig_similarity_rows = [
+                row for row in similarity_rows if str(row.get("contig")) == contig
+            ]
+            if not contig_sample_rows:
+                continue
+
+            log.info("Rendering missingness heatmap | contig=%s", contig)
+            append_plot(
+                plot_landscape_heatmap(
+                    contig_sample_rows,
+                    outdir,
+                    value_column="missing_rate",
+                    filename_stem=f"missingness_heatmap.{safe_contig}",
+                    title=f"Windowed missingness: {contig}",
+                    cmap="mako" if _has_colormap("mako") else "viridis",
+                    output_format=output_format,
+                ),
+                "missingness_heatmap",
+                "chromosome",
+                contig,
+            )
+            log.info("Rendering private ALT burden heatmap | contig=%s", contig)
+            append_plot(
+                plot_landscape_heatmap(
+                    contig_sample_rows,
+                    outdir,
+                    value_column="private_alt_rate",
+                    filename_stem=f"private_burden_heatmap.{safe_contig}",
+                    title=f"Windowed private ALT burden: {contig}",
+                    cmap="rocket" if _has_colormap("rocket") else "plasma",
+                    output_format=output_format,
+                ),
+                "private_burden_heatmap",
+                "chromosome",
+                contig,
+            )
+            log.info("Rendering local background map | contig=%s", contig)
+            append_plot(
+                plot_local_background_map(
+                    contig_sample_rows,
+                    outdir,
+                    filename_stem=f"local_background_map.{safe_contig}",
+                    title=f"Local background map: {contig}",
+                    output_format=output_format,
+                ),
+                "local_background_map",
+                "chromosome",
+                contig,
+            )
+            if contig_similarity_rows:
+                log.info("Rendering similarity cluster map | contig=%s", contig)
+                append_plot(
+                    plot_similarity_cluster_map(
+                        contig_similarity_rows,
+                        outdir,
+                        filename_stem=f"similarity_cluster_map.{safe_contig}",
+                        title=f"Local similarity cluster map: {contig}",
+                        output_format=output_format,
+                    ),
+                    "similarity_cluster_map",
+                    "chromosome",
+                    contig,
+                )
+
+    if plot_scope in {"genome", "both"}:
+        log.info("Rendering missingness heatmap | scope=genome")
+        append_plot(
+            plot_landscape_heatmap(
+                sample_rows,
+                outdir,
+                value_column="missing_rate",
+                filename_stem="missingness_heatmap",
+                title="Windowed missingness",
+                cmap="mako" if _has_colormap("mako") else "viridis",
+                output_format=output_format,
+            ),
+            "missingness_heatmap",
+            "genome",
+            "genome",
+        )
+        log.info("Rendering private ALT burden heatmap | scope=genome")
+        append_plot(
+            plot_landscape_heatmap(
+                sample_rows,
+                outdir,
+                value_column="private_alt_rate",
+                filename_stem="private_burden_heatmap",
+                title="Windowed private ALT burden",
+                cmap="rocket" if _has_colormap("rocket") else "plasma",
+                output_format=output_format,
+            ),
+            "private_burden_heatmap",
+            "genome",
+            "genome",
+        )
+        log.info("Rendering local background map | scope=genome")
+        append_plot(
+            plot_local_background_map(sample_rows, outdir, output_format=output_format),
+            "local_background_map",
+            "genome",
+            "genome",
+        )
+        log.info("Rendering similarity cluster map | scope=genome")
+        append_plot(
+            plot_similarity_cluster_map(similarity_rows, outdir, output_format=output_format),
+            "similarity_cluster_map",
+            "genome",
+            "genome",
+        )
+    return paths, index_rows
+
+
+def _selected_contigs(
+    sample_rows: list[dict[str, Any]],
+    requested: list[str] | None,
+) -> list[str]:
+    available = _ordered_contigs(sample_rows)
+    if requested is None or not requested:
+        return available
+    available_set = set(available)
+    missing = [contig for contig in requested if contig not in available_set]
+    if missing:
+        raise ValueError(
+            "Requested contig(s) not found in landscape output: "
+            + ", ".join(missing)
+        )
+    requested_set = set(requested)
+    return [contig for contig in available if contig in requested_set]
+
+
+def _ordered_contigs(rows: list[dict[str, Any]]) -> list[str]:
+    contigs: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        contig = str(row["contig"])
+        if contig not in seen:
+            seen.add(contig)
+            contigs.append(contig)
+    return contigs
+
+
+def _window_stats(rows: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
+    stats: dict[str, dict[str, int]] = {}
+    seen_windows: set[tuple[str, str]] = set()
+    for row in rows:
+        contig = str(row["contig"])
+        window = str(row["window_id"])
+        if (contig, window) in seen_windows:
+            continue
+        seen_windows.add((contig, window))
+        start = int(row["start"])
+        end = int(row["end"])
+        current = stats.setdefault(
+            contig,
+            {"n_windows": 0, "start": start, "end": end},
+        )
+        current["n_windows"] += 1
+        current["start"] = min(current["start"], start)
+        current["end"] = max(current["end"], end)
+    return stats
+
+
+def _genome_stats(stats_by_contig: dict[str, dict[str, int]]) -> dict[str, int]:
+    if not stats_by_contig:
+        return {"n_windows": 0, "start": 0, "end": 0}
+    return {
+        "n_windows": sum(stats["n_windows"] for stats in stats_by_contig.values()),
+        "start": min(stats["start"] for stats in stats_by_contig.values()),
+        "end": max(stats["end"] for stats in stats_by_contig.values()),
+    }
+
+
+def _safe_filename_component(value: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("._")
+    return safe or "contig"
 
 
 def _sample_order(rows: list[dict[str, Any]]) -> list[str]:
@@ -244,10 +454,12 @@ def _window_order_from_sample_rows(rows: list[dict[str, Any]]) -> list[str]:
 
 def _sample_order_from_similarity(rows: list[dict[str, Any]]) -> list[str]:
     samples: list[str] = []
+    seen: set[str] = set()
     for row in rows:
         for key in ("sample_a", "sample_b"):
             sample = str(row[key])
-            if sample not in samples:
+            if sample not in seen:
+                seen.add(sample)
                 samples.append(sample)
     return samples
 

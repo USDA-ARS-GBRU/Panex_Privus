@@ -14,7 +14,16 @@
     "private_burden_heatmap.png",
     "local_background_map.png",
     "similarity_cluster_map.png",
-    "landscape.json"
+    "landscape.json",
+    "plots/missingness_heatmap.chr1.png",
+    "plots/private_burden_heatmap.chr1.png",
+    "plots/local_background_map.chr1.png",
+    "plots/similarity_cluster_map.chr1.png",
+    "plots/missingness_heatmap.chr2.png",
+    "plots/private_burden_heatmap.chr2.png",
+    "plots/local_background_map.chr2.png",
+    "plots/similarity_cluster_map.chr2.png",
+    "plots/landscape_plot_index.tsv"
   ],
   "parameters": {
     "max_introgression_missing_rate": 0.5,
@@ -27,6 +36,7 @@
     "min_qual": null,
     "pass_only": true,
     "plot_format": "png",
+    "plot_scope": "chromosome",
     "rare_max_count": 1,
     "rare_max_freq": 0.05,
     "step_bp": null,

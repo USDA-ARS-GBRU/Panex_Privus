@@ -21,7 +21,7 @@ Panex Privus is under active development. Current version: `0.8.0-dev`.
 - `privy pangenome` with GFA or VCF input
 - `privy landscape` with VCF input
 
-The current test suite has 683 passing unit and integration tests.
+The current test suite has 684 passing unit and integration tests.
 
 ## Roadmap
 

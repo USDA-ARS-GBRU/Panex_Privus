@@ -318,7 +318,8 @@ class TestPlotCli:
             "--outdir", str(outdir),
         ])
         assert result.exit_code == 0, result.output
-        assert not (outdir / "missingness_heatmap.svg").exists()
+        plot_dir = outdir / "plots"
+        assert not (plot_dir / "missingness_heatmap.chr1.svg").exists()
 
         plot_result = runner.invoke(app, [
             "plot",
@@ -328,14 +329,49 @@ class TestPlotCli:
         ])
 
         assert plot_result.exit_code == 0, plot_result.output
-        assert (outdir / "missingness_heatmap.svg").exists()
-        assert (outdir / "private_burden_heatmap.svg").exists()
-        assert (outdir / "local_background_map.svg").exists()
-        assert (outdir / "similarity_cluster_map.svg").exists()
+        assert (plot_dir / "missingness_heatmap.chr1.svg").exists()
+        assert (plot_dir / "private_burden_heatmap.chr1.svg").exists()
+        assert (plot_dir / "local_background_map.chr1.svg").exists()
+        assert (plot_dir / "similarity_cluster_map.chr1.svg").exists()
+        assert (plot_dir / "landscape_plot_index.tsv").exists()
+        index_rows = (plot_dir / "landscape_plot_index.tsv").read_text()
+        assert "missingness_heatmap\tchromosome\tchr1" in index_rows
         data = json.loads((outdir / "landscape.json").read_text())
         assert data["parameters"]["write_plots"] is True
         assert data["parameters"]["plot_format"] == "svg"
-        assert "missingness_heatmap.svg" in data["outputs"]
+        assert data["parameters"]["plot_scope"] == "chromosome"
+        assert "plots/missingness_heatmap.chr1.svg" in data["outputs"]
+
+    def test_landscape_plot_set_can_render_genome_scope(
+        self, indexed_vcf: Path, tmp_path: Path, runner: CliRunner
+    ) -> None:
+        data_dir = tmp_path / "landscape-data"
+        plot_dir = tmp_path / "landscape-plots"
+        result = runner.invoke(app, [
+            "landscape",
+            "--vcf", str(indexed_vcf),
+            "--targets", "T1", "T2",
+            "--window-records", "3",
+            "--step-records", "3",
+            "--outdir", str(data_dir),
+        ])
+        assert result.exit_code == 0, result.output
+
+        plot_result = runner.invoke(app, [
+            "plot",
+            "--plot-set", "landscape",
+            "--input-dir", str(data_dir),
+            "--outdir", str(plot_dir),
+            "--plot-scope", "genome",
+            "--output-format", "svg",
+        ])
+
+        assert plot_result.exit_code == 0, plot_result.output
+        assert (plot_dir / "missingness_heatmap.svg").exists()
+        assert (plot_dir / "private_burden_heatmap.svg").exists()
+        assert (plot_dir / "local_background_map.svg").exists()
+        assert (plot_dir / "similarity_cluster_map.svg").exists()
+        assert (plot_dir / "landscape_plot_index.tsv").exists()
 
     def test_pangenome_plot_set_renders_existing_tables(
         self, tmp_path: Path, runner: CliRunner

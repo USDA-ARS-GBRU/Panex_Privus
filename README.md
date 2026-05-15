@@ -166,11 +166,12 @@ privy landscape \
 
 `privy landscape` complements discovery. It writes per-sample window metrics,
 per-window target/off-target summaries, local background blocks, candidate
-donor-like or introgressed blocks, compact or full pairwise similarity tables,
-and run metadata. Use `--similarity-output full` when you need every
-window-by-pair similarity row, `--similarity-output none` for lean large runs,
-and `--local-pca` for optional local-structure coordinates. Use `--window-bp`
-and `--step-bp` when physical base-pair windows are easier to interpret than
+donor-like or introgressed blocks, per-window pairwise similarity, and run
+metadata. The default `--similarity-output full` keeps chromosome-level
+similarity plots ready for `privy plot --plot-set landscape`; use
+`--similarity-output summary` or `none` for leaner large runs. Use
+`--local-pca` for optional local-structure coordinates. Use `--window-bp` and
+`--step-bp` when physical base-pair windows are easier to interpret than
 fixed-record windows.
 
 Render figures from existing pangenome or landscape results:
@@ -247,7 +248,7 @@ Operational commands:
 - `privy landscape`
 - `privy pangenome`
 
-The current test suite has 683 passing unit and integration tests.
+The current test suite has 684 passing unit and integration tests.
 
 ## Contact
 

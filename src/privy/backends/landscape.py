@@ -24,6 +24,17 @@ log = logging.getLogger("privy.backends.landscape")
 
 SIMILARITY_OUTPUT_MODES = {"full", "summary", "none"}
 VCF_ENGINES = {"auto", "pysam", "cyvcf2"}
+LANDSCAPE_PLOT_SCOPES = {"chromosome", "genome", "both"}
+LANDSCAPE_PLOT_INDEX_COLUMNS = [
+    "plot_type",
+    "plot_scope",
+    "contig",
+    "path",
+    "n_windows",
+    "start",
+    "end",
+    "output_format",
+]
 
 
 def run_landscape_vcf(
@@ -47,7 +58,7 @@ def run_landscape_vcf(
     min_introgression_delta: float = 0.05,
     max_introgression_missing_rate: float = 0.5,
     min_introgression_windows: int = 10,
-    similarity_output: str = "summary",
+    similarity_output: str = "full",
     vcf_engine: str = "auto",
     local_pca: bool = False,
     write_plots: bool = False,
@@ -250,9 +261,13 @@ def run_landscape_plots(
     input_dir: Path,
     plot_format: str = "png",
     outdir: Path | None = None,
+    plot_scope: str = "chromosome",
+    contigs: list[str] | None = None,
 ) -> list[Path]:
     """Render landscape plots from existing TSV outputs."""
-    plot_outdir = outdir or input_dir
+    if plot_scope not in LANDSCAPE_PLOT_SCOPES:
+        raise ValueError("--plot-scope must be one of: chromosome, genome, both.")
+    plot_outdir = outdir or input_dir / "plots"
     sample_windows = input_dir / "sample_windows.tsv"
     windows = input_dir / "windows.tsv"
     similarity = input_dir / "similarity.tsv"
@@ -270,25 +285,41 @@ def run_landscape_plots(
     window_rows = read_tsv(windows)
     similarity_rows = read_tsv(similarity) if similarity.exists() else []
 
-    from privy.plot.landscape import plot_all_landscape  # noqa: PLC0415
+    from privy.plot.landscape import plot_landscape_set  # noqa: PLC0415
 
     log.info(
         "Rendering landscape plots from existing tables | format=%s | "
-        "sample_rows=%d | windows=%d | similarity_rows=%d",
+        "scope=%s | contigs=%s | sample_rows=%d | windows=%d | similarity_rows=%d",
         plot_format,
+        plot_scope,
+        ",".join(contigs) if contigs else "all",
         len(sample_rows),
         len(window_rows),
         len(similarity_rows),
     )
-    paths = plot_all_landscape(
+    paths, index_rows = plot_landscape_set(
         sample_rows=sample_rows,
         window_rows=window_rows,
         similarity_rows=similarity_rows,
         outdir=plot_outdir,
         output_format=plot_format,
+        plot_scope=plot_scope,
+        contigs=contigs,
     )
-    if plot_outdir == input_dir:
-        _update_plot_metadata(input_dir, plot_format, paths)
+    if index_rows:
+        index_path = plot_outdir / "landscape_plot_index.tsv"
+        with TsvWriter(index_path, LANDSCAPE_PLOT_INDEX_COLUMNS) as writer:
+            writer.write_rows(index_rows)
+        paths.append(index_path)
+
+    if _is_relative_to(plot_outdir, input_dir):
+        _update_plot_metadata(
+            input_dir,
+            plot_format,
+            paths,
+            plot_scope=plot_scope,
+            contigs=contigs,
+        )
     log.info("Rendered landscape plots from existing tables | count=%d", len(paths))
     return paths
 
@@ -297,6 +328,8 @@ def _update_plot_metadata(
     outdir: Path,
     plot_format: str,
     plot_paths: list[Path],
+    plot_scope: str | None = None,
+    contigs: list[str] | None = None,
 ) -> None:
     metadata_path = outdir / "landscape.json"
     if not metadata_path.exists():
@@ -306,14 +339,34 @@ def _update_plot_metadata(
     if isinstance(parameters, dict):
         parameters["write_plots"] = True
         parameters["plot_format"] = plot_format
+        if plot_scope is not None:
+            parameters["plot_scope"] = plot_scope
+        if contigs is not None:
+            parameters["plot_contigs"] = list(contigs)
     outputs = metadata.setdefault("outputs", [])
     if isinstance(outputs, list):
         existing = {str(item) for item in outputs}
         for path in plot_paths:
-            if path.name not in existing:
-                outputs.append(path.name)
-                existing.add(path.name)
+            output_name = _output_name(outdir, path)
+            if output_name not in existing:
+                outputs.append(output_name)
+                existing.add(output_name)
     metadata_path.write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _output_name(outdir: Path, path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(outdir.resolve()))
+    except ValueError:
+        return path.name

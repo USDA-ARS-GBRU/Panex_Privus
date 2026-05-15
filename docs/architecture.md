@@ -953,6 +953,10 @@ PLOT OPTIONS:
   --height FLOAT             Figure height
   --dpi INTEGER              Figure DPI
   --output-format TEXT       png, pdf, svg
+  --plot-scope TEXT          Landscape only: chromosome, genome, or both;
+                             default chromosome
+  --contig TEXT              Landscape only: render one contig/chromosome
+  --contigs TEXT             Landscape only: comma-separated contigs/chromosomes
   --show-labels / --no-show-labels
                              Show sample or locus labels where applicable
 
@@ -1001,7 +1005,8 @@ LANDSCAPE OPTIONS:
                              Maximum missingness in candidate windows
   --min-introgression-windows INT
                              Minimum adjacent windows per candidate block
-  --similarity-output TEXT   Pairwise similarity table mode: summary, full, none
+  --similarity-output TEXT   Pairwise similarity table mode: full, summary, none;
+                             default full
   --vcf-engine TEXT          VCF parser: auto, pysam, cyvcf2
   --local-pca / --no-local-pca
                              Write or skip local PCA coordinate table
@@ -1017,10 +1022,11 @@ LANDSCAPE OUTPUTS:
   similarity.tsv
   local_pca.tsv
   landscape.json
-  missingness_heatmap.png (from privy plot --plot-set landscape)
-  private_burden_heatmap.png (from privy plot --plot-set landscape)
-  local_background_map.png (from privy plot --plot-set landscape)
-  similarity_cluster_map.png (from privy plot --plot-set landscape)
+  plots/landscape_plot_index.tsv (from privy plot --plot-set landscape)
+  plots/missingness_heatmap.<contig>.png
+  plots/private_burden_heatmap.<contig>.png
+  plots/local_background_map.<contig>.png
+  plots/similarity_cluster_map.<contig>.png (when full similarity rows exist)
 
 LANDSCAPE NOTES:
   - Complements discovery; does not replace privy scan

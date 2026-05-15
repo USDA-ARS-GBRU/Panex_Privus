@@ -97,6 +97,18 @@ def plot(
         "png", "--output-format", metavar="TEXT",
         help="Output format: png | svg | pdf.",
     ),
+    plot_scope: str = typer.Option(
+        "chromosome", "--plot-scope", metavar="TEXT",
+        help="Landscape plot scope: chromosome | genome | both.",
+    ),
+    contig: str | None = typer.Option(
+        None, "--contig", metavar="TEXT",
+        help="Landscape contig/chromosome to plot.",
+    ),
+    contigs: str | None = typer.Option(
+        None, "--contigs", metavar="TEXT",
+        help="Comma-separated landscape contigs/chromosomes to plot.",
+    ),
     # --------------------------------------------------------------- outputs
     outdir: Path | None = typer.Option(
         None, "--outdir", metavar="PATH",
@@ -119,6 +131,12 @@ def plot(
         raise typer.Exit(code=1)
 
     if normalized_plot_set == "landscape":
+        if plot_scope not in {"chromosome", "genome", "both"}:
+            typer.echo(
+                "[error] --plot-scope must be one of: chromosome, genome, both.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
         source_dir = input_dir or effective_outdir
         plot_outdir = outdir if input_dir is not None and outdir is not None else None
         try:
@@ -128,6 +146,8 @@ def plot(
                 input_dir=source_dir,
                 plot_format=output_format,
                 outdir=plot_outdir,
+                plot_scope=plot_scope,
+                contigs=_parse_contigs(contig, contigs),
             )
         except (FileNotFoundError, ValueError) as exc:
             typer.echo(f"[error] {exc}", err=True)
@@ -136,6 +156,14 @@ def plot(
             for path in generated:
                 typer.echo(f"  {path}")
         return
+
+    if contig is not None or contigs is not None or plot_scope != "chromosome":
+        typer.echo(
+            "[error] --plot-scope, --contig, and --contigs are only used for "
+            "landscape plots.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
     if normalized_plot_set == "pangenome":
         source_dir = input_dir or effective_outdir
@@ -211,3 +239,12 @@ def plot(
     if not state.quiet:
         for path in generated:
             typer.echo(f"  {path}")
+
+
+def _parse_contigs(contig: str | None, contigs: str | None) -> list[str] | None:
+    values: list[str] = []
+    if contig:
+        values.append(contig)
+    if contigs:
+        values.extend(part.strip() for part in contigs.split(",") if part.strip())
+    return values or None

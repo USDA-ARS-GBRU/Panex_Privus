@@ -564,9 +564,10 @@ Landscape outputs:
 - `background_blocks.tsv`: adjacent windows merged by nearest local background
 - `candidate_introgression_blocks.tsv`: target windows merged when the nearest
   local background is an off-target sample
-- `similarity.tsv`: pairwise genotype similarity. By default this is a compact
-  genome-wide pair summary; use `--similarity-output full` for every
-  window-by-pair row or `--similarity-output none` to skip it.
+- `similarity.tsv`: pairwise genotype similarity. By default this writes every
+  window-by-pair row so chromosome-level similarity plots can be rendered
+  later; use `--similarity-output summary` for compact genome-wide pair means
+  or `--similarity-output none` to skip the table.
 - `local_pca.tsv`: optional PCA-like local similarity coordinates, written
   when `--local-pca` is used
 - `landscape.json`: run metadata, resolved samples, parameters, and outputs
@@ -582,10 +583,12 @@ privy plot \
 
 Landscape plot outputs:
 
-- `missingness_heatmap.pdf`: sample-by-window missingness
-- `private_burden_heatmap.pdf`: sample-by-window private ALT burden
-- `local_background_map.pdf`: nearest-background assignment along chromosomes
-- `similarity_cluster_map.pdf`: clustered mean sample-similarity heatmap
+- `plots/landscape_plot_index.tsv`: index of rendered landscape plots
+- `plots/missingness_heatmap.<contig>.pdf`: sample-by-window missingness
+- `plots/private_burden_heatmap.<contig>.pdf`: sample-by-window private ALT burden
+- `plots/local_background_map.<contig>.pdf`: nearest-background assignment
+- `plots/similarity_cluster_map.<contig>.pdf`: chromosome-level sample
+  similarity when per-window similarity rows are available
 
 Key landscape options:
 
@@ -610,7 +613,7 @@ Key landscape options:
 | `--min-introgression-delta FLOAT` | Minimum advantage over the nearest target sample (default = 0.05) |
 | `--max-introgression-missing-rate FLOAT` | Maximum target missingness allowed in candidate introgression windows (default = 0.5) |
 | `--min-introgression-windows INT` | Minimum adjacent windows needed to emit a candidate block (default = 10) |
-| `--similarity-output TEXT` | Pairwise similarity table mode: `summary`, `full`, or `none` (default = summary) |
+| `--similarity-output TEXT` | Pairwise similarity table mode: `full`, `summary`, or `none` (default = full) |
 | `--vcf-engine TEXT` | VCF parser: `auto`, `pysam`, or `cyvcf2` (default = auto) |
 | `--local-pca` / `--no-local-pca` | Write or skip optional local PCA coordinates (default = no local PCA) |
 | `--plot-format TEXT` | Plot format for immediate `--plots`: `png`, `svg`, or `pdf` (default = png) |
@@ -632,6 +635,11 @@ privy plot \
   --input-dir results/landscape/ \
   --output-format pdf
 ```
+
+`privy plot --plot-set landscape` renders one set of plots per contig by
+default. Use `--contig Gm10` or `--contigs Gm01,Gm02,Gm03` to limit output,
+`--plot-scope genome` for the older whole-genome overview, or
+`--plot-scope both` to write chromosome-level plots plus whole-genome summaries.
 
 Use `pdf` or `svg` when you need vector text and axes for publication. Dense
 heatmap panels may still be embedded as raster image layers inside the vector

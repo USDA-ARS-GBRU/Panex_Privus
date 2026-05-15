@@ -46,12 +46,13 @@ choose with `--outdir`.
 | `windows.tsv` | One row per window with target/off-target summary metrics |
 | `background_blocks.tsv` | Adjacent sample windows merged by nearest local background assignment |
 | `candidate_introgression_blocks.tsv` | Target-sample blocks whose nearest local background is an off-target sample, reported as exploratory donor-like or candidate introgressed intervals |
-| `similarity.tsv` | Pairwise sample genotype similarity. Default mode writes genome-wide pair summaries; `--similarity-output full` writes every window-by-pair row |
+| `similarity.tsv` | Pairwise sample genotype similarity. Default mode writes every window-by-pair row for chromosome-level plotting; `--similarity-output summary` writes compact genome-wide pair means |
 | `local_pca.tsv` | Optional PCA-like local similarity coordinates, written only with `--local-pca` |
-| `missingness_heatmap.png` | Optional sample-by-window missingness heatmap from `--plots` or `privy plot --plot-set landscape` |
-| `private_burden_heatmap.png` | Optional sample-by-window private ALT burden heatmap from `--plots` or `privy plot --plot-set landscape` |
-| `local_background_map.png` | Optional sample-by-window nearest-background map from `--plots` or `privy plot --plot-set landscape` |
-| `similarity_cluster_map.png` | Optional clustered mean sample-similarity heatmap from `--plots` or `privy plot --plot-set landscape` |
+| `plots/landscape_plot_index.tsv` | Optional index of figures rendered by `privy plot --plot-set landscape` |
+| `plots/missingness_heatmap.<contig>.png` | Optional sample-by-window missingness heatmap from `privy plot --plot-set landscape` |
+| `plots/private_burden_heatmap.<contig>.png` | Optional sample-by-window private ALT burden heatmap from `privy plot --plot-set landscape` |
+| `plots/local_background_map.<contig>.png` | Optional sample-by-window nearest-background map from `privy plot --plot-set landscape` |
+| `plots/similarity_cluster_map.<contig>.png` | Optional chromosome-level sample-similarity heatmap from `privy plot --plot-set landscape`, written when per-window similarity rows are available |
 | `landscape.json` | Run metadata, resolved groups, parameters, and output list |
 
 ## Key `hits.tsv` Columns
@@ -224,8 +225,8 @@ similarity, delta, missingness, and minimum-window filters.
 
 | Mode | Meaning |
 |------|---------|
-| `summary` | One genome-wide mean similarity row per sample pair. This is the default because it keeps large runs compact. |
-| `full` | One row per sample pair per window. Use this for custom local clustering, downstream window-level similarity analyses, or debugging small to moderate runs. |
+| `full` | One row per sample pair per window. This is the default because it supports chromosome-level similarity plots and downstream local similarity analyses. |
+| `summary` | One genome-wide mean similarity row per sample pair. Use this for compact large runs when chromosome-level similarity plots are not needed. |
 | `none` | Do not write `similarity.tsv`. Pairwise similarity is still computed internally for nearest-background and candidate-introgression calls. |
 
 Common columns are `sample_a`, `sample_b`, `similarity`, and

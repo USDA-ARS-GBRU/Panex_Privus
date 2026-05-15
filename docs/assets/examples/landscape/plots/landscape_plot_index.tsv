@@ -1,0 +1,9 @@
+plot_type	plot_scope	contig	path	n_windows	start	end	output_format
+missingness_heatmap	chromosome	chr1	missingness_heatmap.chr1.png	4	99	1600	png
+private_burden_heatmap	chromosome	chr1	private_burden_heatmap.chr1.png	4	99	1600	png
+local_background_map	chromosome	chr1	local_background_map.chr1.png	4	99	1600	png
+similarity_cluster_map	chromosome	chr1	similarity_cluster_map.chr1.png	4	99	1600	png
+missingness_heatmap	chromosome	chr2	missingness_heatmap.chr2.png	3	99	1200	png
+private_burden_heatmap	chromosome	chr2	private_burden_heatmap.chr2.png	3	99	1200	png
+local_background_map	chromosome	chr2	local_background_map.chr2.png	3	99	1200	png
+similarity_cluster_map	chromosome	chr2	similarity_cluster_map.chr2.png	3	99	1200	png

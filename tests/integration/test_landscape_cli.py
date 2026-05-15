@@ -100,7 +100,7 @@ def test_landscape_cli_accepts_grouped_cohort_sample_lists(
     assert data["samples"]["target"] == ["T1", "T2"]
     assert data["samples"]["off_target"] == ["O1", "O2", "O3"]
     assert data["summary"]["n_sample_window_rows"] == 15
-    assert data["parameters"]["similarity_output"] == "summary"
+    assert data["parameters"]["similarity_output"] == "full"
     assert data["parameters"]["vcf_engine"] in {"pysam", "cyvcf2"}
     assert data["parameters"]["min_introgression_delta"] == 0.05
     assert data["parameters"]["min_introgression_windows"] == 10
