@@ -167,6 +167,16 @@ cluster module or `~/.local` instead of your conda environment, deactivate or
 purge conflicting modules and reactivate the `privy` environment before
 installing.
 
+If `privy` fails during startup with
+`TypeError: type 'Choice' is not subscriptable`, the environment has an older
+`click` package paired with a newer `typer`. Upgrade inside the active Privy
+environment, then reinstall Panex Privus:
+
+```bash
+python -m pip install -U "click>=8.2"
+python -m pip install -U .
+```
+
 ## Verify the Install
 
 After any install path, check that the command is available:

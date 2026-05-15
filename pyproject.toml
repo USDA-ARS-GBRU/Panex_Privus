@@ -35,6 +35,7 @@ classifiers = [
 ]
 dependencies = [
     "typer[all]>=0.9",
+    "click>=8.2",
     "pydantic>=2.0",
     "pysam>=0.22",
     "cyvcf2>=0.30",
