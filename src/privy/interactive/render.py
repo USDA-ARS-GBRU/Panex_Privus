@@ -1,0 +1,669 @@
+# ruff: noqa: E501
+"""HTML renderers for interactive dashboards."""
+
+from __future__ import annotations
+
+import html
+import json
+from typing import Any
+
+
+def render_focus_html(data: dict[str, Any]) -> str:
+    """Render one self-contained focus-region browser."""
+    title = str(data["summary"]["title"])
+    subtitle = str(data["summary"]["subtitle"])
+    document = _FOCUS_TEMPLATE
+    return (
+        document.replace("__TITLE__", html.escape(title))
+        .replace("__SUBTITLE__", html.escape(subtitle))
+        .replace("__DATA_JSON__", json.dumps(data, separators=(",", ":")))
+    )
+
+
+def render_index_html(outputs: list[Any], title: str, subtitle: str) -> str:
+    """Render a simple multi-focus index page."""
+    rows = []
+    for output in outputs:
+        html_name = output.html.name
+        feature_name = output.features_tsv.name
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(output.region.label)}</td>"
+            f"<td>{output.region.length:,}</td>"
+            f'<td><a href="{html.escape(html_name)}">{html.escape(html_name)}</a></td>'
+            f'<td><a href="{html.escape(feature_name)}">{html.escape(feature_name)}</a></td>'
+            "</tr>"
+        )
+    return _INDEX_TEMPLATE.replace("__TITLE__", html.escape(title)).replace(
+        "__SUBTITLE__",
+        html.escape(subtitle),
+    ).replace("__ROWS__", "\n".join(rows))
+
+
+_INDEX_TEMPLATE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 2rem auto; max-width: 1100px; padding: 0 1rem; color: #18231f; line-height: 1.55; }
+table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
+th, td { border: 1px solid #d7ddd8; padding: .55rem .7rem; text-align: left; }
+th { background: #eef4f1; }
+a { color: #0b5c8e; }
+</style>
+</head>
+<body>
+<h1>__TITLE__</h1>
+<p>__SUBTITLE__</p>
+<table>
+<thead><tr><th>Focus region</th><th>Length bp</th><th>Dashboard</th><th>Feature TSV</th></tr></thead>
+<tbody>
+__ROWS__
+</tbody>
+</table>
+</body>
+</html>
+"""
+
+
+_FOCUS_TEMPLATE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root {
+  --ink: #18231f;
+  --muted: #5a665f;
+  --line: #d7ddd8;
+  --paper: #f8faf8;
+  --panel: #ffffff;
+  --teal: #0f766e;
+  --red: #c83232;
+  --blue: #2563a6;
+  --gold: #b7791f;
+  --violet: #6d5bd0;
+  --green: #537a2c;
+  --slate: #485465;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.55;
+}
+.site-header {
+  padding: 28px clamp(18px, 4vw, 48px) 22px;
+  background: linear-gradient(180deg, #ffffff 0%, #eef4f1 100%);
+  border-bottom: 1px solid var(--line);
+}
+.eyebrow { color: var(--teal); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: .78rem; }
+h1 { margin: 8px 0 8px; font-size: clamp(1.8rem, 3.6vw, 3.1rem); line-height: 1.06; letter-spacing: 0; }
+h2, h3 { letter-spacing: 0; }
+.lede { max-width: 1060px; font-size: 1.08rem; color: #334139; margin: 0; }
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+  max-width: 1240px;
+}
+.metric {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.82);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.metric span { display: block; color: var(--muted); font-size: .76rem; text-transform: uppercase; letter-spacing: .04em; }
+.metric strong { display: block; margin-top: 3px; font-size: 1.1rem; }
+main { max-width: 1440px; margin: 0 auto; padding: 24px clamp(14px, 3vw, 34px) 50px; }
+.section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: clamp(14px, 2.6vw, 24px);
+  box-shadow: 0 10px 24px rgba(34, 47, 40, .06);
+  margin-bottom: 22px;
+}
+.section-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; }
+.section-head h2 { margin: 0; font-size: clamp(1.25rem, 2.2vw, 1.8rem); }
+.section-head p { margin: 4px 0 0; color: var(--muted); max-width: 980px; }
+.controls {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.2fr) minmax(240px, 1fr) minmax(240px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  margin: 14px 0;
+}
+.control-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfcfb;
+}
+.control-group label, .track-toggles label { font-size: .84rem; color: #34423a; }
+.button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+button, input, select { font: inherit; }
+button {
+  border: 1px solid #c9d2cc;
+  background: #fff;
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--teal); color: #064e46; }
+select, input {
+  width: 100%;
+  border: 1px solid #c9d2cc;
+  border-radius: 7px;
+  padding: 8px 9px;
+  background: #fff;
+  color: var(--ink);
+}
+.coord-inputs { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+.search-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.track-toggles { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 8px; }
+.track-toggles label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.browser-wrap { border: 1px solid var(--line); border-radius: 8px; background: #fff; overflow: hidden; }
+#genomeCanvas { width: 100%; min-height: 390px; display: block; cursor: grab; }
+#genomeCanvas.dragging { cursor: grabbing; }
+.browser-detail {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, .8fr);
+  gap: 14px;
+  margin-top: 12px;
+}
+.detail-box {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fbfcfb;
+  min-height: 76px;
+}
+.detail-box h3 { margin: 0 0 6px; font-size: 1rem; }
+.detail-box p { margin: 3px 0; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 9px 14px; color: var(--muted); font-size: .9rem; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
+.candidate-panel { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
+.candidate-head { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; }
+.candidate-head h3 { margin: 0 0 6px; font-size: clamp(1.15rem, 1.8vw, 1.45rem); }
+.candidate-head p { margin: 0; color: var(--muted); }
+.candidate-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.candidate-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfb;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.candidate-card:hover { border-color: #96aaa0; }
+.candidate-card h4 { margin: 0 0 5px; font-size: .98rem; }
+.candidate-card p { margin: 2px 0; color: var(--muted); font-size: .9rem; }
+.notes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.note-block {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfb;
+  padding: 12px 14px;
+}
+.note-block h3 { margin: 0 0 8px; }
+.note-block p, .note-block li { color: var(--muted); }
+.note-block ul { margin: 8px 0 0 18px; padding: 0; }
+@media (max-width: 900px) {
+  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .controls { grid-template-columns: 1fr; }
+  .browser-detail { grid-template-columns: 1fr; }
+  .notes { grid-template-columns: 1fr; }
+}
+@media (max-width: 540px) {
+  .summary-grid { grid-template-columns: 1fr; }
+  .coord-inputs, .search-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="eyebrow">Privy interactive focus region</div>
+  <h1>__TITLE__</h1>
+  <p class="lede">__SUBTITLE__</p>
+  <div class="summary-grid">
+    <div class="metric"><span>Region</span><strong id="metricRegion"></strong></div>
+    <div class="metric"><span>Genes</span><strong id="metricGenes"></strong></div>
+    <div class="metric"><span>Target-private variants</span><strong id="metricTarget"></strong></div>
+    <div class="metric"><span>Added GFF3 features</span><strong id="metricTracks"></strong></div>
+  </div>
+</header>
+<main>
+  <section class="section">
+    <div class="section-head">
+      <div>
+        <h2>Interactive Genome Browser</h2>
+        <p>Zoom, drag left/right to pan when zoomed in, hover or click marks for details, and use the feature list below to inspect variant-supported regions.</p>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="control-group">
+        <label>Zoom presets</label>
+        <div class="button-row">
+          <button type="button" data-zoom="whole">Whole region</button>
+          <button type="button" data-zoom="in">Zoom in</button>
+          <button type="button" data-zoom="out">Zoom out</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Coordinates</label>
+        <div class="coord-inputs">
+          <input id="viewStart" inputmode="numeric" aria-label="View start">
+          <input id="viewEnd" inputmode="numeric" aria-label="View end">
+          <button type="button" id="applyCoords">Apply</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>Find gene</label>
+        <div class="search-row">
+          <input id="geneSearch" list="geneList" placeholder="Gene name or ID" aria-label="Gene search">
+          <button type="button" id="geneGo">Go</button>
+        </div>
+        <datalist id="geneList"></datalist>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>Tracks</label>
+      <div class="track-toggles" id="trackToggles"></div>
+    </div>
+    <div class="browser-wrap">
+      <canvas id="genomeCanvas"></canvas>
+    </div>
+    <div class="browser-detail">
+      <div class="detail-box" id="detailBox">
+        <h3>Browser detail</h3>
+        <p>Hover or click a feature, variant, or density bin.</p>
+      </div>
+      <div class="detail-box">
+        <h3>Legend</h3>
+        <div class="legend">
+          <span><i class="swatch" style="background:#c83232"></i>target-private SNP</span>
+          <span><i class="swatch" style="background:#b7791f"></i>INDEL/complex</span>
+          <span><i class="swatch" style="background:#6d5bd0"></i>SV-like</span>
+          <span><i class="swatch" style="background:#2563a6"></i>gene/exon/CDS</span>
+          <span><i class="swatch" style="background:#537a2c"></i>promoter/GFF3 feature</span>
+        </div>
+      </div>
+    </div>
+    <section class="candidate-panel">
+      <div class="candidate-head">
+        <div>
+          <h3>Variant-Supported Feature List</h3>
+          <p id="candidateGroupNote">Choose a group to inspect ranked features with target-private variation support.</p>
+        </div>
+        <label for="candidateGroupSelect">Group</label>
+        <select id="candidateGroupSelect" aria-label="Feature group"></select>
+      </div>
+      <div class="candidate-list" id="candidateList" role="list"></div>
+    </section>
+  </section>
+  <section class="section notes">
+    <div class="note-block">
+      <h3>Definitions</h3>
+      <ul>
+        <li><strong>PASS SNP</strong> means a single-nucleotide polymorphism retained in the focal sites table; the upstream VCF and extraction filters define whether only FILTER=PASS records were included.</li>
+        <li><strong>Target-private</strong> means the derived/donor pattern encoded in the sites table or inferred from the three provided sample genotypes.</li>
+        <li><strong>SV-like</strong> is a size/symbol display layer, not a formal structural-variant call unless supplied by upstream data.</li>
+      </ul>
+    </div>
+    <div class="note-block">
+      <h3>Reproducibility Inputs</h3>
+      <p id="inputSummary"></p>
+    </div>
+  </section>
+</main>
+<script>
+const DATA = __DATA_JSON__;
+const S = DATA.summary;
+const COLORS = {
+  target: "#c83232",
+  indel: "#b7791f",
+  sv: "#6d5bd0",
+  background: "#485465",
+  gene: "#2563a6",
+  exon: "#4b8dc9",
+  cds: "#0f4d85",
+  promoter: "#537a2c",
+  gff: "#0f766e",
+  density: "#e8b45a",
+  line: "#d7ddd8",
+  text: "#18231f",
+  muted: "#5a665f"
+};
+const canvas = document.getElementById("genomeCanvas");
+const ctx = canvas.getContext("2d");
+const detailBox = document.getElementById("detailBox");
+const state = {
+  start: S.start,
+  end: S.end,
+  toggles: {density: true, snp: true, indel: true, sv: true, genes: true, promoters: true, gff: true},
+  hits: [],
+  pinned: null,
+  dragging: false,
+  dragStartX: 0,
+  dragStartStart: S.start,
+  dragStartEnd: S.end
+};
+function fmt(n) { return Math.round(n).toLocaleString(); }
+function mb(n) { return (n / 1000000).toFixed(3) + " Mb"; }
+function esc(text) {
+  const ESCAPE = {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
+  return String(text ?? "").replace(/[&<>"']/g, ch => ESCAPE[ch]);
+}
+function span() { return state.end - state.start + 1; }
+function regionSpan() { return S.end - S.start + 1; }
+function visible(item) { return item.end >= state.start && item.start <= state.end; }
+function xOf(pos, width) { return 78 + ((pos - state.start) / span()) * (width - 106); }
+function clampView(start, end) {
+  let width = Math.max(1000, end - start + 1);
+  if (width >= regionSpan()) return [S.start, S.end];
+  if (start < S.start) { end += S.start - start; start = S.start; }
+  if (end > S.end) { start -= end - S.end; end = S.end; }
+  start = Math.max(S.start, Math.round(start));
+  end = Math.min(S.end, Math.round(end));
+  return [start, end];
+}
+function setView(start, end) {
+  [state.start, state.end] = clampView(start, end);
+  document.getElementById("viewStart").value = state.start;
+  document.getElementById("viewEnd").value = state.end;
+  draw();
+}
+function zoomAround(factor) {
+  const mid = (state.start + state.end) / 2;
+  const half = span() * factor / 2;
+  setView(mid - half, mid + half);
+}
+function zoomFeature(start, end, padFrac=0.18) {
+  const pad = Math.max(1500, (end - start + 1) * padFrac);
+  setView(start - pad, end + pad);
+}
+function drawText(text, x, y, opts={}) {
+  ctx.save();
+  ctx.fillStyle = opts.color || COLORS.text;
+  ctx.font = opts.font || "12px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  ctx.textAlign = opts.align || "left";
+  ctx.textBaseline = opts.baseline || "middle";
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+function rectHit(kind, label, detail, x, y, w, h, start, end) {
+  state.hits.push({kind, label, detail, x, y, w, h, start, end});
+}
+function hitAt(x, y) {
+  for (let i = state.hits.length - 1; i >= 0; i--) {
+    const h = state.hits[i];
+    if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return h;
+  }
+  return null;
+}
+function detailHtml(item) {
+  if (!item) return "<h3>Browser detail</h3><p>Hover or click a feature, variant, or density bin.</p>";
+  let lines = [`<h3>${esc(item.label)}</h3>`];
+  if (item.start && item.end) lines.push(`<p><strong>Interval:</strong> ${fmt(item.start)}-${fmt(item.end)} (${mb(item.start)}-${mb(item.end)})</p>`);
+  lines.push(`<p>${esc(item.detail)}</p>`);
+  return lines.join("");
+}
+function updateDetail(item) { detailBox.innerHTML = detailHtml(item); }
+function drawRuler(width, y) {
+  drawText(`${S.contig}:${fmt(state.start)}-${fmt(state.end)}`, 12, y + 10, {font: "12px sans-serif", color: COLORS.muted});
+  ctx.strokeStyle = COLORS.line;
+  ctx.beginPath();
+  ctx.moveTo(78, y + 22);
+  ctx.lineTo(width - 28, y + 22);
+  ctx.stroke();
+  const ticks = 6;
+  for (let i = 0; i <= ticks; i++) {
+    const bp = Math.round(state.start + (span() * i / ticks));
+    const x = xOf(bp, width);
+    ctx.strokeStyle = COLORS.line;
+    ctx.beginPath();
+    ctx.moveTo(x, y + 17);
+    ctx.lineTo(x, y + 27);
+    ctx.stroke();
+    drawText(mb(bp), x, y + 40, {font: "11px sans-serif", color: COLORS.muted, align: "center"});
+  }
+}
+function drawDensity(width, y) {
+  drawText("Density", 12, y + 16, {font: "12px sans-serif", color: COLORS.muted});
+  const maxBin = Math.max(1, ...DATA.bins.map(b => b.target));
+  for (const b of DATA.bins.filter(visible)) {
+    const x1 = xOf(b.start, width);
+    const x2 = xOf(b.end, width);
+    const h = Math.max(1, (b.target / maxBin) * 28);
+    ctx.fillStyle = COLORS.density;
+    ctx.fillRect(x1, y + 34 - h, Math.max(1, x2 - x1), h);
+    rectHit("bin", "Variant density bin", `${b.target} target-private; ${b.background} background-like; ${b.all_same} all-same.`, x1, y, Math.max(2, x2 - x1), 38, b.start, b.end);
+  }
+}
+function drawVariantTrack(width, y, typeFn, label, color) {
+  drawText(label, 12, y + 11, {font: "12px sans-serif", color: COLORS.muted});
+  const variants = DATA.variants.filter(v => v.target && v.p >= state.start && v.p <= state.end && typeFn(v));
+  for (const v of variants) {
+    const x = xOf(v.p, width);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y + 11, 4.2, 0, Math.PI * 2);
+    ctx.fill();
+    const gt = Object.entries(v.gts).map(([k, val]) => `${k}=${val}`).join(", ");
+    rectHit("variant", `${v.type} @ ${fmt(v.p)}`, `Pattern: ${v.pat}; REF=${v.ref}; ALT=${v.alt}; ${gt}; overlapping gene=${v.gene || "none"}; nearest=${v.nearest || "none"}.`, x - 6, y + 3, 12, 16, v.p, v.e);
+  }
+}
+function drawGenes(width, y) {
+  drawText("Genes", 12, y + 27, {font: "12px sans-serif", color: COLORS.muted});
+  for (const g of DATA.genes.filter(visible)) {
+    const x1 = xOf(g.start, width);
+    const x2 = xOf(g.end, width);
+    const mid = y + 28;
+    ctx.strokeStyle = COLORS.gene;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x1, mid);
+    ctx.lineTo(x2, mid);
+    ctx.stroke();
+    for (const ex of g.exons || []) {
+      if (!visible(ex)) continue;
+      const ex1 = xOf(ex.start, width), ex2 = xOf(ex.end, width);
+      ctx.fillStyle = COLORS.exon;
+      ctx.fillRect(ex1, mid - 7, Math.max(2, ex2 - ex1), 14);
+    }
+    for (const cds of g.cds || []) {
+      if (!visible(cds)) continue;
+      const c1 = xOf(cds.start, width), c2 = xOf(cds.end, width);
+      ctx.fillStyle = COLORS.cds;
+      ctx.fillRect(c1, mid - 4, Math.max(2, c2 - c1), 8);
+    }
+    if (g.promoter && state.toggles.promoters && visible(g.promoter)) {
+      const p1 = xOf(g.promoter.start, width), p2 = xOf(g.promoter.end, width);
+      ctx.fillStyle = "rgba(83, 122, 44, .42)";
+      ctx.fillRect(p1, mid + 11, Math.max(2, p2 - p1), 8);
+      rectHit("promoter", `${g.gene} promoter`, `${S.promoter_bp} bp strand-aware upstream promoter.`, p1, mid + 9, Math.max(3, p2 - p1), 12, g.promoter.start, g.promoter.end);
+    }
+    if (x2 - x1 > 46) drawText(g.gene, x1 + 3, y + 8, {font: "11px sans-serif", color: COLORS.gene});
+    rectHit("gene", g.gene, `${g.id}; strand ${g.strand}; target-private variants: ${g.targetTotal}; function: ${g.function || "not annotated"}`, x1, mid - 12, Math.max(3, x2 - x1), 24, g.start, g.end);
+  }
+}
+function drawAnnotationTracks(width, y) {
+  let rowY = y;
+  for (const track of DATA.tracks) {
+    drawText(track.label, 12, rowY + 10, {font: "12px sans-serif", color: COLORS.muted});
+    for (const f of track.features.filter(visible)) {
+      const x1 = xOf(f.start, width), x2 = xOf(f.end, width);
+      ctx.fillStyle = COLORS.gff;
+      ctx.globalAlpha = .75;
+      ctx.fillRect(x1, rowY + 4, Math.max(2, x2 - x1), 12);
+      ctx.globalAlpha = 1;
+      rectHit("gff", `${track.label}: ${f.name || f.id}`, `Type=${f.type}; class=${f.class || ""}; source=${f.source || ""}`, x1, rowY + 2, Math.max(3, x2 - x1), 16, f.start, f.end);
+    }
+    rowY += 24;
+  }
+  return rowY;
+}
+function draw() {
+  const cssWidth = Math.max(760, canvas.clientWidth || 1100);
+  let height = 84;
+  if (state.toggles.density) height += 42;
+  if (state.toggles.snp) height += 22;
+  if (state.toggles.indel) height += 22;
+  if (state.toggles.sv) height += 22;
+  if (state.toggles.genes) height += 70;
+  if (state.toggles.gff) height += Math.max(24, DATA.tracks.length * 24);
+  height += 26;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.height = height + "px";
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, height);
+  state.hits = [];
+  drawRuler(cssWidth, 8);
+  let y = 68;
+  if (state.toggles.density) { drawDensity(cssWidth, y); y += 42; }
+  if (state.toggles.snp) { drawVariantTrack(cssWidth, y, v => v.type === "SNP", "PASS SNP", COLORS.target); y += 22; }
+  if (state.toggles.indel) { drawVariantTrack(cssWidth, y, v => v.type === "INDEL" || v.type === "complex", "INDEL/complex", COLORS.indel); y += 22; }
+  if (state.toggles.sv) { drawVariantTrack(cssWidth, y, v => v.type === "SV-like", "SV-like", COLORS.sv); y += 22; }
+  if (state.toggles.genes) { drawGenes(cssWidth, y); y += 70; }
+  if (state.toggles.gff) drawAnnotationTracks(cssWidth, y);
+}
+function setupToggles() {
+  const labels = [["density", "Density"], ["snp", "PASS SNPs"], ["indel", "INDEL/complex"], ["sv", "SV-like"], ["genes", "Genes"], ["promoters", "Promoters"], ["gff", "Extra GFF3 tracks"]];
+  const box = document.getElementById("trackToggles");
+  for (const [key, label] of labels) {
+    const item = document.createElement("label");
+    item.innerHTML = `<input type="checkbox" checked> ${label}`;
+    box.appendChild(item);
+    item.querySelector("input").addEventListener("change", e => { state.toggles[key] = e.target.checked; draw(); });
+  }
+}
+function setupControls() {
+  document.querySelector('[data-zoom="whole"]').addEventListener("click", () => setView(S.start, S.end));
+  document.querySelector('[data-zoom="in"]').addEventListener("click", () => zoomAround(.5));
+  document.querySelector('[data-zoom="out"]').addEventListener("click", () => zoomAround(2));
+  document.getElementById("applyCoords").addEventListener("click", () => setView(Number(document.getElementById("viewStart").value), Number(document.getElementById("viewEnd").value)));
+  const list = document.getElementById("geneList");
+  for (const g of DATA.genes) {
+    const opt = document.createElement("option");
+    opt.value = g.gene;
+    list.appendChild(opt);
+  }
+  document.getElementById("geneGo").addEventListener("click", () => {
+    const q = document.getElementById("geneSearch").value.toLowerCase();
+    const gene = DATA.genes.find(g => g.gene.toLowerCase() === q || g.id.toLowerCase() === q || g.gene.toLowerCase().includes(q));
+    if (gene) zoomFeature(gene.start, gene.end);
+  });
+  setView(S.start, S.end);
+}
+function setupPointer() {
+  canvas.addEventListener("pointerdown", e => {
+    if (span() >= regionSpan()) return;
+    state.dragging = true;
+    state.dragStartX = e.clientX;
+    state.dragStartStart = state.start;
+    state.dragStartEnd = state.end;
+    canvas.classList.add("dragging");
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", e => {
+    const rect = canvas.getBoundingClientRect();
+    if (state.dragging) {
+      const dx = e.clientX - state.dragStartX;
+      const bpDelta = -dx / Math.max(1, rect.width - 106) * (state.dragStartEnd - state.dragStartStart + 1);
+      setView(state.dragStartStart + bpDelta, state.dragStartEnd + bpDelta);
+      return;
+    }
+    const hit = hitAt(e.clientX - rect.left, e.clientY - rect.top);
+    if (!state.pinned) updateDetail(hit);
+  });
+  canvas.addEventListener("pointerup", e => {
+    state.dragging = false;
+    canvas.classList.remove("dragging");
+    try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+  });
+  canvas.addEventListener("pointerleave", () => { if (!state.dragging && !state.pinned) updateDetail(null); });
+  canvas.addEventListener("click", e => {
+    if (Math.abs(e.clientX - state.dragStartX) > 4) return;
+    const rect = canvas.getBoundingClientRect();
+    const hit = hitAt(e.clientX - rect.left, e.clientY - rect.top);
+    state.pinned = hit;
+    updateDetail(hit);
+  });
+}
+function setupCandidatePanel() {
+  const select = document.getElementById("candidateGroupSelect");
+  const list = document.getElementById("candidateList");
+  for (const group of DATA.candidate_groups) {
+    const opt = document.createElement("option");
+    opt.value = group.key;
+    opt.textContent = group.title;
+    select.appendChild(opt);
+  }
+  function render() {
+    const group = DATA.candidate_groups.find(g => g.key === select.value) || DATA.candidate_groups[0];
+    document.getElementById("candidateGroupNote").textContent = `${group.rows.length} ranked features. Scroll within the list to keep the browser detail visible.`;
+    list.innerHTML = "";
+    if (!group.rows.length) {
+      const empty = document.createElement("div");
+      empty.className = "candidate-card";
+      empty.textContent = "No variant-supported features in this group.";
+      list.appendChild(empty);
+      return;
+    }
+    for (const row of group.rows) {
+      const card = document.createElement("article");
+      card.className = "candidate-card";
+      card.innerHTML = `<h4>${esc(row.label)}</h4>
+        <p><strong>${esc(row.feature_type)}</strong> ${fmt(row.start)}-${fmt(row.end)}; target-private=${row.target_private_total} (SNP ${row.target_private_snp}, INDEL/complex ${row.target_private_indel_or_complex}, SV-like ${row.target_private_sv_like})</p>
+        <p>${esc(row.representative_function || row.functional_category || row.extra || "No functional annotation attached.")}</p>`;
+      card.addEventListener("click", () => {
+        zoomFeature(row.start, row.end);
+        updateDetail({label: row.label, detail: `${row.feature_type}; rank score ${row.rank_score}; ${row.representative_function || row.extra || ""}`, start: row.start, end: row.end});
+      });
+      list.appendChild(card);
+    }
+  }
+  select.addEventListener("change", render);
+  if (DATA.candidate_groups.length) select.value = DATA.candidate_groups[0].key;
+  render();
+}
+function setupMetrics() {
+  document.getElementById("metricRegion").textContent = `${S.contig}:${fmt(S.start)}-${fmt(S.end)}`;
+  document.getElementById("metricGenes").textContent = S.gene_count.toLocaleString();
+  const targets = Object.values(S.target_variant_counts).reduce((a, b) => a + b, 0);
+  document.getElementById("metricTarget").textContent = targets.toLocaleString();
+  const trackTotal = Object.values(S.track_counts).reduce((a, b) => a + b, 0);
+  document.getElementById("metricTracks").textContent = trackTotal.toLocaleString();
+  document.getElementById("inputSummary").textContent = `${S.inputs.sites_tsv}; ${S.inputs.gff3}; ${S.inputs.track_gff.join("; ")}`;
+}
+window.addEventListener("resize", draw);
+setupMetrics();
+setupToggles();
+setupControls();
+setupPointer();
+setupCandidatePanel();
+</script>
+</body>
+</html>
+"""

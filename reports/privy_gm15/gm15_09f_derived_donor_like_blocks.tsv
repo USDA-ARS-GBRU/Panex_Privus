@@ -1,0 +1,2 @@
+block_id	start	end	n_windows	mean_HarosoySharp_Kingawa_similarity	mean_Harosoy_HarosoySharp_similarity	mean_Harosoy_Kingawa_similarity	mean_similarity_delta_HS_K_minus_HS_H	interpretation
+DONORLIKE_GM15_01	7914	1628915	4	0.9393905	0.08645375	0.02584425	0.85293675	Harosoy-sharp is locally closer to Kingawa than to Harosoy; candidate donor-like interval under the pedigree hypothesis.

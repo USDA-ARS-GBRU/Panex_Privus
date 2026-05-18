@@ -23,7 +23,18 @@ from pathlib import Path
 import typer
 
 from privy import __version__
-from privy.cli import annotate, compare, export, index, landscape, pangenome, plot, report, scan
+from privy.cli import (
+    annotate,
+    compare,
+    export,
+    index,
+    interactive,
+    landscape,
+    pangenome,
+    plot,
+    report,
+    scan,
+)
 from privy.cli.context import get_state
 from privy.utils.logging import configure_logging
 
@@ -62,6 +73,7 @@ app.command(
 )(landscape.landscape)
 app.add_typer(report.app, name="report")
 app.add_typer(plot.app, name="plot")
+app.add_typer(interactive.app, name="interactive")
 app.add_typer(annotate.app, name="annotate")
 app.add_typer(export.app, name="export")
 app.add_typer(index.app, name="index")

@@ -1,0 +1,5 @@
+run	cohort	window_mode	window_bp	step_bp	window_records	step_records	variant_type	biallelic_only	max_site_missing_rate	min_alt_carriers	total_windows	gm15_windows	gm15_start_min	gm15_end_max
+09c_privy_landscape	targets=Kingawa,Minsoy,Harosoy-sharp,Benning-E,Clark-sharp; off_targets=PI407020,PI507847,Pekingv3,Benning,Clark,Harosoy,Jackv3	records			200	50	all/unspecified	NA	NA	NA	352381	19049	0	55366106
+09d_privy_landscape	targets=Kingawa,Minsoy,Harosoy-sharp,Benning-E,Clark-sharp; off_targets=PI407020,PI507847,Pekingv3,Benning,Clark,Harosoy,Jackv3	bp	1000000.0	250000.0	200	50	snp	True	0.2	2	3952	218	117	55353232
+09e_privy_landscape	targets=Kingawa,Harosoy-sharp; off_targets=Harosoy	records			200	50	all	False		0	352381	19049	0	55366106
+09f_privy_landscape	targets=Kingawa,Harosoy-sharp; off_targets=Harosoy	bp	1000000.0	250000.0	200	50	snp	True	0.2	2	3833	219	7914	55349076

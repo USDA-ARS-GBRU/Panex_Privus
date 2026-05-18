@@ -1,0 +1,6 @@
+sample	nearest_background	n_windows	mean_nearest_similarity	median_nearest_similarity	min_nearest_similarity	max_nearest_similarity
+Harosoy	Harosoy-sharp	219	0.9795543424657535	1.0	0.0	1.0
+Harosoy-sharp	Harosoy	215	0.9961701674418604	1.0	0.657176	1.0
+Harosoy-sharp	Kingawa	4	0.9393905	0.9405870000000001	0.876388	1.0
+Kingawa	Harosoy	201	0.37601996019900497	0.320427	0.0021	0.999663
+Kingawa	Harosoy-sharp	18	0.7035319444444444	0.6996285	0.333478	1.0

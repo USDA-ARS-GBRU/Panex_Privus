@@ -1,0 +1,4 @@
+pair	n_windows	mean_similarity	median_similarity	min_similarity	max_similarity	mean_compared_variants
+Harosoy-sharp|Kingawa	219	0.40283855251141554	0.356147	0.0021	1.0	2945.301369863014
+Harosoy|Harosoy-sharp	219	0.9795543424657535	1.0	0.0	1.0	2945.301369863014
+Harosoy|Kingawa	219	0.3838282739726027	0.330898	0.0	0.999663	2945.301369863014

@@ -807,6 +807,126 @@ for editing or publication layouts.
 See [Figures and Tables](figures-and-tables.md#privy-plot) for example plot
 titles and captions.
 
+## Interactive Focus Regions
+
+`privy interactive` builds static, self-contained HTML dashboards for one or
+more focus regions. The option is named `--focus`, but the object you are
+choosing is a genomic region such as `Gm15:1-4000000`.
+
+For novice users, start with a focus region around 4 Mbp or smaller. Larger
+regions can be tractable when variant density and annotation density are low,
+but the HTML file embeds its own data and JavaScript, so very large regions can
+become slow to open or awkward to browse. If you are unsure, split a broader
+locus into adjacent focus regions and compare the generated dashboards.
+
+By default, point `--vcf` at a multisample VCF/BCF and Privy will extract a
+focus-region sites table before rendering the dashboard. The extraction writes
+`focus_<contig>_<start>_<end>.sites.tsv` beside the HTML so the browser remains
+auditable and can be rebuilt later.
+
+```bash
+privy interactive \
+  --focus Gm15:1-4000000 \
+  --vcf cohort.vcf.gz \
+  --gff3 Wm82.gene_exons.gff3.gz \
+  --functional-tsv Wm82.functional_annotations.tsv \
+  --samples Harosoy Harosoy-sharp Kingawa \
+  --track-gff RepeatMasker=Wm82.repeats.gff3.gz \
+  --track-gff SSR=Wm82.ssr_markers.gff3 \
+  --sample-abbrev HS=Harosoy-sharp \
+  --keyword-group Trichome=trichome,epidermal,auxin,bhlh,microtubule,cell_wall \
+  --outdir results/interactive/
+```
+
+`--samples` is interpreted as `OFFTARGET DERIVED DONOR` for the first focus
+browser workflow. The dashboard uses those columns in the sites table to label
+genotypes and to interpret target-private or donor-like patterns.
+
+For large VCFs, use bgzip-compressed and indexed inputs (`.vcf.gz` plus `.tbi`
+or `.csi`) so focus-region extraction can use indexed random access. Plain VCFs
+are acceptable for small tests.
+
+Repeat `--focus` for multiple regions:
+
+```bash
+privy interactive \
+  --focus Gm15:1-4000000 \
+  --focus Gm12:2340000-2440000 \
+  --vcf cohort.vcf.gz \
+  --gff3 Wm82.gene_exons.gff3.gz \
+  --samples Harosoy Harosoy-sharp Kingawa \
+  --outdir results/interactive/
+```
+
+Privy writes one HTML file per focus region. For multi-region runs, it also
+writes an `index.html` with links to each region dashboard and feature table.
+Use `--sites-tsv` instead of `--vcf` when you already have a precomputed focal
+genotype table and want to rebuild the same dashboard without touching the VCF.
+
+Focus dashboard outputs:
+
+- `focus_<contig>_<start>_<end>.html`: shareable interactive region browser
+- `focus_<contig>_<start>_<end>.features.tsv`: ranked variant-supported feature table
+- `focus_<contig>_<start>_<end>.sites.tsv`: extracted focal genotype table when `--vcf` is used
+- `focus_<contig>_<start>_<end>.json`: reproducibility metadata for that region
+- `interactive.json`: run-level input and output index
+- `index.html`: multi-region dashboard index, written only when more than one focus region is supplied
+
+The focus browser can display gene models, exons, CDS, computed introns,
+strand-aware promoter windows, target-private SNPs, INDEL/complex records,
+size/symbol-based SV-like records, and optional generic GFF3 tracks such as
+repeat annotations or SSR markers. Candidate feature lists are variant-supported:
+functional annotation can help rank or group features, but features without
+compatible focal variation are not elevated.
+
+### Functional Annotation TSV
+
+`--functional-tsv` is optional, but useful when you want the browser to display
+gene functions, boost candidate rankings, and create phenotype keyword groups.
+The table must be tab-delimited and include at least one join key:
+
+- `gene`: short gene/locus name matching the GFF3 `Name` value or browser gene label
+- `gene_id`: full gene ID matching the GFF3 `ID` value
+
+Recommended columns:
+
+| Column | Meaning |
+|--------|---------|
+| `gene` | Short gene name, such as `Glyma.15G001600` |
+| `gene_id` | Full reference annotation gene ID |
+| `representative_predicted_function` | Main function label to show in the browser |
+| `functional_category_keywords` | Semicolon-separated category terms |
+| `screening_priority` | Optional priority label such as `high_screening_interest` |
+| `screening_note` | Short rationale or curation note |
+
+Minimal example:
+
+```text
+gene	gene_id	representative_predicted_function	functional_category_keywords	screening_priority	screening_note
+Glyma.15G001600	Glyma.15G001600.Wm82.a6.v1	K07300 - Ca2+:H+ antiporter	trichome_or_epidermal_development; signal_transduction	high_screening_interest	target-private variants in gene body; calcium transport candidate
+```
+
+You can add phenotype-oriented browser groups with `--keyword-group`. Each group
+searches feature type, label, gene name, functional category, predicted
+function, screening priority, screening note, and extra GFF3 metadata. The group
+still only lists features that already have target-private variation support.
+Terms are case-insensitive substring matches. Use specific words or stems that
+fit the phenotype question, and prefer several biologically related terms over
+one very broad word. The exact group names and terms are written into the focus
+dashboard JSON metadata for reproducibility.
+
+```bash
+privy interactive \
+  --focus Gm15:1-4000000 \
+  --vcf cohort.vcf.gz \
+  --gff3 Wm82.gene_exons.gff3.gz \
+  --functional-tsv Wm82.functional_annotations.tsv \
+  --samples Harosoy Harosoy-sharp Kingawa \
+  --keyword-group Trichome=trichome,epidermal,auxin,bhlh,microtubule,cell_wall \
+  --keyword-group Insect-resistance=defense,insect,jasmonate,protease,transporter,phenylpropanoid,detox \
+  --outdir results/interactive/
+```
+
 ## Annotate Hits
 
 Use `privy annotate` when you want to connect candidate private loci to gene

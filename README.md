@@ -43,6 +43,7 @@ regions, and scores results so the highest-confidence candidates surface first.
 - Adds optional **BAM** read-level support at VCF hit loci.
 - Compares VCF and GFA result sets with coordinate-aware matching.
 - Generates reports, plots, GFF3 annotations, and BED/GFF3 exports.
+- Builds self-contained interactive HTML dashboards for focus regions.
 
 ## Quick Start
 
@@ -190,6 +191,29 @@ privy plot \
   --input-dir results/pangenome/ \
   --output-format pdf
 ```
+
+Build a shareable interactive dashboard for a focus region. In the current
+development implementation, `--focus` names a genomic region to render. Start
+with a region around 4 Mbp or smaller unless you already know the variant and
+annotation density is low enough for a larger static HTML file.
+
+```bash
+privy interactive \
+  --focus Gm15:1-4000000 \
+  --vcf cohort.vcf.gz \
+  --gff3 Wm82.gene_exons.gff3.gz \
+  --samples Harosoy Harosoy-sharp Kingawa \
+  --track-gff RepeatMasker=Wm82.repeats.gff3.gz \
+  --outdir results/interactive/
+```
+
+Repeat `--focus` to build one HTML file per focus region. When multiple focus
+regions are supplied, Privy also writes an `index.html` linking to each region
+dashboard. Use `--sites-tsv` instead of `--vcf` when you want to rebuild a
+dashboard from a previously extracted focus-region genotype table.
+Add `--functional-tsv` to join gene-level annotation and `--keyword-group`
+to create phenotype-oriented feature lists; the run guide defines the TSV
+schema and keyword matching behavior.
 
 Compare two scan outputs:
 
