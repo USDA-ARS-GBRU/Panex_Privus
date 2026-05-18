@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -184,7 +185,7 @@ def _validate_samples(vf: Any, samples: tuple[str, str, str]) -> None:
         raise ValueError(f"VCF is missing sample(s): {', '.join(missing)}")
 
 
-def _iter_region_records(vf: Any, focus: FocusRegion):
+def _iter_region_records(vf: Any, focus: FocusRegion) -> Iterator[Any]:
     start0 = focus.start - 1
     try:
         yield from vf.fetch(focus.contig, start0, focus.end)

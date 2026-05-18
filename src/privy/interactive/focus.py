@@ -9,9 +9,10 @@ import logging
 import re
 from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any, TextIO, TypeAlias, cast
 from urllib.parse import unquote
 
 from privy.interactive.genotypes import (
@@ -268,9 +269,9 @@ def _write_one_focus(
     )
 
 
-def _open_text(path: Path):
+def _open_text(path: Path) -> TextIO:
     if str(path).endswith(".gz"):
-        return gzip.open(path, "rt", encoding="utf-8")
+        return cast(TextIO, gzip.open(path, "rt", encoding="utf-8"))
     return path.open(encoding="utf-8")
 
 
@@ -746,7 +747,7 @@ def _count_variants(
     start: int,
     end: int,
 ) -> dict[str, int]:
-    counts = Counter()
+    counts: Counter[str] = Counter()
     for variant in variants[bisect_left(positions, start):bisect_right(positions, end)]:
         if variant["target"]:
             counts["target_total"] += 1
@@ -920,7 +921,7 @@ def _candidate_groups(
 ) -> list[dict[str, Any]]:
     gene_model_features = {"gene", "exon", "intron", "CDS"}
     built_in_features = {*gene_model_features, "promoter"}
-    base = [
+    base: list[tuple[str, str, Callable[[dict[str, Any]], bool]]] = [
         ("all", "All Variant-Supported Features", lambda row: True),
         (
             "gene_models",
@@ -934,7 +935,7 @@ def _candidate_groups(
             lambda row: row["feature_type"] not in built_in_features,
         ),
     ]
-    groups = []
+    groups: list[dict[str, Any]] = []
     used_keys = {key for key, _title, _predicate in base}
     for key, title, predicate in base:
         rows = [row for row in candidates if predicate(row)]
