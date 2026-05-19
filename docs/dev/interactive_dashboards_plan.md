@@ -29,11 +29,14 @@ Started in development:
 - `privy interactive --scan PATH` is implemented as an MVP scan review
   dashboard. It reads direct scan source directories or combined scan roots
   with `vcf/`, `gfa/`, and optional `compare/` children.
+- `privy interactive --landscape PATH` is implemented as an MVP landscape
+  review dashboard. It reads `windows.tsv`, `sample_windows.tsv`, optional
+  local-background block tables, pairwise similarity, filters, and metadata.
 
 Next implementation step: add more of the original Gm15 dashboard polish to the
-package path, especially landscape overlays, standalone landscape dashboards,
-and browser-side refinements. Curated preset keyword packs may become a later
-convenience layer.
+package path, especially focus-browser landscape overlays, pangenome
+dashboards, and browser-side refinements. Curated preset keyword packs may
+become a later convenience layer.
 
 ## Proposed CLI Namespace
 
@@ -317,6 +320,13 @@ phases after `--focus`.
 ### `privy interactive --landscape`
 
 Purpose: explore local ancestry/background and genotype-similarity windows.
+
+MVP status: implemented for `windows.tsv`, `sample_windows.tsv`, optional
+`candidate_introgression_blocks.tsv`, `background_blocks.tsv`,
+`filter_summary.tsv`, `similarity.tsv`, and `landscape.json`. The first view
+includes contig/sample/metric controls, a sample-by-window heatmap, a window
+profile, candidate block table, and provenance summaries. Embedded row counts
+are bounded by `--max-windows`, `--max-sample-windows`, and `--max-blocks`.
 
 Potential views:
 

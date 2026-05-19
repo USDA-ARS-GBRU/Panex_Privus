@@ -229,6 +229,20 @@ privy interactive \
 or a combined scan directory with `vcf/`, `gfa/`, and optional `compare/`
 children.
 
+Build an interactive dashboard from existing `privy landscape` outputs:
+
+```bash
+privy interactive \
+  --landscape results/landscape/ \
+  --max-windows 20000 \
+  --max-sample-windows 80000 \
+  --outdir results/interactive/
+```
+
+The landscape dashboard summarizes windows, sample-by-window metrics, local
+background similarity, and candidate introgression blocks from an existing
+landscape output directory.
+
 Compare two scan outputs:
 
 ```bash

@@ -118,6 +118,74 @@ def _write_scan_source(path: Path, prefix: str) -> Path:
     return path
 
 
+def _write_landscape(path: Path) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    path.joinpath("windows.tsv").write_text(
+        "window_id\tcontig\twindow_index\tstart\tend\tmidpoint\twindow_mode\t"
+        "n_variants\tspan_bp\tdensity_variants_per_kb\ttarget_mean_missing_rate\t"
+        "offtarget_mean_missing_rate\ttarget_mean_nonref_rate\tofftarget_mean_nonref_rate\t"
+        "target_private_alt_n\tofftarget_private_alt_n\ttarget_private_alt_rate\t"
+        "offtarget_private_alt_rate\ttop_nearest_background\ttop_nearest_background_n\n"
+        "LW1\tchr1\t1\t0\t100\t50\tbp\t10\t100\t0.100\t0.000\t0.000\t"
+        "0.500\t0.100\t2\t0\t0.200\t0.000\tOffA\t1\n"
+        "LW2\tchr1\t2\t100\t200\t150\tbp\t20\t100\t0.200\t0.100\t0.000\t"
+        "0.600\t0.200\t1\t0\t0.050\t0.000\tOffA\t1\n"
+        "LW3\tchr2\t1\t0\t100\t50\tbp\t5\t100\t0.050\t0.000\t0.000\t"
+        "0.200\t0.300\t0\t1\t0.000\t0.200\tTargetA\t1\n",
+        encoding="utf-8",
+    )
+    path.joinpath("sample_windows.tsv").write_text(
+        "window_id\tcontig\twindow_index\tstart\tend\tmidpoint\twindow_mode\tn_variants\t"
+        "sample\tcohort_role\tcalled_n\tmissing_n\tmissing_rate\thet_n\thet_rate\t"
+        "nonref_n\tnonref_rate\tminor_genotype_n\tminor_genotype_rate\trare_alt_n\t"
+        "rare_alt_rate\tprivate_alt_n\tprivate_alt_rate\tmedian_call_freq\t"
+        "nearest_background\tnearest_background_role\tnearest_similarity\t"
+        "similarity_compared_variants\n"
+        "LW1\tchr1\t1\t0\t100\t50\tbp\t10\tTargetA\ttarget\t10\t0\t0.000\t"
+        "0\t0.000\t5\t0.500\t0\t0.000\t0\t0.000\t2\t0.200\tNA\tOffA\toff_target\t0.900\t10\n"
+        "LW1\tchr1\t1\t0\t100\t50\tbp\t10\tOffA\toff_target\t10\t0\t0.000\t"
+        "0\t0.000\t1\t0.100\t0\t0.000\t0\t0.000\t0\t0.000\tNA\tTargetA\ttarget\t0.900\t10\n"
+        "LW2\tchr1\t2\t100\t200\t150\tbp\t20\tTargetA\ttarget\t18\t2\t0.100\t"
+        "0\t0.000\t12\t0.600\t0\t0.000\t0\t0.000\t1\t0.050\tNA\tOffA\toff_target\t0.800\t18\n"
+        "LW2\tchr1\t2\t100\t200\t150\tbp\t20\tOffA\toff_target\t20\t0\t0.000\t"
+        "0\t0.000\t4\t0.200\t0\t0.000\t0\t0.000\t0\t0.000\tNA\tTargetA\ttarget\t0.800\t20\n",
+        encoding="utf-8",
+    )
+    path.joinpath("candidate_introgression_blocks.tsv").write_text(
+        "block_id\tsample\tcontig\tstart\tend\tn_windows\tcandidate_donor\t"
+        "candidate_donor_role\tmean_donor_similarity\tmean_nearest_target_similarity\t"
+        "mean_similarity_delta\tmax_missing_rate\tmean_private_alt_rate\t"
+        "mean_nonref_rate\tevidence_class\tinterpretation\n"
+        "IB1\tTargetA\tchr1\t0\t200\t2\tOffA\toff_target\t0.850\t0.300\t"
+        "0.550\t0.100\t0.125\t0.550\tofftarget_closer_than_target\t"
+        "Target sample is locally closest to an off-target sample.\n",
+        encoding="utf-8",
+    )
+    path.joinpath("background_blocks.tsv").write_text(
+        "block_id\tsample\tcohort_role\tcontig\tstart\tend\tn_windows\t"
+        "nearest_background\tnearest_background_role\tmean_similarity\n"
+        "LB1\tTargetA\ttarget\tchr1\t0\t200\t2\tOffA\toff_target\t0.850\n",
+        encoding="utf-8",
+    )
+    path.joinpath("filter_summary.tsv").write_text(
+        "metric\tvalue\tdescription\n"
+        "records_seen\t3\tRecords considered\n",
+        encoding="utf-8",
+    )
+    path.joinpath("similarity.tsv").write_text(
+        "window_id\tcontig\twindow_index\tstart\tend\tsample_a\tsample_b\t"
+        "similarity\tcompared_variants\n"
+        "LW1\tchr1\t1\t0\t100\tTargetA\tOffA\t0.900\t10\n"
+        "LW2\tchr1\t2\t100\t200\tTargetA\tOffA\t0.800\t18\n",
+        encoding="utf-8",
+    )
+    path.joinpath("landscape.json").write_text(
+        '{"analysis":"landscape","parameters":{"window_bp":100,"step_bp":100}}\n',
+        encoding="utf-8",
+    )
+    return path
+
+
 def test_interactive_focus_writes_one_html_per_region(tmp_path: Path) -> None:
     sites = _write_sites(tmp_path / "sites.tsv")
     gff3 = _write_gff3(tmp_path / "genes.gff3")
@@ -299,6 +367,37 @@ def test_interactive_scan_writes_dashboard_from_combined_scan_dir(tmp_path: Path
     assert "V001" in text
     assert "G001" in text
     assert "supported" in text
+
+
+def test_interactive_landscape_writes_dashboard(tmp_path: Path) -> None:
+    landscape = _write_landscape(tmp_path / "landscape")
+    outdir = tmp_path / "interactive"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "interactive",
+            "--landscape",
+            str(landscape),
+            "--max-windows",
+            "10",
+            "--max-sample-windows",
+            "10",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    html = outdir / "landscape_dashboard.html"
+    metadata = outdir / "landscape_dashboard.json"
+    assert html.exists()
+    assert metadata.exists()
+    text = html.read_text(encoding="utf-8")
+    assert "Privy Interactive Landscape Dashboard" in text
+    assert "Sample-By-Window Heatmap" in text
+    assert "IB1" in text
+    assert "TargetA" in text
 
 
 def test_interactive_requires_sites_tsv_or_vcf() -> None:

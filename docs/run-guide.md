@@ -961,6 +961,38 @@ Scan dashboard outputs:
 - `scan_dashboard.html`: shareable interactive scan dashboard
 - `scan_dashboard.json`: reproducibility metadata and source summaries
 
+### Interactive Landscape Dashboards
+
+Use `privy interactive --landscape` to build a self-contained dashboard from
+existing `privy landscape` outputs. This dashboard is designed for local
+background and window-metric review: it includes a contig selector,
+sample-by-window heatmap, window profile, candidate introgression block table,
+pairwise similarity summaries, filtering provenance, and run metadata.
+
+```bash
+privy interactive \
+  --landscape results/landscape/ \
+  --max-windows 20000 \
+  --max-sample-windows 80000 \
+  --max-blocks 5000 \
+  --outdir results/interactive/
+```
+
+`--landscape` expects a directory containing `windows.tsv` and
+`sample_windows.tsv`. It also reads these optional files when present:
+`candidate_introgression_blocks.tsv`, `background_blocks.tsv`,
+`filter_summary.tsv`, `similarity.tsv`, and `landscape.json`.
+
+The dashboard preserves full row counts in `landscape_dashboard.json`, but
+embeds bounded rows in the HTML so large genome-wide landscapes remain
+shareable. Increase `--max-windows`, `--max-sample-windows`, or `--max-blocks`
+when you need more complete in-browser review.
+
+Landscape dashboard outputs:
+
+- `landscape_dashboard.html`: shareable interactive landscape dashboard
+- `landscape_dashboard.json`: reproducibility metadata and source summaries
+
 ## Annotate Hits
 
 Use `privy annotate` when you want to connect candidate private loci to gene

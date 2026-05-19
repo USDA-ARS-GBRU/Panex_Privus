@@ -11,6 +11,7 @@ import typer
 from privy.cli.context import get_state
 from privy.interactive.focus import RECOMMENDED_FOCUS_BP, run_focus_dashboards
 from privy.interactive.genotypes import VariantFilter
+from privy.interactive.landscape import run_landscape_dashboard
 from privy.interactive.models import FocusRegion, parse_focus_region
 from privy.interactive.scan import run_scan_dashboard
 
@@ -20,8 +21,9 @@ app = typer.Typer(
     name="interactive",
     help=(
         "Build self-contained interactive HTML dashboards.\n\n"
-        "Supported modes include one static dashboard per --focus region and "
-        "summary dashboards from existing --scan output directories."
+        "Supported modes include one static dashboard per --focus region, "
+        "summary dashboards from existing --scan output directories, and "
+        "window dashboards from existing --landscape output directories."
     ),
     rich_markup_mode="rich",
     no_args_is_help=True,
@@ -48,6 +50,13 @@ def interactive(
             "Existing privy scan output directory. Accepts a direct directory "
             "with hits.tsv or a combined run with vcf/, gfa/, and compare/ children."
         ),
+    ),
+    landscape_dir: Path | None = typer.Option(
+        None,
+        "--landscape",
+        "--landscape-dir",
+        metavar="PATH",
+        help="Existing privy landscape output directory containing windows.tsv.",
     ),
     sites_tsv: Path | None = typer.Option(
         None,
@@ -138,6 +147,27 @@ def interactive(
         min=1,
         help="For --scan, maximum candidate region rows to embed per source.",
     ),
+    max_windows: int = typer.Option(
+        20000,
+        "--max-windows",
+        metavar="INTEGER",
+        min=1,
+        help="For --landscape, maximum window rows to embed.",
+    ),
+    max_sample_windows: int = typer.Option(
+        80000,
+        "--max-sample-windows",
+        metavar="INTEGER",
+        min=1,
+        help="For --landscape, maximum sample-window rows to embed.",
+    ),
+    max_blocks: int = typer.Option(
+        5000,
+        "--max-blocks",
+        metavar="INTEGER",
+        min=1,
+        help="For --landscape, maximum candidate block rows to embed.",
+    ),
     pass_only: bool = typer.Option(
         True,
         "--pass-only/--no-pass-only",
@@ -182,9 +212,12 @@ def interactive(
     state = get_state()
     effective_outdir = outdir or state.outdir
 
-    mode_count = int(bool(focus)) + int(scan_dir is not None)
+    mode_count = int(bool(focus)) + int(scan_dir is not None) + int(landscape_dir is not None)
     if mode_count != 1:
-        typer.echo("[error] Provide exactly one dashboard mode: --focus or --scan.", err=True)
+        typer.echo(
+            "[error] Provide exactly one dashboard mode: --focus, --scan, or --landscape.",
+            err=True,
+        )
         raise typer.Exit(code=2)
 
     if scan_dir is not None:
@@ -196,6 +229,25 @@ def interactive(
                 subtitle=subtitle,
                 max_hits=max_hits,
                 max_regions=max_regions,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            typer.echo(f"[error] {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not state.quiet:
+            for path in generated:
+                typer.echo(f"  {path}")
+        return
+
+    if landscape_dir is not None:
+        try:
+            generated = run_landscape_dashboard(
+                landscape_dir=landscape_dir,
+                outdir=effective_outdir,
+                title=title,
+                subtitle=subtitle,
+                max_windows=max_windows,
+                max_sample_windows=max_sample_windows,
+                max_blocks=max_blocks,
             )
         except (FileNotFoundError, ValueError) as exc:
             typer.echo(f"[error] {exc}", err=True)
