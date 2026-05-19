@@ -243,6 +243,20 @@ The landscape dashboard summarizes windows, sample-by-window metrics, local
 background similarity, and candidate introgression blocks from an existing
 landscape output directory.
 
+Build an interactive dashboard from existing `privy pangenome` outputs:
+
+```bash
+privy interactive \
+  --pangenome results/pangenome/ \
+  --max-features 10000 \
+  --max-private-features 5000 \
+  --outdir results/interactive/
+```
+
+`--pangenome` accepts either a direct pangenome directory containing
+`feature_summary.tsv`, or a combined pangenome directory with `vcf/` and `gfa/`
+children.
+
 Compare two scan outputs:
 
 ```bash

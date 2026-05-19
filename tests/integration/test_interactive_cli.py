@@ -186,6 +186,71 @@ def _write_landscape(path: Path) -> Path:
     return path
 
 
+def _write_pangenome(path: Path, source_type: str) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    prefix = source_type.upper()
+    path.joinpath("feature_summary.tsv").write_text(
+        "feature_id\tsource_type\tfeature_type\tcontig\tstart\tend\tlength\t"
+        "total_present_n\ttarget_present_n\ttarget_total_n\tofftarget_present_n\t"
+        "offtarget_total_n\tfull_category\ttarget_category\tofftarget_category\t"
+        "target_private\tofftarget_private\n"
+        f"{prefix}F1\t{source_type}\tsegment\tchr1\t0\t100\t100\t2\t2\t2\t0\t3\t"
+        "accessory\tcore\tabsent\tTrue\tFalse\n"
+        f"{prefix}F2\t{source_type}\tsegment\tchr1\t100\t160\t60\t5\t2\t2\t3\t3\t"
+        "core\tcore\tcore\tFalse\tFalse\n"
+        f"{prefix}F3\t{source_type}\tsegment\tchr2\t0\t40\t40\t3\t0\t2\t3\t3\t"
+        "accessory\tabsent\tcore\tFalse\tTrue\n",
+        encoding="utf-8",
+    )
+    path.joinpath("composition.tsv").write_text(
+        "group\tcategory\tn_features\tn_bp\n"
+        "full\tabsent\t0\t0\n"
+        "full\tprivate\t0\t0\n"
+        "full\taccessory\t2\t140\n"
+        "full\tcore\t1\t60\n"
+        "target\tabsent\t1\t40\n"
+        "target\tprivate\t0\t0\n"
+        "target\taccessory\t0\t0\n"
+        "target\tcore\t2\t160\n"
+        "off_target\tabsent\t1\t100\n"
+        "off_target\tprivate\t0\t0\n"
+        "off_target\taccessory\t0\t0\n"
+        "off_target\tcore\t2\t100\n",
+        encoding="utf-8",
+    )
+    path.joinpath("coverage_histogram.tsv").write_text(
+        "group\tcoverage\tn_features\tn_bp\n"
+        "full\t0\t0\t0\n"
+        "full\t1\t0\t0\n"
+        "full\t2\t1\t100\n"
+        "full\t3\t1\t40\n"
+        "target\t0\t1\t40\n"
+        "target\t1\t0\t0\n"
+        "target\t2\t2\t160\n",
+        encoding="utf-8",
+    )
+    path.joinpath("growth_curves.tsv").write_text(
+        "group\ttrial\tn\tsample_added\tfeatures\tbp\tnew_features\tnew_bp\t"
+        "singleton_features\tsingleton_bp\n"
+        "full\t1\t1\tT1\t2\t160\t2\t160\t2\t160\n"
+        "full\t1\t2\tO1\t3\t200\t1\t40\t3\t200\n"
+        "target\t1\t1\tT1\t2\t160\t2\t160\t2\t160\n"
+        "target\t1\t2\tT2\t2\t160\t0\t0\t0\t0\n",
+        encoding="utf-8",
+    )
+    path.joinpath("pangenome.json").write_text(
+        '{"analysis":"pangenome","source_type":"'
+        + source_type
+        + '","summary":{"n_features":3,"n_samples":5,'
+        '"n_target_samples":2,"n_offtarget_samples":3},'
+        '"samples":{"target":["T1","T2"],"off_target":["O1","O2","O3"],'
+        '"full":["T1","T2","O1","O2","O3"]},'
+        '"parameters":{"permutations":1}}\n',
+        encoding="utf-8",
+    )
+    return path
+
+
 def test_interactive_focus_writes_one_html_per_region(tmp_path: Path) -> None:
     sites = _write_sites(tmp_path / "sites.tsv")
     gff3 = _write_gff3(tmp_path / "genes.gff3")
@@ -398,6 +463,39 @@ def test_interactive_landscape_writes_dashboard(tmp_path: Path) -> None:
     assert "Sample-By-Window Heatmap" in text
     assert "IB1" in text
     assert "TargetA" in text
+
+
+def test_interactive_pangenome_writes_dashboard_from_combined_dir(tmp_path: Path) -> None:
+    pangenome = tmp_path / "pangenome"
+    _write_pangenome(pangenome / "vcf", "vcf")
+    _write_pangenome(pangenome / "gfa", "gfa")
+    outdir = tmp_path / "interactive"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "interactive",
+            "--pangenome",
+            str(pangenome),
+            "--max-features",
+            "2",
+            "--max-private-features",
+            "1",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    html = outdir / "pangenome_dashboard.html"
+    metadata = outdir / "pangenome_dashboard.json"
+    assert html.exists()
+    assert metadata.exists()
+    text = html.read_text(encoding="utf-8")
+    assert "Privy Interactive Pangenome Dashboard" in text
+    assert "Composition" in text
+    assert "VCFF1" in text
+    assert "GFAF1" in text
 
 
 def test_interactive_requires_sites_tsv_or_vcf() -> None:

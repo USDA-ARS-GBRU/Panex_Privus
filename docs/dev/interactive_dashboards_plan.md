@@ -32,11 +32,14 @@ Started in development:
 - `privy interactive --landscape PATH` is implemented as an MVP landscape
   review dashboard. It reads `windows.tsv`, `sample_windows.tsv`, optional
   local-background block tables, pairwise similarity, filters, and metadata.
+- `privy interactive --pangenome PATH` is implemented as an MVP pangenome
+  inventory dashboard. It reads direct pangenome source directories or combined
+  roots with `vcf/` and `gfa/` children.
 
 Next implementation step: add more of the original Gm15 dashboard polish to the
-package path, especially focus-browser landscape overlays, pangenome
-dashboards, and browser-side refinements. Curated preset keyword packs may
-become a later convenience layer.
+package path, especially focus-browser landscape/pangenome overlays and
+browser-side refinements. Curated preset keyword packs may become a later
+convenience layer.
 
 ## Proposed CLI Namespace
 
@@ -381,6 +384,12 @@ Inputs:
 ### `privy interactive --pangenome`
 
 Purpose: explore pangenome composition and sample/feature coverage summaries.
+
+MVP status: implemented for `feature_summary.tsv`, optional `composition.tsv`,
+`coverage_histogram.tsv`, `growth_curves.tsv`, and `pangenome.json`. It renders
+composition, coverage, growth, feature type, top-contig, and searchable
+target-private feature views. Embedded feature rows are bounded by
+`--max-features` and `--max-private-features`.
 
 Potential views:
 

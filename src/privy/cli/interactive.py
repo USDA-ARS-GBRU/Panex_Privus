@@ -13,6 +13,7 @@ from privy.interactive.focus import RECOMMENDED_FOCUS_BP, run_focus_dashboards
 from privy.interactive.genotypes import VariantFilter
 from privy.interactive.landscape import run_landscape_dashboard
 from privy.interactive.models import FocusRegion, parse_focus_region
+from privy.interactive.pangenome import run_pangenome_dashboard
 from privy.interactive.scan import run_scan_dashboard
 
 log = logging.getLogger("privy.cli.interactive")
@@ -23,7 +24,8 @@ app = typer.Typer(
         "Build self-contained interactive HTML dashboards.\n\n"
         "Supported modes include one static dashboard per --focus region, "
         "summary dashboards from existing --scan output directories, and "
-        "window dashboards from existing --landscape output directories."
+        "window dashboards from existing --landscape and --pangenome output "
+        "directories."
     ),
     rich_markup_mode="rich",
     no_args_is_help=True,
@@ -57,6 +59,16 @@ def interactive(
         "--landscape-dir",
         metavar="PATH",
         help="Existing privy landscape output directory containing windows.tsv.",
+    ),
+    pangenome_dir: Path | None = typer.Option(
+        None,
+        "--pangenome",
+        "--pangenome-dir",
+        metavar="PATH",
+        help=(
+            "Existing privy pangenome output directory. Accepts a direct directory "
+            "with feature_summary.tsv or a combined run with vcf/ and gfa/ children."
+        ),
     ),
     sites_tsv: Path | None = typer.Option(
         None,
@@ -168,6 +180,20 @@ def interactive(
         min=1,
         help="For --landscape, maximum candidate block rows to embed.",
     ),
+    max_features: int = typer.Option(
+        10000,
+        "--max-features",
+        metavar="INTEGER",
+        min=1,
+        help="For --pangenome, maximum feature rows to embed per source.",
+    ),
+    max_private_features: int = typer.Option(
+        5000,
+        "--max-private-features",
+        metavar="INTEGER",
+        min=1,
+        help="For --pangenome, maximum target-private feature rows to embed per source.",
+    ),
     pass_only: bool = typer.Option(
         True,
         "--pass-only/--no-pass-only",
@@ -212,10 +238,16 @@ def interactive(
     state = get_state()
     effective_outdir = outdir or state.outdir
 
-    mode_count = int(bool(focus)) + int(scan_dir is not None) + int(landscape_dir is not None)
+    mode_count = (
+        int(bool(focus))
+        + int(scan_dir is not None)
+        + int(landscape_dir is not None)
+        + int(pangenome_dir is not None)
+    )
     if mode_count != 1:
         typer.echo(
-            "[error] Provide exactly one dashboard mode: --focus, --scan, or --landscape.",
+            "[error] Provide exactly one dashboard mode: "
+            "--focus, --scan, --landscape, or --pangenome.",
             err=True,
         )
         raise typer.Exit(code=2)
@@ -248,6 +280,24 @@ def interactive(
                 max_windows=max_windows,
                 max_sample_windows=max_sample_windows,
                 max_blocks=max_blocks,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            typer.echo(f"[error] {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not state.quiet:
+            for path in generated:
+                typer.echo(f"  {path}")
+        return
+
+    if pangenome_dir is not None:
+        try:
+            generated = run_pangenome_dashboard(
+                pangenome_dir=pangenome_dir,
+                outdir=effective_outdir,
+                title=title,
+                subtitle=subtitle,
+                max_features=max_features,
+                max_private_features=max_private_features,
             )
         except (FileNotFoundError, ValueError) as exc:
             typer.echo(f"[error] {exc}", err=True)

@@ -993,6 +993,39 @@ Landscape dashboard outputs:
 - `landscape_dashboard.html`: shareable interactive landscape dashboard
 - `landscape_dashboard.json`: reproducibility metadata and source summaries
 
+### Interactive Pangenome Dashboards
+
+Use `privy interactive --pangenome` to build a self-contained dashboard from
+existing `privy pangenome` outputs. This dashboard is designed for inventory
+and composition review: it includes source-aware feature counts, target-private
+and off-target-private feature counts, composition bars, coverage histograms,
+growth curves, feature-type summaries, top contigs, and a searchable feature
+table.
+
+```bash
+privy interactive \
+  --pangenome results/pangenome/ \
+  --max-features 10000 \
+  --max-private-features 5000 \
+  --outdir results/interactive/
+```
+
+`--pangenome` accepts either:
+
+- a direct pangenome source directory containing `feature_summary.tsv`
+- a combined pangenome run directory containing source subdirectories such as
+  `vcf/` and `gfa/`
+
+It reads `composition.tsv`, `coverage_histogram.tsv`, `growth_curves.tsv`, and
+`pangenome.json` when present. The dashboard preserves full feature counts in
+`pangenome_dashboard.json`, but embeds bounded feature tables so large
+pangenomes remain shareable.
+
+Pangenome dashboard outputs:
+
+- `pangenome_dashboard.html`: shareable interactive pangenome dashboard
+- `pangenome_dashboard.json`: reproducibility metadata and source summaries
+
 ## Annotate Hits
 
 Use `privy annotate` when you want to connect candidate private loci to gene
