@@ -290,6 +290,9 @@ def test_interactive_focus_writes_one_html_per_region(tmp_path: Path) -> None:
     assert not (outdir / "index.html").exists()
     text = html.read_text(encoding="utf-8")
     assert "Interactive Genome Browser" in text
+    assert "Panex Privus Interactive Focus Region Report" in text
+    assert "Generated with <a href=\"https://github.com/USDA-ARS-GBRU/Panex_Privus\"" in text
+    assert "This self-contained HTML report was generated with" in text
     assert "RepeatOne" in text
     assert "GeneA" in features.read_text(encoding="utf-8")
 
@@ -427,7 +430,8 @@ def test_interactive_scan_writes_dashboard_from_combined_scan_dir(tmp_path: Path
     assert html.exists()
     assert metadata.exists()
     text = html.read_text(encoding="utf-8")
-    assert "Privy Interactive Scan Dashboard" in text
+    assert "Panex Privus Interactive Scan Report" in text
+    assert "Generated with <a href=\"https://github.com/USDA-ARS-GBRU/Panex_Privus\"" in text
     assert "Strictness Classes" in text
     assert "V001" in text
     assert "G001" in text
@@ -459,7 +463,8 @@ def test_interactive_landscape_writes_dashboard(tmp_path: Path) -> None:
     assert html.exists()
     assert metadata.exists()
     text = html.read_text(encoding="utf-8")
-    assert "Privy Interactive Landscape Dashboard" in text
+    assert "Panex Privus Interactive Landscape Report" in text
+    assert "This self-contained HTML report was generated with" in text
     assert "Sample-By-Window Heatmap" in text
     assert "IB1" in text
     assert "TargetA" in text
@@ -492,7 +497,8 @@ def test_interactive_pangenome_writes_dashboard_from_combined_dir(tmp_path: Path
     assert html.exists()
     assert metadata.exists()
     text = html.read_text(encoding="utf-8")
-    assert "Privy Interactive Pangenome Dashboard" in text
+    assert "Panex Privus Interactive Pangenome Report" in text
+    assert "USDA-ARS-GBRU/Panex_Privus" in text
     assert "Composition" in text
     assert "VCFF1" in text
     assert "GFAF1" in text

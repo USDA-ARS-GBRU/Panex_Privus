@@ -1,5 +1,5 @@
 {
-  "title": "Privy Interactive Focus: chr1:1-1000",
+  "title": "Panex Privus Interactive Focus Region Report",
   "subtitle": "Self-contained focus-region browser.",
   "contig": "chr1",
   "start": 1,
@@ -14,9 +14,9 @@
     "T2"
   ],
   "sample_display": {
-    "O1": "Background",
-    "T1": "Derived",
-    "T2": "Donor"
+    "O1": "O1",
+    "T1": "T1",
+    "T2": "T2"
   },
   "gene_count": 2,
   "variant_count": 6,

@@ -1,5 +1,5 @@
 {
-  "title": "Privy Interactive Pangenome Dashboard",
+  "title": "Panex Privus Interactive Pangenome Report",
   "subtitle": "Self-contained dashboard from existing privy pangenome outputs.",
   "analysis": "interactive_pangenome",
   "pangenome_dir": "docs/assets/examples/pangenome-gfa",

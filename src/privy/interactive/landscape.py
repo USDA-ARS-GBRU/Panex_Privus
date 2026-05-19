@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from privy.interactive.branding import default_dashboard_title
 from privy.interactive.landscape_render import render_landscape_html
 
 
@@ -108,7 +109,7 @@ def _build_dashboard_data(
     samples = sorted(sample_summary["samples"])
     return {
         "summary": {
-            "title": title or "Privy Interactive Landscape Dashboard",
+            "title": title or default_dashboard_title("Landscape"),
             "subtitle": subtitle
             or "Self-contained dashboard from existing privy landscape outputs.",
             "analysis": "interactive_landscape",

@@ -7,6 +7,8 @@ import html
 import json
 from typing import Any
 
+from privy.interactive.branding import FOOTER_HTML, TOP_CREDIT_HTML
+
 
 def render_focus_html(data: dict[str, Any]) -> str:
     """Render one self-contained focus-region browser."""
@@ -16,6 +18,8 @@ def render_focus_html(data: dict[str, Any]) -> str:
     return (
         document.replace("__TITLE__", html.escape(title))
         .replace("__SUBTITLE__", html.escape(subtitle))
+        .replace("__TOP_CREDIT__", TOP_CREDIT_HTML)
+        .replace("__FOOTER__", FOOTER_HTML)
         .replace("__DATA_JSON__", json.dumps(data, separators=(",", ":")))
     )
 
@@ -34,10 +38,13 @@ def render_index_html(outputs: list[Any], title: str, subtitle: str) -> str:
             f'<td><a href="{html.escape(feature_name)}">{html.escape(feature_name)}</a></td>'
             "</tr>"
         )
-    return _INDEX_TEMPLATE.replace("__TITLE__", html.escape(title)).replace(
-        "__SUBTITLE__",
-        html.escape(subtitle),
-    ).replace("__ROWS__", "\n".join(rows))
+    return (
+        _INDEX_TEMPLATE.replace("__TITLE__", html.escape(title))
+        .replace("__SUBTITLE__", html.escape(subtitle))
+        .replace("__TOP_CREDIT__", TOP_CREDIT_HTML)
+        .replace("__FOOTER__", FOOTER_HTML)
+        .replace("__ROWS__", "\n".join(rows))
+    )
 
 
 _INDEX_TEMPLATE = """<!doctype html>
@@ -52,10 +59,13 @@ table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
 th, td { border: 1px solid #d7ddd8; padding: .55rem .7rem; text-align: left; }
 th { background: #eef4f1; }
 a { color: #0b5c8e; }
+.tool-credit { color: #5a665f; margin: .25rem 0 0; }
+.site-footer { border-top: 1px solid #d7ddd8; margin-top: 2rem; padding-top: 1rem; color: #5a665f; font-size: .92rem; }
 </style>
 </head>
 <body>
 <h1>__TITLE__</h1>
+<p class="tool-credit">__TOP_CREDIT__</p>
 <p>__SUBTITLE__</p>
 <table>
 <thead><tr><th>Focus region</th><th>Length bp</th><th>Dashboard</th><th>Feature TSV</th></tr></thead>
@@ -63,6 +73,7 @@ a { color: #0b5c8e; }
 __ROWS__
 </tbody>
 </table>
+<footer class="site-footer">__FOOTER__</footer>
 </body>
 </html>
 """
@@ -106,6 +117,8 @@ body {
 h1 { margin: 8px 0 8px; font-size: clamp(1.8rem, 3.6vw, 3.1rem); line-height: 1.06; letter-spacing: 0; }
 h2, h3 { letter-spacing: 0; }
 .lede { max-width: 1060px; font-size: 1.08rem; color: #334139; margin: 0; }
+.tool-credit { color: var(--muted); margin: 2px 0 0; }
+.tool-credit a, .site-footer a { color: #0b5c8e; }
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -227,6 +240,17 @@ select, input {
 .note-block h3 { margin: 0 0 8px; }
 .note-block p, .note-block li { color: var(--muted); }
 .note-block ul { margin: 8px 0 0 18px; padding: 0; }
+.site-footer {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 clamp(14px, 3vw, 34px) 32px;
+  color: var(--muted);
+  font-size: .92rem;
+}
+.site-footer div {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
 @media (max-width: 900px) {
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .controls { grid-template-columns: 1fr; }
@@ -243,6 +267,7 @@ select, input {
 <header class="site-header">
   <div class="eyebrow">Privy interactive focus region</div>
   <h1>__TITLE__</h1>
+  <p class="tool-credit">__TOP_CREDIT__</p>
   <p class="lede">__SUBTITLE__</p>
   <div class="summary-grid">
     <div class="metric"><span>Region</span><strong id="metricRegion"></strong></div>
@@ -335,6 +360,7 @@ select, input {
     </div>
   </section>
 </main>
+<footer class="site-footer"><div>__FOOTER__</div></footer>
 <script>
 const DATA = __DATA_JSON__;
 const S = DATA.summary;

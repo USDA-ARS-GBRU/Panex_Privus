@@ -1,5 +1,5 @@
 {
-  "title": "Privy Interactive Landscape Dashboard",
+  "title": "Panex Privus Interactive Landscape Report",
   "subtitle": "Self-contained dashboard from existing privy landscape outputs.",
   "analysis": "interactive_landscape",
   "landscape_dir": "docs/assets/examples/landscape",

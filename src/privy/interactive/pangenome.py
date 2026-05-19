@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from privy.interactive.branding import default_dashboard_title
 from privy.interactive.pangenome_render import render_pangenome_html
 
 
@@ -141,7 +142,7 @@ def _build_dashboard_data(
     )
     return {
         "summary": {
-            "title": title or "Privy Interactive Pangenome Dashboard",
+            "title": title or default_dashboard_title("Pangenome"),
             "subtitle": subtitle
             or "Self-contained dashboard from existing privy pangenome outputs.",
             "analysis": "interactive_pangenome",

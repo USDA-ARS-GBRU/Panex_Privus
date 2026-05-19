@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from privy.interactive.branding import default_dashboard_title
 from privy.interactive.scan_render import render_scan_html
 
 
@@ -152,7 +153,7 @@ def _build_dashboard_data(
         scores.update(_counter_from_rows(source["score_bins"]))
     return {
         "summary": {
-            "title": title or "Privy Interactive Scan Dashboard",
+            "title": title or default_dashboard_title("Scan"),
             "subtitle": subtitle or "Self-contained dashboard from existing privy scan outputs.",
             "analysis": "interactive_scan",
             "scan_dir": str(scan_dir),

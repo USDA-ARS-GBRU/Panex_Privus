@@ -7,6 +7,8 @@ import json
 from html import escape
 from typing import Any
 
+from privy.interactive.branding import FOOTER_HTML, TOP_CREDIT_HTML
+
 
 def render_scan_html(data: dict[str, Any]) -> str:
     """Render a self-contained scan dashboard HTML document."""
@@ -48,6 +50,8 @@ header {{
 }}
 h1 {{ margin: 0; font-size: clamp(1.45rem, 2.2vw, 2.3rem); letter-spacing: 0; }}
 .subtitle {{ margin: 8px 0 0; max-width: 980px; color: var(--muted); }}
+.tool-credit {{ margin: 6px 0 0; color: var(--muted); }}
+.tool-credit a, .site-footer a {{ color: #0b5c8e; }}
 main {{ padding: 20px clamp(14px, 2.4vw, 34px) 42px; }}
 .toolbar {{
   display: grid;
@@ -149,6 +153,12 @@ tr:hover td {{ background: #f8faf7; }}
 .muted {{ color: var(--muted); }}
 .provenance {{ margin-top: 14px; }}
 .provenance code {{ word-break: break-all; }}
+.site-footer {{
+  padding: 0 clamp(14px, 2.4vw, 34px) 32px;
+  color: var(--muted);
+  font-size: .92rem;
+}}
+.site-footer div {{ border-top: 1px solid var(--line); padding-top: 14px; }}
 @media (max-width: 980px) {{
   .toolbar, .metrics, .grid, .filter-groups, .tables {{ grid-template-columns: 1fr; }}
   table {{ min-width: 760px; }}
@@ -158,6 +168,7 @@ tr:hover td {{ background: #f8faf7; }}
 <body>
 <header>
   <h1 id="title"></h1>
+  <p class="tool-credit">{TOP_CREDIT_HTML}</p>
   <p class="subtitle" id="subtitle"></p>
 </header>
 <main>
@@ -220,6 +231,7 @@ tr:hover td {{ background: #f8faf7; }}
     </div>
   </section>
 </main>
+<footer class="site-footer"><div>{FOOTER_HTML}</div></footer>
 <script>
 const DATA = {payload};
 const S = DATA.summary;

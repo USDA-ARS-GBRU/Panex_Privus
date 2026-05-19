@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, TextIO, TypeAlias, cast
 from urllib.parse import unquote
 
+from privy.interactive.branding import PANEX_PRIVUS_NAME, default_dashboard_title
 from privy.interactive.genotypes import (
     ExtractionSummary,
     VariantFilter,
@@ -168,7 +169,7 @@ def run_focus_dashboards(
         index_path.write_text(
             render_index_html(
                 outputs=outputs,
-                title=title or "Privy Interactive Focus Regions",
+                title=title or f"{PANEX_PRIVUS_NAME} Interactive Focus Region Reports",
                 subtitle=(
                     subtitle
                     or "One self-contained dashboard was written for each --focus region."
@@ -867,7 +868,7 @@ def _build_browser_data(
     groups = _candidate_groups(candidates, keyword_groups)
     return {
         "summary": {
-            "title": title or f"Privy Interactive Focus: {focus.label}",
+            "title": title or default_dashboard_title("Focus Region"),
             "subtitle": subtitle or "Self-contained focus-region browser.",
             "contig": focus.contig,
             "start": focus.start,

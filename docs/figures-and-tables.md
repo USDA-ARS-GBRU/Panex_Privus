@@ -613,8 +613,7 @@ Example static dashboards generated from the documentation example outputs:
 
 ### Dashboard: Focus Region Browser
 
-**Dashboard title.** Interactive focus-region browser for candidate
-target-private signal.
+**Dashboard title.** Panex Privus Interactive Focus Region Report.
 
 **Caption.** Self-contained browser for a user-selected genomic region. Tracks
 show focal genotype states, PASS SNPs and other variant classes, gene models,
@@ -625,7 +624,7 @@ focal variation are not elevated.
 
 ### Dashboard: Scan Summary
 
-**Dashboard title.** Interactive review of target-private scan results.
+**Dashboard title.** Panex Privus Interactive Scan Report.
 
 **Caption.** Shareable dashboard summarizing ranked candidate loci, merged
 regions, strictness classes, score distributions, QC metrics, and optional
@@ -635,7 +634,7 @@ tables or figures.
 
 ### Dashboard: Landscape Summary
 
-**Dashboard title.** Interactive VCF landscape and local-background dashboard.
+**Dashboard title.** Panex Privus Interactive Landscape Report.
 
 **Caption.** Shareable dashboard summarizing sliding-window landscape metrics,
 including window profiles, sample-by-window missingness and private ALT burden,
@@ -646,7 +645,7 @@ population or cross-aware analyses.
 
 ### Dashboard: Pangenome Summary
 
-**Dashboard title.** Interactive pangenome composition dashboard.
+**Dashboard title.** Panex Privus Interactive Pangenome Report.
 
 **Caption.** Shareable dashboard summarizing pangenome feature inventory,
 target-private and off-target-private features, core/accessory/private/absent

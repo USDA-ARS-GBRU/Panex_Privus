@@ -1,5 +1,5 @@
 {
-  "title": "Privy Interactive Scan Dashboard",
+  "title": "Panex Privus Interactive Scan Report",
   "subtitle": "Self-contained dashboard from existing privy scan outputs.",
   "analysis": "interactive_scan",
   "scan_dir": "docs/assets/examples/workflow/scan",
