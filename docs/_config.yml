@@ -191,12 +191,22 @@ nav:
     children:
       - title: Overview
         url: /architecture/#overview
-      - title: Priorities
-        url: /architecture/#architectural-priorities
+      - title: Principles
+        url: /architecture/#design-principles
+      - title: System map
+        url: /architecture/#system-map
       - title: Commands
-        url: /architecture/#command-architecture
-      - title: CLI surface
-        url: /architecture/#current-cli-surface
+        url: /architecture/#command-responsibilities
+      - title: Data model
+        url: /architecture/#formal-data-model
+      - title: Discovery
+        url: /architecture/#discovery-algorithms
+      - title: Scoring
+        url: /architecture/#evidence-and-scoring
+      - title: Landscape
+        url: /architecture/#landscape-algorithms
+      - title: Implementation
+        url: /architecture/#implementation-architecture
 
 exclude:
   - dev/

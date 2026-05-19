@@ -6,6 +6,17 @@
     <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
     <meta name="description" content="{{ page.description | default: site.description }}">
     <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+    {% if page.math %}
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"]],
+          displayMath: [["\\[", "\\]"]]
+        }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    {% endif %}
   </head>
   <body>
     <header class="site-header">
@@ -80,5 +91,15 @@
         </span>
       </div>
     </footer>
+    {% if page.mermaid %}
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "neutral",
+        securityLevel: "loose"
+      });
+    </script>
+    {% endif %}
   </body>
 </html>

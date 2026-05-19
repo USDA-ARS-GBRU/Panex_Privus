@@ -1,1195 +1,654 @@
 ---
 title: Architecture
-description: Panex Privus architecture and CLI surface.
+description: Panex Privus software architecture, formal data model, and algorithmic methods.
+math: true
+mermaid: true
 ---
 
 # Architecture
 
-## Overview
-
-Panex Privus is a comparative genomics toolkit centered on one inference problem:
-
-> identify genomic signal shared within a target cohort and absent from off-target genomes
-
-The software is designed to be:
-
-- VCF/GFA primary-discovery capable
-- interval-aware
-- multi-evidence
-- auditable
-- scalable to plant pangenome workflows
-
-This document describes the conceptual and software architecture of the package.
-
----
-
-## Architectural priorities
-
-### 1. Logic-centered rather than format-centered
-Panex Privus supports multiple file formats, but no format is treated as the sole definition of truth.
-
-Instead, all sources contribute evidence toward a common internal question:
-
-- does this locus support target-private status?
-- does it contradict target-private status?
-- is the evidence ambiguous or missing?
-
-This is the architectural core of the project.
-
-### 2. Explicit primary inputs
-VCF and GFA are both primary discovery backends.
-
-VCF discovers target-private alleles from genotype calls. GFA discovers
-target-private graph segments from path/walk traversal. BAM is a support
-layer for VCF hits: it adds read-level depth and allele-fraction evidence at
-already discovered loci. XMFA is not part of the active v0.8 roadmap.
-
-### 3. Missingness is explicit
-Missing calls must not be silently folded into a generic pass/fail decision.
-
-Panex Privus reports strictness classes so that biological support and technical incompleteness remain separable.
-
-### 4. Streaming and chunked processing
-The package must scale to plant pangenome datasets. Whole-file in-memory assumptions are not acceptable in the core analysis path.
-
----
-
-## Command architecture
-
-Panex Privus exposes ten top-level commands:
-
-privy scan
-privy compare
-privy pangenome
-privy landscape
-privy report
-privy plot
-privy interactive
-privy annotate
-privy export
-privy index
-
-privy scan
-
-Primary discovery engine.
-
-Responsibilities:
-	•	parse cohort definitions
-	•	stream through primary input data
-	•	identify target-private alleles or intervals
-	•	classify strictness
-	•	merge loci into candidate regions
-	•	optionally annotate VCF hits with BAM evidence
-	•	emit machine-readable outputs and run metadata
-
-privy compare
-
-Cross-evidence reconciliation engine.
-
-Responsibilities:
-	•	compare loci or regions across sources
-	•	quantify overlap and compatibility
-	•	classify support, contradiction, or source specificity
-	•	emit comparison tables and summaries
-
-privy pangenome
-
-Whole-feature summary engine.
-
-Responsibilities:
-	•	turn GFA segments or VCF alternate alleles into a shared feature matrix
-	•	summarize full, target, and off-target feature presence
-	•	report core/accessory/private/absent composition
-	•	build feature coverage histograms and pangenome growth curves
-	•	emit pangenome tables and run metadata
-
-privy landscape
-
-Windowed VCF context engine.
-
-Responsibilities:
-	•	stream VCF records into fixed-record or base-pair windows
-	•	report per-sample missingness, heterozygosity, non-reference burden,
-	  rare/private ALT burden, and median genotype-class frequency
-	•	summarize target/off-target window-level context
-	•	compute pairwise local genotype similarity
-	•	merge adjacent nearest-background assignments into local background blocks
-	•	emit window tables, block tables, similarity summaries, and run metadata
-
-privy report
-
-Interpretation engine.
-
-Responsibilities:
-	•	summarize discovery results
-	•	rank loci and regions
-	•	summarize strictness classes
-	•	summarize evidence support and contradictions
-	•	render Markdown and optional HTML reports
-
-privy plot
-
-Visualization engine.
-
-Responsibilities:
-	•	generate focused, publication-quality plots from existing output tables
-	•	explain loci and regions from scan and compare outputs
-	•	render landscape and pangenome plots after data generation
-	•	visualize genotype patterns, support layers, and run-level summaries
-	•	avoid becoming a general-purpose genome browser
-
-privy interactive
-
-Shareable dashboard engine.
-
-Responsibilities:
-	•	render self-contained HTML dashboards from existing Privy outputs
-	•	build focus-region genome/gene/variant browsers from VCF, GFF3, and
-	  optional annotation tracks
-	•	summarize scan, landscape, and pangenome result directories without
-	  rerunning discovery
-	•	emit companion JSON metadata for reproducibility
-	•	keep large dashboards portable by embedding bounded table rows while
-	  preserving source row counts and provenance
-
-privy annotate
-
-Gene annotation engine.
-
-Responsibilities:
-	•	intersect hits with GFF3 annotations
-	•	classify loci as CDS, UTR, exonic, intronic, or intergenic
-	•	handle contig aliases between discovery and annotation references
-	•	emit annotated hit tables and summary counts
-
-privy export
-
-Downstream-format export engine.
-
-Responsibilities:
-	•	convert scan TSV outputs into genome-tool-friendly interval files
-	•	write BED and GFF3 files for hits and merged regions
-	•	preserve strictness, variant class, score, and provenance details
-	•	emit export metadata
-
-privy index
-
-Reusable index builder.
-
-Responsibilities:
-	•	build reusable sidecar indexes for expensive input parsing paths
-	•	currently supports `privy index gfa`
-	•	allow repeated GFA scans without repeating the full graph walk parse
-
-⸻
-
-Domain model
-
-The internal architecture is built around a small set of domain objects.
-
-CohortDefinition
-
-Represents the biological grouping.
-
-Fields:
-	•	targets
-	•	off_targets
-	•	ignored_samples
-	•	metadata
-
-Responsibilities:
-	•	validate cohort membership
-	•	prevent overlap between target and off-target sets
-	•	provide target/off-target lookup utilities
-
-Locus
-
-Represents a genomic site or interval under evaluation.
-
-Fields:
-	•	locus_id
-	•	contig
-	•	start
-	•	end
-	•	locus_type
-	•	primary_source
-	•	source_ids
-	•	metadata
-
-Responsibilities:
-	•	coordinate normalization
-	•	overlap logic
-	•	merge behavior
-	•	provenance tracking
-
-AllelePattern
-
-Represents cohort-level VCF logic for a candidate allele.
-
-Fields:
-	•	allele_key
-	•	target_support_n
-	•	target_total_n
-	•	offtarget_support_n
-	•	offtarget_total_n
-	•	target_missing_n
-	•	offtarget_missing_n
-	•	strictness_class
-	•	pattern_pass
-	•	pattern_reason
-
-Responsibilities:
-	•	encode private-allele logic
-	•	preserve missingness
-	•	support downstream scoring
-
-EvidenceRecord
-
-Represents one normalized statement about a locus from any source.
-
-Fields:
-	•	locus_id
-	•	source_type
-	•	sample_id or group_id
-	•	evidence_class
-	•	metric_name
-	•	metric_value
-	•	qualifiers
-	•	provenance
-
-Responsibilities:
-	•	normalize heterogeneous evidence
-	•	preserve source traceability
-	•	support compare and report steps
-
-ComparisonRecord
-
-Represents a cross-source comparison outcome.
-
-Fields:
-	•	locus_id
-	•	source_a
-	•	source_b
-	•	match_class
-	•	coordinate_overlap
-	•	state_compatibility
-	•	support_summary
-	•	contradiction_summary
-	•	comparison_score
-
-ScoredHit
-
-Represents a ranked final result.
-
-Fields:
-	•	locus_id
-	•	discovery_score
-	•	support_score
-	•	penalty_score
-	•	final_score
-	•	rank
-	•	strictness_class
-	•	summary_label
-
-⸻
-
-Evidence model
-
-The package uses a unified evidence model with four main evidence classes:
-	•	support
-	•	absence
-	•	ambiguous
-	•	contradiction
-	•	uninformative
-
-Different sources contribute different evidence types:
-
-VCF
-
-Primary discovery evidence.
-
-VCF determines:
-	•	target support
-	•	off-target exclusion
-	•	missingness
-	•	candidate private alleles
-	•	initial loci and intervals
-
-BAM
-
-Read-level support evidence.
-
-BAM contributes:
-	•	depth
-	•	allele counts
-	•	allele fraction
-	•	optional soft-clip and split-read summaries
-	•	absence-confidence context in off-target samples
-
-GFA
-
-Primary graph discovery evidence.
-
-GFA contributes:
-	•	path membership
-	•	walk/path traversal by sample
-	•	graph segment coordinates from SN/SO/LN tags
-	•	private graph-node and graph-region candidates
-	•	GFA-specific segment length and coordinate-coverage summaries
-	•	missing-vs-absent classification at graph loci
-
-Landscape
-
-Windowed context evidence.
-
-Landscape contributes:
-	•	per-sample missingness and genotype-burden tracks
-	•	target/off-target private ALT burden by window
-	•	local sample-similarity matrices
-	•	local background blocks based on nearest-neighbor similarity
-
-Landscape outputs are exploratory context. They do not replace formal
-population-genetic tools, QTL/genetic-map software, or local ancestry models.
-
-⸻
-
-Discovery architecture
-
-Primary scan backends
-
-The active primary backends are VCF and GFA. VCF scans evaluate alternate
-alleles. GFA scans evaluate coordinate-tagged graph segments. GFA calls are
-private graph-node evidence, not VCF-style ALT-allele calls.
-
-Scan workflow
-	1.	validate config and cohort definitions
-	2.	open indexed VCF input or parse GFA input
-	3.	iterate by contig, region, record, or graph segment
-	4.	evaluate alternate alleles or graph segments for target-private patterns
-	5.	classify strictness
-	6.	emit locus hits
-	7.	merge nearby loci into regions
-	8.	annotate VCF candidate loci with optional BAM evidence
-	9.	score loci and regions
-	10.	write outputs
-
-Private allele logic
-
-Default mode in v1 is private_allele.
-
-A candidate allele passes when:
-	•	target support meets threshold
-	•	off-target support is zero
-	•	filter criteria are met
-
-Missingness is reported as a strictness class, not hidden.
-
-⸻
-
-Strictness classes
-
-Strictness classes separate technical missingness from biological contradiction.
-
-Expected classes:
-	•	strict_complete
-	•	strict_target_missing
-	•	strict_offtarget_missing
-	•	strict_both_missing
-	•	relaxed_threshold
-	•	contradicted
-
-This distinction is central to the package and should remain visible in all outputs.
-
-⸻
-
-Region model
-
-Single variants are often insufficient as biological objects. The package therefore supports interval construction.
-
-Region construction
-
-Nearby passing loci may be merged into candidate regions using configurable rules such as:
-	•	merge distance
-	•	variant-type compatibility
-	•	allele/state consistency
-	•	maximum gap without signal
-
-Region summaries
-
-Each region should summarize:
-	•	number of constituent loci
-	•	variant-type composition
-	•	dominant strictness class
-	•	target consistency
-	•	off-target exclusion
-	•	aggregate support score
-
-⸻
-
-Landscape architecture
-
-`privy landscape` is separate from discovery. It explains genomic context around
-the VCF callset and around scan candidates, but it does not decide which loci
-are target-private candidates.
-
-Window modes
-	•	record windows: a fixed number of VCF records per window
-	•	base-pair windows: a fixed physical span per window
-
-Default record windows keep the number of variants per window stable across
-uneven variant density. Base-pair windows are easier to interpret on
-chromosome-scale coordinate plots.
-
-Core landscape outputs
-	•	sample_windows.tsv
-	•	windows.tsv
-	•	background_blocks.tsv
-	•	candidate_introgression_blocks.tsv
-	•	similarity.tsv
-	•	landscape.json
-
-Core landscape figures
-	•	missingness_heatmap
-	•	private_burden_heatmap
-	•	local_background_map
-	•	similarity_cluster_map
-
-Local background blocks
-
-A local background block is a run of adjacent windows where a sample's nearest
-genotypic neighbor stays the same and passes a similarity threshold. These
-blocks are best interpreted as shared genomic background segments. A true
-recombination map usually requires a formal cross or pedigree design and a
-genetic-map model.
-
-Candidate introgression blocks are derived from target-sample windows whose
-nearest local background is an off-target sample. They are exploratory
-donor-like intervals, not formal local ancestry calls.
-
-⸻
-
-Comparison architecture
-
-privy compare is designed to compare sources using:
-	•	interval overlap
-	•	source-aware tolerances
-	•	evidence compatibility
-
-Match classes
-
-Comparison outputs classify loci as:
-	•	supported
-	•	partially_supported
-	•	contradicted
-	•	source_specific
-	•	uninformative
-	•	missing_data
-
-Compatibility dimensions
-
-Comparisons may evaluate:
-	•	coordinate overlap
-	•	allele/state compatibility
-	•	target support agreement
-	•	off-target exclusion agreement
-	•	boundary tolerance
-	•	evidence sufficiency
-
-This allows meaningful VCF-vs-GFA and scan-vs-scan comparisons.
-
-⸻
-
-Scoring architecture
-
-Scoring is designed to be transparent and configurable.
-
-Discovery score
-
-Derived from the VCF pattern:
-	•	target support fraction
-	•	off-target exclusion fraction
-	•	variant quality
-	•	private-allele specificity
-
-Support score
-
-Derived from evidence overlays:
-	•	BAM support
-
-Penalty score
-
-Derived from:
-	•	target missingness
-	•	off-target missingness
-	•	contradictory evidence
-	•	low-confidence support
-	•	highly ambiguous contexts
-
-Final score
-
-The final rank score is additive and user-configurable:
-
-final_score = discovery_score + support_score - penalty_score
-
-Scoring weights must be written into run.json.
-
-⸻
-
-Performance model
-
-Panex Privus is designed for plant pangenome-scale workflows.
-
-Required design constraints
-	•	indexed file access
-	•	streaming over primary records
-	•	chunked contig/window processing
-	•	localized evidence queries
-	•	bounded memory usage
-	•	support for manifest-based BAM inputs
-
-Recommended execution phases
-
-The package should separate:
-	1.	discovery
-	2.	support annotation
-	3.	comparison
-	4.	reporting
-
-This improves:
-	•	scalability
-	•	testability
-	•	debuggability
-	•	reproducibility
-
-⸻
-
-Package layout
-
+Panex Privus is a cohort-aware comparative genomics toolkit for discovering
+target-private genomic signal: alleles or graph segments that are observed in a
+target cohort and absent from an explicitly defined off-target cohort. This
+page describes the software architecture and the main algorithms at a level
+intended for manuscript review, supplement preparation, and reproducible method
+inspection.
+
+The architecture follows three scientific constraints.
+
+1. Evidence must remain source-aware. VCF, GFA, BAM, GFF3, and derived tables
+   have different evidentiary meanings and are not collapsed into an
+   undocumented black box.
+2. Missingness must remain distinct from absence. A missing genotype, missing
+   graph path, or low-depth BAM observation is not treated as confirmed lack of
+   signal.
+3. Outputs must be auditable. Every discovery row is decomposed into support
+   counts, strictness class, score components, and reproducibility metadata.
+
+## Design Principles
+
+Panex Privus is logic-centered rather than format-centered. VCF and GFA are
+primary discovery backends, while BAM, GFF3, reports, plots, and dashboards are
+supporting or interpretive layers. A VCF allele and a GFA graph segment are not
+the same biological object, but both can be evaluated against the same
+target/off-target inference question.
+
+The implementation favors streaming and bounded intermediate state. The VCF
+scan consumes one `pysam.VariantRecord` at a time. The GFA scanner builds a
+compact scan index containing coordinate-tagged segments, sample traversal
+bitmasks, and per-sample coordinate coverage intervals. Landscape analysis can
+write row streams directly while retaining only the summaries needed for local
+background and candidate-introgression blocks.
+
+The package also separates discovery from interpretation. `privy scan`
+identifies candidate target-private loci. `privy pangenome` describes the
+feature space from which candidates arise. `privy landscape` describes
+windowed VCF context. `privy compare` reconciles two result sets by coordinate
+and state compatibility. Reporting, plotting, annotation, export, and
+interactive dashboards consume existing outputs rather than silently rerunning
+discovery.
+
+## System Map
+
+<figure class="method-diagram">
+<div class="mermaid">
+flowchart LR
+  cohort["Cohort definition<br/>targets, off-targets, ignored"]
+  config["Resolved configuration<br/>defaults + YAML + CLI"]
+  vcf["Indexed VCF/BCF"]
+  gfa["GFA graph<br/>segments, paths, walks"]
+  bam["BAM support layer"]
+  scan["privy scan<br/>discovery kernel"]
+  hits["hits.tsv<br/>regions.tsv<br/>evidence.tsv<br/>run.json"]
+  pangenome["privy pangenome<br/>feature matrix summaries"]
+  landscape["privy landscape<br/>windowed VCF context"]
+  compare["privy compare<br/>cross-source reconciliation"]
+  annotate["annotate/export/plot/report/interactive"]
+
+  cohort --> scan
+  config --> scan
+  vcf --> scan
+  gfa --> scan
+  bam --> scan
+  scan --> hits
+  vcf --> landscape
+  vcf --> pangenome
+  gfa --> pangenome
+  hits --> compare
+  hits --> annotate
+  pangenome --> annotate
+  landscape --> annotate
+</div>
+<figcaption>Figure 1. Panex Privus separates cohort resolution, primary
+discovery, contextual analyses, cross-source reconciliation, and downstream
+interpretation.</figcaption>
+</figure>
+
+## Command Responsibilities
+
+The command surface is organized by analytical phase rather than by file
+format. This keeps the user-facing workflow aligned with the scientific
+question being asked.
+
+| Command | Architectural role | Primary output contract |
+|---------|--------------------|-------------------------|
+| `privy scan` | Primary discovery from VCF alleles or GFA graph segments | ranked hits, merged regions, evidence rows, QC, run metadata |
+| `privy index gfa` | Reusable scan index construction for large GFA files | SQLite-backed `.privy.gfaidx` sidecar |
+| `privy pangenome` | Full, target, and off-target feature-space summaries | feature summary, coverage, composition, growth curves |
+| `privy landscape` | Windowed VCF context and local similarity analysis | sample/window metrics, similarity, local background, candidate blocks |
+| `privy compare` | Cross-source or cross-run reconciliation | match classes, comparison scores, diagnostics |
+| `privy report` | Human-readable synthesis of existing outputs | ranked summaries, strictness summaries, Markdown/HTML |
+| `privy plot` | Static publication-oriented figures from existing tables | scan, landscape, and pangenome plots |
+| `privy interactive` | Self-contained review dashboards | focus browsers and run-level HTML dashboards |
+| `privy annotate` | Gene-model intersection | annotated hit tables and summary counts |
+| `privy export` | Downstream interval conversion | BED and GFF3 tracks |
+
+## Formal Data Model
+
+Let \(T\) denote the target sample set, \(O\) the off-target sample set, and
+\(A = T \cup O\) the active cohort after ignored samples have been removed.
+All scan outputs use 0-based half-open genomic intervals \([s,e)\).
+
+The internal domain model is intentionally small.
+
+| Object | Meaning | Principal fields |
+|--------|---------|------------------|
+| `CohortDefinition` | Biological grouping used by a run | targets, off-targets, ignored samples |
+| `Locus` | A site or interval under evaluation | `contig`, `start`, `end`, type, primary source, source IDs |
+| `AllelePattern` | Cohort-level support and missingness summary | target/off-target support, totals, missing counts, strictness class |
+| `EvidenceRecord` | One normalized evidence statement | source type, sample or group, evidence class, metric, provenance |
+| `ScoredHit` | Ranked discovery output | discovery, support, penalty, final score, strictness |
+| `FeatureMatrix` | Sparse pangenome matrix | feature records, samples, feature-to-sample presence sets |
+
+For each candidate allele or graph segment \(a\), the discovery kernels compute
+support indicators \(S_{ia}\) and missing indicators \(M_{ia}\) for sample
+\(i\). The central counts are:
+
+\[
+n_T^+(a) = \sum_{i \in T} S_{ia}, \quad
+n_O^+(a) = \sum_{i \in O} S_{ia}
+\]
+
+\[
+n_T^m(a) = \sum_{i \in T} M_{ia}, \quad
+n_O^m(a) = \sum_{i \in O} M_{ia}
+\]
+
+Called-sample support fractions are then:
+
+\[
+p_T(a) = \frac{n_T^+(a)}{|T| - n_T^m(a)}, \quad
+p_O(a) = \frac{n_O^+(a)}{|O| - n_O^m(a)}
+\]
+
+when the denominators are nonzero. Missingness fractions are tracked
+separately:
+
+\[
+m_T(a) = \frac{n_T^m(a)}{|T|}, \quad
+m_O(a) = \frac{n_O^m(a)}{|O|}
+\]
+
+This separation is the core statistical safeguard in the package: \(p_O=0\)
+means no called off-target carries the signal, while \(m_O>0\) means off-target
+absence is not fully observed.
+
+## Discovery Algorithms
+
+`privy scan` currently implements the `private_allele` discovery mode for VCF
+alleles and GFA graph segments. CLI names for additional modes are reserved,
+but `private_genotype` and `private_sv_state` are not implemented discovery
+kernels yet.
+
+### VCF Private-Allele Kernel
+
+The VCF backend streams an indexed multisample VCF by contig or requested
+region. Each ALT allele in a record is evaluated independently. A sample
+supports ALT \(a\) if its called genotype contains the allele index for \(a\);
+the sample is missing if the genotype is missing or uninformative.
+
+<figure class="method-diagram">
+<div class="mermaid">
+flowchart TD
+  start["Indexed VCF record"]
+  filters["Apply FILTER, QUAL,<br/>multiallelic policy"]
+  alts["Enumerate ALT alleles"]
+  counts["Count target/off-target<br/>support and missingness"]
+  strict["Classify strictness"]
+  pass{"pattern_pass?"}
+  hit["Create Locus + HitRecord"]
+  score["Score and rank"]
+  regions["Merge nearby loci into regions"]
+  outputs["Write TSV + JSON outputs"]
+
+  start --> filters --> alts --> counts --> strict --> pass
+  pass -- yes --> hit --> score --> regions --> outputs
+  pass -- no --> outputs
+</div>
+<figcaption>Figure 2. VCF scanning is streaming at the record level. Passing
+alleles are accumulated only after the target-private decision so they can be
+ranked and merged into candidate regions.</figcaption>
+</figure>
+
+With thresholds \(\tau_T\) (`min_target_support`) and \(\tau_O\)
+(`max_off_target_support`), an allele can pass when:
+
+\[
+p_T(a) \ge \tau_T \quad \mathrm{and} \quad p_O(a) \le \tau_O
+\]
+
+The defaults are \(\tau_T=1.0\) and \(\tau_O=0.0\), meaning every called target
+must carry the allele and no called off-target may carry it. The implementation
+also requires at least one called target; when all targets are missing the
+pattern is reported but not emitted as a passing hit.
+
+### Strictness Classification
+
+Strictness classes encode whether the target-private pattern is fully observed
+or depends on incomplete data.
+
+| Class | Emitted as pass? | Interpretation |
+|-------|------------------|----------------|
+| `strict_complete` | yes | Targets support, off-targets are absent, and no required sample is missing |
+| `strict_target_missing` | yes | Off-target exclusion holds, but one or more targets are missing |
+| `strict_offtarget_missing` | yes | Target support holds, but one or more off-targets are missing |
+| `strict_both_missing` | yes | The pattern is otherwise consistent, but both cohorts contain missing calls |
+| `relaxed_threshold` | context dependent | The pattern passes configured relaxed missingness handling or fails strict support thresholds |
+| `contradicted` | no | Off-target support exceeds the allowed threshold or target support is insufficient |
+
+The decision kernel gives contradiction priority over missingness. If a called
+off-target carries the allele above \(\tau_O\), the allele is contradicted even
+if other off-target samples are missing. If target support is below
+\(\tau_T\), the allele is not emitted as a passing hit.
+
+<figure class="method-diagram">
+<div class="mermaid">
+flowchart TD
+  counts["support and missingness counts"]
+  off{"p_O > tau_O?"}
+  targets{"any called target?"}
+  tpass{"p_T >= tau_T?"}
+  missing{"missing in target<br/>or off-target?"}
+  relax{"missingness exceeds<br/>relaxed tolerance?"}
+  contradicted["contradicted"]
+  no_pass["non-passing target-missing<br/>or relaxed-threshold state"]
+  complete["strict_complete"]
+  strict_missing["strict_target_missing /<br/>strict_offtarget_missing /<br/>strict_both_missing"]
+  relaxed["relaxed_threshold"]
+
+  counts --> off
+  off -- yes --> contradicted
+  off -- no --> targets
+  targets -- no --> no_pass
+  targets -- yes --> tpass
+  tpass -- no --> no_pass
+  tpass -- yes --> missing
+  missing -- no --> complete
+  missing -- yes --> relax
+  relax -- yes --> relaxed
+  relax -- no --> strict_missing
+</div>
+<figcaption>Figure 3. The strictness state is a named part of the result rather
+than a hidden quality flag.</figcaption>
+</figure>
+
+### GFA Private-Segment Kernel
+
+The GFA backend evaluates coordinate-tagged graph segments as graph-native
+features. Segment coordinates come from `SN`, `SO`, and `LN` tags on GFA
+`S`-lines. Sample traversal is read from `P` paths and `W` walks. W-line
+coordinates and segment coordinates are 0-based half-open, matching the
+`Locus` convention.
+
+For each segment \(g\), the scan index stores a traversal bitmask
+\(B_g\) over samples and per-sample coordinate coverage intervals
+\(\mathcal{C}_i\). At segment interval \(I_g=[s_g,e_g)\):
+
+\[
+S_{ig}=1 \quad \mathrm{if} \quad i \in B_g
+\]
+
+\[
+M_{ig}=1 \quad \mathrm{if} \quad i \notin B_g
+\quad \mathrm{and} \quad
+\mathcal{C}_i \cap I_g = \emptyset
+\]
+
+If a sample has coverage at \(I_g\) but does not traverse \(g\), it is counted
+as absent, not missing. This distinction allows GFA scans to distinguish
+alternative graph paths from unobserved graph coverage.
+
+<figure class="method-diagram">
+<div class="mermaid">
+flowchart LR
+  sline["S-lines<br/>SN/SO/LN coordinates"]
+  paths["P/W traversals"]
+  index["GFA scan index<br/>segment masks + coverage intervals"]
+  segment["Coordinate-tagged segment"]
+  present["Present mask at segment interval"]
+  counts["Support, absence,<br/>missingness counts"]
+  strict["Strictness classifier"]
+  outputs["hits.tsv + graph_segments.tsv"]
+
+  sline --> index
+  paths --> index
+  index --> segment --> present --> counts --> strict --> outputs
+</div>
+<figcaption>Figure 4. GFA discovery uses graph traversal as the support state
+and coordinate coverage as the missingness state.</figcaption>
+</figure>
+
+GFA hits are private graph-segment evidence, not VCF ALT alleles. The
+companion `graph_segments.tsv` therefore reports same-segment traversal,
+coordinate-covered absence, missingness, and segment length summaries.
+
+## Evidence and Scoring
+
+Panex Privus uses transparent additive scoring as a ranking aid. Scores are
+not probabilities of causality and should be interpreted with the component
+columns retained.
+
+For a passing hit \(h\):
+
+\[
+F_h = D_h + S_h - P_h
+\]
+
+where \(D_h\) is the discovery score, \(S_h\) is the secondary support score,
+and \(P_h\) is the penalty score. The current VCF/GFA discovery score is:
+
+\[
+D_h =
+w_D \min\left(
+2,\,
+\frac{p_T(h) + (1-p_O(h))}{2}
++ 0.2\,\mathbf{1}_{\mathrm{strict\_complete}}
++ 0.1\min(Q/60,1)
+\right)
+\]
+
+where \(Q\) is the VCF QUAL value when available; GFA scans use \(Q=0\). The
+support score is the weighted mean of normalized actionable secondary evidence:
+
+\[
+S_h = w_S \cdot \frac{1}{K}\sum_{k=1}^{K} e_k
+\]
+
+with \(S_h=0\) when no actionable secondary evidence exists. The penalty is:
+
+\[
+P_h =
+\begin{cases}
+w_P, & \mathrm{if\ contradicted} \\
+w_P \min(1,\ 0.4m_T + 0.3m_O), & \mathrm{otherwise}
+\end{cases}
+\]
+
+The defaults are stored in the resolved configuration and written to
+`run.json`. The score columns in `hits.tsv` are therefore reproducible from
+the output table and metadata.
+
+### BAM Support Layer
+
+BAM evidence is queried only at previously discovered VCF loci. For SNPs,
+Panex Privus counts reference, alternate, and other bases in each BAM pileup.
+The ALT allele fraction is:
+
+\[
+\mathrm{AF}_{\mathrm{BAM}} = \frac{n_{\mathrm{ALT}}}{n_{\mathrm{REF}} +
+n_{\mathrm{ALT}} + n_{\mathrm{other}}}
+\]
+
+Depth below `min_depth` is `uninformative`. For target samples, sufficient ALT
+count and allele fraction are `support`; insufficient ALT evidence at adequate
+depth is `ambiguous`. For off-target samples, sufficient ALT evidence is
+`contradiction`; adequate depth without ALT evidence is `absence`. Non-SNP
+loci currently record depth but are treated as uninformative for allele support
+because simple pileup counts do not resolve indel, structural, or graph states
+with sufficient specificity.
+
+## Region Construction
+
+Single markers are often too granular for biological interpretation, so
+passing loci are merged into candidate regions after scoring. Loci are sorted
+by `(contig, start)`. Adjacent loci \(i\) and \(j\) are merged if they are on
+the same contig and:
+
+\[
+s_j - e_i \le d
+\]
+
+where \(d\) is `merge_distance`. If `same_variant_class_only` is enabled, both
+loci must also share the same `LocusType`. Region rows summarize the number of
+constituent loci, variant-type composition, dominant strictness class, target
+consistency, off-target exclusion, and mean final score.
+
+## Pangenome Feature Architecture
+
+`privy pangenome` converts VCF or GFA inputs into the same sparse feature
+matrix:
+
+\[
+X_{fs} =
+\begin{cases}
+1, & \mathrm{feature\ } f \mathrm{\ is\ present\ in\ sample\ } s \\
+0, & \mathrm{otherwise}
+\end{cases}
+\]
+
+GFA features are graph segments. VCF features are individual ALT alleles.
+For a group \(G \in \{A,T,O\}\), feature coverage is:
+
+\[
+c_G(f) = \sum_{s \in G} X_{fs}
+\]
+
+Group categories are assigned as:
+
+| Category | Rule |
+|----------|------|
+| `absent` | \(c_G(f)=0\) |
+| `private` | \(c_G(f)=1\) |
+| `accessory` | \(1<c_G(f)<\lvert G \rvert\) |
+| `core` | \(c_G(f)=\lvert G \rvert\) |
+
+The `target_private` flag is separate from the within-group `private`
+category. It is true when \(c_T(f)>0\) and \(c_O(f)=0\).
+
+Pangenome growth curves permute sample order. For permutation \(\pi\), the
+observed pangenome size after \(n\) samples is:
+
+\[
+G_{\pi}(n) =
+\left|\left\{f: \sum_{r=1}^{n} X_{f,\pi(r)} > 0 \right\}\right|
+\]
+
+The implementation also reports base-pair-weighted growth and singleton
+features. These curves are descriptive finite-panel summaries, not model-based
+extrapolations to unsampled diversity.
+
+## Landscape Algorithms
+
+`privy landscape` is a windowed VCF context engine. It does not alter scan
+hits. Its purpose is to describe missingness, non-reference burden,
+private/rare ALT burden, local sample similarity, and candidate donor-like
+blocks under the same cohort definition used by discovery.
+
+Windows can be fixed-record windows or fixed-base-pair windows. Record windows
+stabilize the number of variants per window across heterogeneous variant
+density; base-pair windows are easier to interpret on chromosome-scale axes.
+
+For window \(W\) and sample \(i\), per-sample rates include:
+
+\[
+\mathrm{missing\_rate}_{iW} =
+\frac{\#\{\mathrm{records\ in\ } W \mathrm{\ missing\ in\ } i\}}{|W|}
+\]
+
+\[
+\mathrm{nonref\_rate}_{iW} =
+\frac{\#\{\mathrm{called\ records\ in\ } W \mathrm{\ where\ } i
+\mathrm{\ carries\ any\ ALT}\}}
+{\#\{\mathrm{called\ records\ in\ } W \mathrm{\ for\ } i\}}
+\]
+
+For active sample pair \((i,j)\), local genotype similarity is the genotype
+match fraction over records where both samples are called:
+
+\[
+\sigma_{ijW} =
+\frac{1}{N_{ijW}}
+\sum_{r \in W}
+\mathbf{1}\{g_{ir}=g_{jr}\ \mathrm{and\ both\ are\ called}\}
+\]
+
+where \(N_{ijW}\) is the number of compared records. Genotypes are normalized
+before comparison, so allele ordering does not change the result. The nearest
+local background for sample \(i\) is:
+
+\[
+b(i,W) = \arg\max_{j \in A,\ j \ne i} \sigma_{ijW}
+\]
+
+with deterministic lexical tie-breaking.
+
+<figure class="method-diagram">
+<div class="mermaid">
+flowchart TD
+  vcf["Stream VCF records"]
+  filters["Apply site filters<br/>PASS, QUAL, type, missingness, ALT frequency"]
+  windows["Build record or bp windows"]
+  metrics["Compute sample/window metrics"]
+  sim["Compute pairwise local similarity"]
+  nearest["Assign nearest background"]
+  blocks["Merge adjacent background blocks"]
+  intro["Filter target windows for<br/>candidate introgression blocks"]
+  outputs["Write window, similarity,<br/>block, PCA, metadata tables"]
+
+  vcf --> filters --> windows --> metrics --> sim --> nearest --> blocks --> outputs
+  nearest --> intro --> outputs
+</div>
+<figcaption>Figure 5. Landscape analysis is a contextual, windowed analysis
+that remains separate from target-private locus discovery.</figcaption>
+</figure>
+
+### Local Background and Candidate Introgression
+
+Local background blocks merge adjacent windows for a sample when the nearest
+background sample and nearest-background role remain constant and the
+similarity exceeds `min_background_similarity`. A low-similarity window is
+assigned to `unassigned`.
+
+Candidate introgression blocks are stricter, target-only summaries. A target
+sample window is eligible when:
+
+\[
+b(i,W) \in O
+\]
+
+\[
+\sigma_{i,b(i,W),W} \ge \tau_{\mathrm{intro}}
+\]
+
+\[
+\mathrm{missing\_rate}_{iW} \le \mu_{\max}
+\]
+
+and, when a nearest target similarity is available:
+
+\[
+\sigma_{i,b(i,W),W} - \max_{t \in T,\,t \ne i}\sigma_{itW}
+\ge \delta_{\min}
+\]
+
+Adjacent eligible windows are merged when they have the same candidate donor
+and consecutive window indices. Blocks shorter than `min_introgression_windows`
+are discarded. These blocks are exploratory donor-like intervals; they are not
+a formal local ancestry model, recombination map, or causal test.
+
+### Local PCA
+
+When `--local-pca` is enabled, each window's similarity matrix is transformed
+into a distance matrix \(D_{ijW}=1-\sigma_{ijW}\). Classical metric embedding is
+then applied using:
+
+\[
+B_W = -\frac{1}{2}J D_W^2 J
+\]
+
+where \(J=I-\frac{1}{n}\mathbf{1}\mathbf{1}^{\top}\). The leading positive
+eigenvectors define two exploratory coordinates. Axis sign and scale should be
+interpreted locally, not as globally aligned ancestry axes.
+
+## Cross-Source Comparison
+
+`privy compare` reconciles two `hits.tsv` files without reopening the original
+VCF or GFA. Source B is indexed by canonical contig name. For each source A
+locus, candidate source B loci are selected by coordinate proximity and tested
+for overlap.
+
+For intervals \(A=[s_A,e_A)\) and \(B=[s_B,e_B)\):
+
+\[
+I = \max(0,\ \min(e_A,e_B)-\max(s_A,s_B))
+\]
+
+\[
+\rho_{\mathrm{reciprocal}} =
+\frac{I}{\max(e_A,e_B)-\min(s_A,s_B)}
+\]
+
+\[
+\rho_{\mathrm{containment}} =
+\min\left(1,\ \max\left(\frac{I}{|A|}, \frac{I}{|B|}\right)\right)
+\]
+
+`overlap_mode` selects the overlap score used for matching. When no overlap
+passes, a breakpoint-tolerance fallback can classify near but non-overlapping
+loci as partially supported. State compatibility is based on strictness class:
+contradicted states are incompatible, and optional strictness compatibility
+requires both states to be in the same broad strict/relaxed category.
+
+## Implementation Architecture
+
+The package is organized around a CLI layer, reusable domain models, file IO,
+analysis backends, and output-oriented modules.
+
+```text
 src/privy/
-├── cli/
-│   ├── main.py
-│   ├── scan.py
-│   ├── compare.py
-│   ├── pangenome.py
-│   ├── landscape.py
-│   ├── report.py
-│   ├── plot.py
-│   ├── interactive.py
-│   ├── annotate.py
-│   ├── export.py
-│   └── index.py
-├── core/
-│   ├── cohort.py
-│   ├── locus.py
-│   ├── patterns.py
-│   ├── evidence.py
-│   ├── scoring.py
-│   ├── intervals.py
-│   └── config.py
-├── io/
-│   ├── vcf.py
-│   ├── bam.py
-│   ├── gfa.py
-│   ├── xmfa.py
-│   ├── bed.py
-│   ├── tsv.py
-│   └── jsonio.py
-├── backends/
-│   ├── vcf_scan.py
-│   ├── bam_support.py
-│   ├── gfa_support.py
-│   ├── pangenome.py
-│   └── landscape.py
-├── pangenome/
-│   ├── analysis.py
-│   ├── gfa.py
-│   ├── model.py
-│   └── vcf.py
-├── landscape/
-│   └── vcf.py
-├── compare/
-│   ├── engine.py
-│   ├── overlap.py
-│   ├── compatibility.py
-│   └── classifiers.py
-├── report/
-│   ├── summary.py
-│   ├── markdown.py
-│   └── html.py
-├── plot/
-│   ├── loci.py
-│   ├── regions.py
-│   ├── pangenome.py
-│   ├── landscape.py
-│   ├── summaries.py
-│   └── themes.py
-├── interactive/
-│   ├── focus.py
-│   ├── genotypes.py
-│   ├── scan.py
-│   ├── scan_render.py
-│   ├── landscape.py
-│   ├── landscape_render.py
-│   ├── pangenome.py
-│   ├── pangenome_render.py
-│   ├── models.py
-│   └── render.py
-├── utils/
-│   ├── logging.py
-│   ├── validation.py
-│   ├── parallel.py
-│   ├── metrics.py
-│   └── misc.py
-└── __init__.py
-
-
-⸻
-
-Testing architecture
-
-The project should include:
-
-Unit tests
-	•	cohort validation
-	•	private-allele logic
-	•	strictness classification
-	•	interval merging
-	•	overlap logic
-	•	compatibility logic
-	•	scoring
-
-Integration tests
-	•	VCF scan
-	•	VCF + BAM support
-	•	GFA scan
-	•	pangenome summaries
-	•	landscape window summaries
-	•	compare workflows
-	•	report, plot, and annotate workflows
-
-Regression tests
-
-Curated fixtures for:
-	•	missing data cases
-	•	multiallelic records
-	•	symbolic SVs
-	•	contradictory off-target evidence
-	•	region merge behavior
-
-⸻
-
-Configuration model
-
-YAML config support is required for reproducible workflows.
-
-Priority order:
-	1.	package defaults
-	2.	YAML config
-	3.	CLI overrides
-
-The resolved configuration must be written to run.json.
-
-⸻
-
-Non-goals for v1
-
-Panex Privus is not intended to be:
-	•	a variant caller
-	•	an assembler
-	•	a graph constructor
-	•	a sequence extraction utility
-	•	a genome browser replacement
-	•	a generic workflow orchestrator
-
-These boundaries protect clarity and keep the project coherent.
-
-⸻
-
-Summary
-
-Panex Privus is designed as a logic-centered, VCF/GFA primary-discovery,
-multi-evidence comparative genomics framework for discovering and validating
-target-private genomic signal.
-
-Its architectural center is simple:
-	•	define the focal group
-	•	define the background group
-	•	detect what belongs only to the focal group
-	•	compare evidence honestly
-	•	preserve uncertainty instead of hiding it
-
----
-
-# Current CLI Surface
-
-This section is a compact architecture contract for the active command surface.
-For exhaustive flags and examples, prefer `README.md` and the live `privy
---help` output.
-
-Panex Privus
-CLI: privy
-
-A comparative genomics toolkit for discovering target-private alleles and regions
-shared within a focal cohort and absent from off-target genomes.
-
-USAGE:
-  privy [OPTIONS] COMMAND [ARGS]...
-
-COMMANDS:
-  scan      Discover target-private alleles or graph segments from VCF or GFA
-  compare   Reconcile two privy scan hits.tsv files
-  pangenome Summarize full, target, and off-target pangenomes
-  landscape Create VCF sliding-window landscapes and local background maps
-  report    Generate ranked summaries, QC tables, and Markdown/HTML reports
-  plot      Create plots from existing scan, landscape, or pangenome outputs
-  interactive
-            Build self-contained HTML dashboards from focus regions or existing outputs
-  annotate  Intersect private loci with GFF3 gene annotations
-  export    Export scan hits and regions to downstream genome-tool formats
-  index     Build reusable indexes for supported inputs
-
-GLOBAL OPTIONS:
-  --config PATH              Path to YAML configuration file
-  --project-name TEXT        Optional project name written into outputs
-  --outdir PATH              Output directory
-  --threads INTEGER          Number of worker threads to use where supported
-  --log-level TEXT           Logging level: debug, info, warning, error
-  --quiet                    Reduce console output
-  --version                  Show version and exit
-  -h, --help                 Show this message and exit
-
-
-SCAN
-  Discover target-private alleles and candidate private regions.
-
-USAGE:
-  privy scan [OPTIONS]
-
-PRIMARY INPUT OPTIONS:
-  --vcf PATH                 Indexed multisample VCF (.vcf.gz + .tbi/.csi)
-  --gfa PATH                 GFA graph file (.gfa or .gfa.gz); primary backend when used without --vcf
-  --bam PATH [PATH ...]      One or more BAM files mapped to the same reference
-  --bam-manifest PATH        TSV manifest mapping BAM files to sample names/groups
-
-COHORT OPTIONS:
-  --targets TEXT [TEXT ...]      Target sample names
-  --targets-file PATH            Text file with one target sample per line
-  --off-targets TEXT [TEXT ...]  Off-target sample names
-  --off-targets-file PATH        Text file with one off-target sample per line
-  --ignore-samples TEXT [TEXT ...]
-                                 Samples to ignore during discovery
-  --ignore-samples-file PATH     Text file with one sample name to ignore per line
-  --cohort-file PATH             Optional cohort definition file (TSV or YAML)
-
-DISCOVERY OPTIONS:
-  --mode TEXT                Discovery mode. Supported:
-                               private_allele
-                               private_genotype
-                               private_sv_state
-                             Default: private_allele
-  --min-target-support FLOAT Minimum fraction of target samples supporting allele
-  --max-off-target-support FLOAT
-                             Maximum fraction of off-target samples supporting allele
-  --allow-multiallelic / --no-allow-multiallelic
-                             Whether to evaluate multiallelic records
-  --pass-only / --no-pass-only
-                             Require VCF FILTER=PASS
-  --min-qual FLOAT           Minimum VCF QUAL
-  --region TEXT              Restrict scan to region: contig:start-end
-  --contig TEXT              Restrict scan to a contig
-  --chunk-size INTEGER       Chunk size for streaming large contigs
-  --merge-distance INTEGER   Merge nearby passing loci into candidate regions
-  --same-variant-class-only / --no-same-variant-class-only
-                             Only merge loci of the same variant class
-
-STRICTNESS OPTIONS:
-  --strictness-report / --no-strictness-report
-                             Report strictness classes explicitly
-  --relaxed-target-missing FLOAT
-                             Optional threshold for tolerated target missingness
-  --relaxed-offtarget-missing FLOAT
-                             Optional threshold for tolerated off-target missingness
-
-BAM SUPPORT OPTIONS:
-  --bam-min-depth INTEGER    Minimum depth for BAM evidence evaluation
-  --bam-min-alt-count INTEGER
-                             Minimum alternate-supporting reads
-  --bam-min-alt-fraction FLOAT
-                             Minimum alternate allele fraction
-  --summarize-softclips / --no-summarize-softclips
-                             Summarize soft-clipped reads near candidate loci
-  --summarize-splitreads / --no-summarize-splitreads
-                             Summarize split-read support near candidate loci
-
-GFA SUPPORT OPTIONS:
-  --junction-window-bp INTEGER
-                             Window around locus/region for branch-junction annotation
-  --report-path-membership / --no-report-path-membership
-                             Report GFA path membership where available
-  --report-graph-complexity / --no-report-graph-complexity
-                             Summarize local graph complexity
-  --min-segment-length INT   Minimum GFA segment length to evaluate
-
-SCORING OPTIONS:
-  --discovery-weight FLOAT   Weight for discovery score
-  --support-weight FLOAT     Weight for support score
-  --penalty-weight FLOAT     Weight for penalty score
-
-OUTPUT OPTIONS:
-  --write-hits / --no-write-hits
-                             Write hits.tsv
-  --write-regions / --no-write-regions
-                             Write regions.tsv
-  --write-evidence / --no-write-evidence
-                             Write evidence.tsv
-  --write-sample-support / --no-write-sample-support
-                             Write sample_support.tsv
-  --write-qc / --no-write-qc
-                             Write qc.tsv
-  --write-run-json / --no-write-run-json
-                             Write run.json
-
-SCAN OUTPUTS:
-  hits.tsv
-  regions.tsv
-  evidence.tsv
-  sample_support.tsv
-  graph_segments.tsv  (GFA scans only)
-  qc.tsv
-  run.json
-
-SCAN NOTES:
-  - VCF and GFA are primary discovery backends
-  - Missingness is reported via strictness_class
-  - BAM provides read-level support/contradiction evidence for VCF hits
-  - Designed for indexed streaming and plant pangenome-scale workflows
-
-
-COMPARE
-  Compare two privy scan result sets by coordinate overlap and state compatibility.
-
-USAGE:
-  privy compare [OPTIONS]
-
-INPUT OPTIONS:
-  --hits-a PATH              hits.tsv from the first scan run
-  --hits-b PATH              hits.tsv from the second scan run
-  --source-a TEXT            Optional display label for source A
-  --source-b TEXT            Optional display label for source B
-
-COMPARE OPTIONS:
-  --min-reciprocal-overlap FLOAT
-                             Minimum reciprocal overlap for interval matching
-  --breakpoint-tolerance-bp INTEGER
-                             Tolerance for breakpoint-aware comparisons
-  --require-state-compatibility / --no-require-state-compatibility
-                             Require allele/state compatibility in addition to overlap
-
-OUTPUT OPTIONS:
-  --write-compare-tsv / --no-write-compare-tsv
-                             Write compare.tsv
-  --write-summary-tsv / --no-write-summary-tsv
-                             Write compare_summary.tsv
-  --write-json / --no-write-json
-                             Write compare.json
-
-COMPARE CLASSES:
-  supported
-  partially_supported
-  contradicted
-  source_specific
-  uninformative
-  missing_data
-
-COMPARE NOTES:
-  Comparison is based on interval overlap plus evidence compatibility.
-  Different evidence layers may support, contradict, or fail to inform a locus.
-
-
-REPORT
-  Generate ranked summaries and human-readable reports.
-
-USAGE:
-  privy report [OPTIONS]
-
-INPUT OPTIONS:
-  --hits PATH                hits.tsv
-  --regions PATH             regions.tsv
-  --evidence PATH            evidence.tsv
-  --compare PATH             compare.tsv
-  --qc PATH                  qc.tsv
-  --run-json PATH            run.json
-
-REPORT OPTIONS:
-  --format TEXT              Report format:
-                               markdown
-                               html
-                               both
-                             Default: markdown
-  --top-n INTEGER            Number of top loci/regions to summarize
-  --include-qc / --no-include-qc
-                             Include QC section
-  --include-strictness / --no-include-strictness
-                             Include strictness class summary
-  --include-compare / --no-include-compare
-                             Include compare summary
-  --include-regions / --no-include-regions
-                             Include candidate region summary
-  --title TEXT               Optional report title
-
-OUTPUTS:
-  summary.tsv
-  ranked_hits.tsv
-  strictness_summary.tsv
-  support_summary.tsv
-  contradiction_summary.tsv
-  report.md
-  report.html (optional)
-
-REPORT NOTES:
-  The report command is designed to convert raw outputs into collaborator-ready summaries.
-
-
-PLOT
-  Generate plots from existing scan, landscape, or pangenome outputs.
-
-USAGE:
-  privy plot [OPTIONS]
-
-INPUT OPTIONS:
-  --plot-set TEXT            scan, landscape, or pangenome; default scan
-  --input-dir PATH           Existing landscape or pangenome result directory
-  --hits PATH                hits.tsv
-  --regions PATH             regions.tsv
-  --evidence PATH            evidence.tsv
-  --compare PATH             compare.tsv
-
-SELECTION OPTIONS:
-  --top-n INTEGER            Plot top N loci or regions by score
-
-PLOT TYPES:
-  --plot-type TEXT           Supported:
-                               locus_panel
-                               strictness_bar
-                               score_distribution
-                               support_bar
-                               compare_summary
-                               all
-                             Default: all
-
-PLOT OPTIONS:
-  --width FLOAT              Figure width
-  --height FLOAT             Figure height
-  --dpi INTEGER              Figure DPI
-  --output-format TEXT       png, pdf, svg
-  --plot-scope TEXT          Landscape only: chromosome, genome, or both;
-                             default chromosome
-  --contig TEXT              Landscape only: render one contig/chromosome
-  --contigs TEXT             Landscape only: comma-separated contigs/chromosomes
-  --show-labels / --no-show-labels
-                             Show sample or locus labels where applicable
-
-PLOT NOTES:
-  - Focused explanatory plots, not a genome browser
-  - scan plots use --hits and optional scan/compare tables
-  - landscape and pangenome plots use --input-dir
-  - Designed for diagnostics and publication-ready figure generation
-
-INTERACTIVE
-  Build self-contained HTML dashboards for review and sharing.
-
-USAGE:
-  privy interactive [OPTIONS]
-
-DASHBOARD MODES:
-  --focus TEXT              Genomic region such as Gm15:1-4000000; repeatable
-  --scan PATH               Existing scan directory, or combined scan root
-  --landscape PATH          Existing landscape output directory
-  --pangenome PATH          Existing pangenome directory, or combined pangenome root
-
-FOCUS INPUT OPTIONS:
-  --vcf PATH                Indexed multisample VCF/BCF for focus extraction
-  --sites-tsv PATH          Precomputed focus-region genotype table
-  --gff3 PATH               Gene annotation GFF3/GFF3.gz
-  --functional-tsv PATH     Optional gene-level functional annotation TSV
-  --samples TEXT [TEXT ...] Focal samples for the region browser
-  --track-gff TEXT          Optional named GFF3 track, NAME=path; repeatable
-  --keyword-group TEXT      Optional feature group, NAME=term,term; repeatable
-
-SIZE OPTIONS:
-  --max-hits INT            Scan dashboard hit rows embedded per source
-  --max-regions INT         Scan dashboard region rows embedded per source
-  --max-windows INT         Landscape dashboard window rows embedded
-  --max-sample-windows INT  Landscape sample-window rows embedded
-  --max-blocks INT          Landscape block rows embedded
-  --max-features INT        Pangenome feature rows embedded per source
-  --max-private-features INT
-                             Pangenome private-feature rows embedded per source
-
-INTERACTIVE OUTPUTS:
-  focus_<contig>_<start>_<end>.html
-  focus_<contig>_<start>_<end>.features.tsv
-  focus_<contig>_<start>_<end>.sites.tsv (when --vcf is used)
-  focus_<contig>_<start>_<end>.json
-  scan_dashboard.html
-  scan_dashboard.json
-  landscape_dashboard.html
-  landscape_dashboard.json
-  pangenome_dashboard.html
-  pangenome_dashboard.json
-  interactive.json
-  index.html (when more than one focus region is supplied)
-
-INTERACTIVE NOTES:
-  - Dashboards are review artifacts over existing TSV/JSON outputs
-  - The focus mode can extract site genotypes from an indexed VCF/BCF
-  - Scan, landscape, and pangenome modes do not rerun discovery
-  - HTML files are self-contained and can be shared without a running server
-  - Companion JSON files preserve dashboard provenance and row counts
-
-LANDSCAPE
-  Create target/off-target-aware VCF sliding-window landscapes.
-
-USAGE:
-  privy landscape [OPTIONS]
-
-INPUT OPTIONS:
-  --vcf PATH                 Multisample VCF or BCF
-
-COHORT OPTIONS:
-  --targets TEXT [TEXT ...]  Target sample names
-  --targets-file PATH        Text file with one target sample per line
-  --off-targets TEXT [TEXT ...]
-                             Off-target sample names
-  --off-targets-file PATH    Text file with one off-target sample per line
-  --ignore-samples TEXT [TEXT ...]
-                             Samples to exclude
-  --ignore-samples-file PATH Text file with one sample name to ignore per line
-  --cohort-file PATH         Optional cohort definition file (TSV or YAML)
-
-WINDOW OPTIONS:
-  --window-records INT       Records per fixed-record window; default 200
-  --step-records INT         Records advanced per fixed-record step; default 50
-  --window-bp INT            Use physical base-pair windows
-  --step-bp INT              Physical base-pair step
-
-LANDSCAPE OPTIONS:
-  --rare-max-count INT       Carrier-count threshold for rare ALT burden
-  --rare-max-freq FLOAT      Carrier-frequency threshold for rare ALT burden
-  --min-background-similarity FLOAT
-                             Minimum similarity for local background assignment
-  --min-introgression-similarity FLOAT
-                             Minimum similarity for candidate introgression
-  --min-introgression-delta FLOAT
-                             Minimum off-target advantage over nearest target
-  --max-introgression-missing-rate FLOAT
-                             Maximum missingness in candidate windows
-  --min-introgression-windows INT
-                             Minimum adjacent windows per candidate block
-  --similarity-output TEXT   Pairwise similarity table mode: full, summary, none;
-                             default full
-  --vcf-engine TEXT          VCF parser: auto, pysam, cyvcf2
-  --local-pca / --no-local-pca
-                             Write or skip local PCA coordinate table
-  --plot-format TEXT         png, svg, or pdf for immediate --plots
-  --plots / --no-plots       Write or skip landscape figures during analysis;
-                             default no plots
-
-LANDSCAPE OUTPUTS:
-  sample_windows.tsv
-  windows.tsv
-  background_blocks.tsv
-  candidate_introgression_blocks.tsv
-  similarity.tsv
-  local_pca.tsv
-  landscape.json
-  plots/landscape_plot_index.tsv (from privy plot --plot-set landscape)
-  plots/missingness_heatmap.<contig>.png
-  plots/private_burden_heatmap.<contig>.png
-  plots/local_background_map.<contig>.png
-  plots/similarity_cluster_map.<contig>.png (when full similarity rows exist)
-
-LANDSCAPE NOTES:
-  - Complements discovery; does not replace privy scan
-  - Local background blocks are exploratory shared-background segments
-  - Formal recombination maps require cross/pedigree-aware modeling
-
-
-EXAMPLES
-
-  Minimal scan:
-    privy scan \
-      --vcf cohort.vcf.gz \
-      --targets Benning Harosoy Clark \
-      --off-targets Jack Lee Minsoy \
-      --mode private_allele \
-      --outdir results/
-
-  Combined VCF and GFA scan with BAM support:
-    privy scan \
-      --vcf cohort.vcf.gz \
-      --gfa graph.gfa.gz \
-      --targets Benning Harosoy Clark \
-      --off-targets Jack Lee Minsoy \
-      --bam-manifest bam_manifest.tsv \
-      --merge-distance 1000 \
-      --outdir results/
-
-  Compare evidence:
-    privy compare \
-      --hits-a results/vcf/hits.tsv \
-      --hits-b results/gfa/hits.tsv \
-      --outdir results/compare/
-
-  Generate report:
-    privy report \
-      --hits results/vcf/hits.tsv \
-      --regions results/vcf/regions.tsv \
-      --evidence results/vcf/evidence.tsv \
-      --compare results/compare/compare.tsv \
-      --qc results/vcf/qc.tsv \
-      --outdir report/
-
-  Plot top loci:
-    privy plot \
-      --plot-set scan \
-      --hits results/vcf/hits.tsv \
-      --top-n 10 \
-      --outdir plots/
-
-  Plot an existing VCF landscape:
-    privy plot \
-      --plot-set landscape \
-      --input-dir results/landscape/ \
-      --output-format pdf
-
-  Build an interactive focus-region browser:
-    privy interactive \
-      --focus Gm15:1-4000000 \
-      --vcf cohort.vcf.gz \
-      --gff3 Wm82.gene_exons.gff3.gz \
-      --samples Harosoy Harosoy-sharp Kingawa \
-      --outdir results/interactive/
-
-  Build interactive run-level dashboards:
-    privy interactive --scan results/scan/ --outdir results/interactive/
-    privy interactive --landscape results/landscape/ --outdir results/interactive/
-    privy interactive --pangenome results/pangenome/ --outdir results/interactive/
-
-  Build a VCF landscape:
-    privy landscape \
-      --vcf cohort.vcf.gz \
-      --targets Benning Harosoy Clark \
-      --off-targets Jack Lee Minsoy \
-      --window-records 200 \
-      --step-records 50 \
-      --outdir results/landscape/
-
-  Export intervals:
-    privy export \
-      --hits results/vcf/hits.tsv \
-      --regions results/vcf/regions.tsv \
-      --outdir exported/
-
-
-⸻
+  cli/             Typer command definitions and CLI-to-config resolution
+  core/            cohort, locus, strictness, evidence, scoring, intervals
+  io/              VCF, BAM, GFA, GFF3, BED, TSV, JSON readers/writers
+  backends/        command-level analysis engines
+  compare/         reusable comparison helpers
+  pangenome/       feature-matrix model and summaries
+  landscape/       VCF window algorithms
+  plot/            publication-oriented static figures
+  report/          Markdown and HTML report generation
+  interactive/     self-contained HTML dashboards
+  utils/           logging, metrics, validation, parallel helpers
+```
+
+Configuration priority is:
+
+1. Package defaults from Pydantic models.
+2. YAML configuration supplied with `--config`.
+3. CLI overrides from the subcommand invocation.
+
+The resolved configuration and run metadata are written to JSON outputs so
+reviewers can inspect sample sets, thresholds, scoring weights, input paths,
+and command-specific options.
+
+## Complexity and Scaling
+
+The VCF scan is \(O(R \cdot A_{\mathrm{ALT}} \cdot |A|)\) over retained VCF
+records \(R\), ALT alleles per record, and active samples. Memory use is
+dominated by emitted hits and regions rather than input VCF size.
+
+The GFA scan-index build is linear in GFA records plus cohort path/walk segment
+references. Scan-time evaluation is linear in coordinate-tagged segments after
+region and minimum-length filters. The SQLite sidecar index allows repeated
+scans to stream indexed segments by contig rather than rebuilding traversal
+state.
+
+Landscape analysis is linear in retained variants for filtering and window
+construction. Pairwise similarity within each window scales as
+\(O(|A|^2)\), which is the expected cost of a full local similarity matrix. The
+record-window implementation uses rolling accumulators so overlapping windows
+do not recompute every per-variant contribution from scratch.
+
+## Validation Strategy
+
+The test architecture mirrors the scientific risk points.
+
+| Test layer | Main targets |
+|------------|--------------|
+| Unit tests | cohort validation, strictness classification, scoring, interval merging, GFA/GFF/VCF IO, pangenome summaries |
+| Integration tests | VCF scan, GFA scan, BAM support, compare, landscape, pangenome, plot, report, annotate, export, interactive dashboards |
+| Regression fixtures | missing data, multiallelic records, symbolic variants, off-target contradiction, coordinate normalization, region merging |
+
+The most important invariant is that missingness must never be silently
+converted into absence. The second most important invariant is coordinate
+consistency: internal and tabular outputs use 0-based half-open intervals,
+while GFF3 export converts to 1-based closed intervals.
+
+## Non-Goals
+
+Panex Privus is not a variant caller, assembler, pangenome graph constructor,
+general genome browser, formal local ancestry tool, QTL mapper, or workflow
+orchestrator. It assumes upstream tools have generated VCF, GFA, BAM, and GFF3
+inputs and focuses on auditable target/off-target-aware interpretation.
+
+## Reviewer's Reading Guide
+
+For a methods review, the key claims to inspect are:
+
+- The VCF and GFA discovery kernels use the same explicit support and
+  missingness accounting.
+- Strictness classes preserve uncertainty that would otherwise be hidden in a
+  binary pass/fail result.
+- Scores are decomposed and reproducible from output columns plus `run.json`.
+- Pangenome and landscape modules are contextual analyses, not hidden changes
+  to scan decisions.
+- Candidate introgression blocks are deliberately framed as exploratory
+  donor-like intervals, not formal local ancestry calls.
