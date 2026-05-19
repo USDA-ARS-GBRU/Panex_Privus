@@ -56,7 +56,7 @@ The package must scale to plant pangenome datasets. Whole-file in-memory assumpt
 
 ## Command architecture
 
-Panex Privus exposes nine top-level commands:
+Panex Privus exposes ten top-level commands:
 
 privy scan
 privy compare
@@ -64,6 +64,7 @@ privy pangenome
 privy landscape
 privy report
 privy plot
+privy interactive
 privy annotate
 privy export
 privy index
@@ -136,6 +137,20 @@ Responsibilities:
 	•	render landscape and pangenome plots after data generation
 	•	visualize genotype patterns, support layers, and run-level summaries
 	•	avoid becoming a general-purpose genome browser
+
+privy interactive
+
+Shareable dashboard engine.
+
+Responsibilities:
+	•	render self-contained HTML dashboards from existing Privy outputs
+	•	build focus-region genome/gene/variant browsers from VCF, GFF3, and
+	  optional annotation tracks
+	•	summarize scan, landscape, and pangenome result directories without
+	  rerunning discovery
+	•	emit companion JSON metadata for reproducibility
+	•	keep large dashboards portable by embedding bounded table rows while
+	  preserving source row counts and provenance
 
 privy annotate
 
@@ -559,6 +574,7 @@ src/privy/
 │   ├── landscape.py
 │   ├── report.py
 │   ├── plot.py
+│   ├── interactive.py
 │   ├── annotate.py
 │   ├── export.py
 │   └── index.py
@@ -607,6 +623,17 @@ src/privy/
 │   ├── landscape.py
 │   ├── summaries.py
 │   └── themes.py
+├── interactive/
+│   ├── focus.py
+│   ├── genotypes.py
+│   ├── scan.py
+│   ├── scan_render.py
+│   ├── landscape.py
+│   ├── landscape_render.py
+│   ├── pangenome.py
+│   ├── pangenome_render.py
+│   ├── models.py
+│   └── render.py
 ├── utils/
 │   ├── logging.py
 │   ├── validation.py
@@ -715,6 +742,8 @@ COMMANDS:
   landscape Create VCF sliding-window landscapes and local background maps
   report    Generate ranked summaries, QC tables, and Markdown/HTML reports
   plot      Create plots from existing scan, landscape, or pangenome outputs
+  interactive
+            Build self-contained HTML dashboards from focus regions or existing outputs
   annotate  Intersect private loci with GFF3 gene annotations
   export    Export scan hits and regions to downstream genome-tool formats
   index     Build reusable indexes for supported inputs
@@ -966,6 +995,58 @@ PLOT NOTES:
   - landscape and pangenome plots use --input-dir
   - Designed for diagnostics and publication-ready figure generation
 
+INTERACTIVE
+  Build self-contained HTML dashboards for review and sharing.
+
+USAGE:
+  privy interactive [OPTIONS]
+
+DASHBOARD MODES:
+  --focus TEXT              Genomic region such as Gm15:1-4000000; repeatable
+  --scan PATH               Existing scan directory, or combined scan root
+  --landscape PATH          Existing landscape output directory
+  --pangenome PATH          Existing pangenome directory, or combined pangenome root
+
+FOCUS INPUT OPTIONS:
+  --vcf PATH                Indexed multisample VCF/BCF for focus extraction
+  --sites-tsv PATH          Precomputed focus-region genotype table
+  --gff3 PATH               Gene annotation GFF3/GFF3.gz
+  --functional-tsv PATH     Optional gene-level functional annotation TSV
+  --samples TEXT [TEXT ...] Focal samples for the region browser
+  --track-gff TEXT          Optional named GFF3 track, NAME=path; repeatable
+  --keyword-group TEXT      Optional feature group, NAME=term,term; repeatable
+
+SIZE OPTIONS:
+  --max-hits INT            Scan dashboard hit rows embedded per source
+  --max-regions INT         Scan dashboard region rows embedded per source
+  --max-windows INT         Landscape dashboard window rows embedded
+  --max-sample-windows INT  Landscape sample-window rows embedded
+  --max-blocks INT          Landscape block rows embedded
+  --max-features INT        Pangenome feature rows embedded per source
+  --max-private-features INT
+                             Pangenome private-feature rows embedded per source
+
+INTERACTIVE OUTPUTS:
+  focus_<contig>_<start>_<end>.html
+  focus_<contig>_<start>_<end>.features.tsv
+  focus_<contig>_<start>_<end>.sites.tsv (when --vcf is used)
+  focus_<contig>_<start>_<end>.json
+  scan_dashboard.html
+  scan_dashboard.json
+  landscape_dashboard.html
+  landscape_dashboard.json
+  pangenome_dashboard.html
+  pangenome_dashboard.json
+  interactive.json
+  index.html (when more than one focus region is supplied)
+
+INTERACTIVE NOTES:
+  - Dashboards are review artifacts over existing TSV/JSON outputs
+  - The focus mode can extract site genotypes from an indexed VCF/BCF
+  - Scan, landscape, and pangenome modes do not rerun discovery
+  - HTML files are self-contained and can be shared without a running server
+  - Companion JSON files preserve dashboard provenance and row counts
+
 LANDSCAPE
   Create target/off-target-aware VCF sliding-window landscapes.
 
@@ -1081,6 +1162,19 @@ EXAMPLES
       --plot-set landscape \
       --input-dir results/landscape/ \
       --output-format pdf
+
+  Build an interactive focus-region browser:
+    privy interactive \
+      --focus Gm15:1-4000000 \
+      --vcf cohort.vcf.gz \
+      --gff3 Wm82.gene_exons.gff3.gz \
+      --samples Harosoy Harosoy-sharp Kingawa \
+      --outdir results/interactive/
+
+  Build interactive run-level dashboards:
+    privy interactive --scan results/scan/ --outdir results/interactive/
+    privy interactive --landscape results/landscape/ --outdir results/interactive/
+    privy interactive --pangenome results/pangenome/ --outdir results/interactive/
 
   Build a VCF landscape:
     privy landscape \

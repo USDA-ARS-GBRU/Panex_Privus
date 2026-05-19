@@ -70,6 +70,8 @@ nav:
         url: /run-guide/#generate-a-report
       - title: Plot
         url: /run-guide/#plot-diagnostics
+      - title: Interactive
+        url: /run-guide/#interactive-focus-regions
       - title: Annotate
         url: /run-guide/#annotate-hits
       - title: Export
@@ -101,6 +103,8 @@ nav:
         url: /concepts/#privy-pangenome
       - title: privy landscape
         url: /concepts/#privy-landscape
+      - title: privy interactive
+        url: /concepts/#privy-interactive
       - title: Results
         url: /concepts/#reading-results-without-treating-them-as-a-black-box
   - title: Outputs
@@ -120,6 +124,8 @@ nav:
         url: /outputs/#landscape-outputs
       - title: Candidate introgression
         url: /outputs/#candidate_introgression_blockstsv
+      - title: Interactive
+        url: /outputs/#interactive-outputs
       - title: Annotate
         url: /outputs/#annotate-outputs
       - title: Export
@@ -137,6 +143,8 @@ nav:
         url: /figures-and-tables/#privy-compare
       - title: Plot
         url: /figures-and-tables/#privy-plot
+      - title: Interactive
+        url: /figures-and-tables/#privy-interactive
       - title: Report
         url: /figures-and-tables/#privy-report
       - title: Annotate

@@ -16,7 +16,8 @@ The default workflow is now table-first:
 1. run an analysis command such as `privy scan`, `privy pangenome`, or
    `privy landscape`
 2. inspect or archive the TSV/JSON outputs
-3. render figures afterwards with `privy plot --plot-set ...`
+3. render figures afterwards with `privy plot --plot-set ...`, or build
+   browsable review dashboards with `privy interactive`
 
 `privy pangenome` and `privy landscape` still accept `--plots` for one-command
 figure generation, but the separate `privy plot` step is recommended for large
@@ -581,6 +582,69 @@ candidate-ranking tails, and whether missingness penalties dominate the ranking.
 **Caption.** Counts of support, absence, ambiguity, contradiction, and
 uninformative evidence records by source type. When BAM evidence is supplied,
 this figure helps summarize read-level support and contradiction across loci.
+
+## `privy interactive`
+
+`privy interactive` creates self-contained HTML dashboards for collaborators,
+co-authors, and reviewers who need to explore results rather than inspect a
+static figure. These dashboards are best used as review artifacts alongside the
+raw TSV/JSON outputs and selected publication figures.
+
+Example focus-region command:
+
+```bash
+privy interactive \
+  --focus Gm15:1-4000000 \
+  --vcf cohort.vcf.gz \
+  --gff3 Wm82.gene_exons.gff3.gz \
+  --functional-tsv Wm82.functional_annotations.tsv \
+  --samples Harosoy Harosoy-sharp Kingawa \
+  --track-gff RepeatMasker=Wm82.repeats.gff3.gz \
+  --track-gff SSR=Wm82.ssr_markers.gff3 \
+  --outdir results/interactive/
+```
+
+### Dashboard: Focus Region Browser
+
+**Dashboard title.** Interactive focus-region browser for candidate
+target-private signal.
+
+**Caption.** Self-contained browser for a user-selected genomic region. Tracks
+show focal genotype states, PASS SNPs and other variant classes, gene models,
+exons, introns, promoter windows, and optional GFF3 tracks such as repeats or
+SSR markers. Candidate feature lists are variant-supported: annotation and
+phenotype keywords help organize features, but features without compatible
+focal variation are not elevated.
+
+### Dashboard: Scan Summary
+
+**Dashboard title.** Interactive review of target-private scan results.
+
+**Caption.** Shareable dashboard summarizing ranked candidate loci, merged
+regions, strictness classes, score distributions, QC metrics, and optional
+VCF/GFA comparison summaries from existing `privy scan` outputs. Use this view
+to audit discovery yield and prioritize loci before choosing final manuscript
+tables or figures.
+
+### Dashboard: Landscape Summary
+
+**Dashboard title.** Interactive VCF landscape and local-background dashboard.
+
+**Caption.** Shareable dashboard summarizing sliding-window landscape metrics,
+including window profiles, sample-by-window missingness and private ALT burden,
+nearest-background assignments, candidate donor-like blocks, filtering
+provenance, and run metadata. Interpret local background and candidate
+introgression blocks as exploratory evidence unless supported by formal
+population or cross-aware analyses.
+
+### Dashboard: Pangenome Summary
+
+**Dashboard title.** Interactive pangenome composition dashboard.
+
+**Caption.** Shareable dashboard summarizing pangenome feature inventory,
+target-private and off-target-private features, core/accessory/private/absent
+composition, coverage histograms, growth curves, feature types, top contigs,
+and searchable feature tables from existing `privy pangenome` outputs.
 
 ## `privy report`
 

@@ -43,7 +43,8 @@ regions, and scores results so the highest-confidence candidates surface first.
 - Adds optional **BAM** read-level support at VCF hit loci.
 - Compares VCF and GFA result sets with coordinate-aware matching.
 - Generates reports, plots, GFF3 annotations, and BED/GFF3 exports.
-- Builds self-contained interactive HTML dashboards for focus regions.
+- Builds self-contained interactive HTML dashboards for focus regions, scan
+  outputs, landscape outputs, and pangenome outputs.
 
 ## Quick Start
 

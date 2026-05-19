@@ -57,6 +57,16 @@ choose with `--outdir`.
 | `plots/similarity_cluster_map.<contig>.png` | Optional chromosome-level sample-similarity heatmap from `privy plot --plot-set landscape`, written when per-window similarity rows are available |
 | `landscape.json` | Run metadata, resolved groups, parameters, and output list |
 
+`privy interactive` writes self-contained HTML dashboards and companion JSON
+metadata to the directory you choose with `--outdir`.
+
+| Mode | Main HTML output | Companion outputs |
+|------|------------------|-------------------|
+| `--focus` | `focus_<contig>_<start>_<end>.html` | `focus_<contig>_<start>_<end>.features.tsv`, optional extracted `focus_<contig>_<start>_<end>.sites.tsv`, `focus_<contig>_<start>_<end>.json`, run-level `interactive.json`, and multi-region `index.html` when more than one focus region is supplied |
+| `--scan` | `scan_dashboard.html` | `scan_dashboard.json` |
+| `--landscape` | `landscape_dashboard.html` | `landscape_dashboard.json` |
+| `--pangenome` | `pangenome_dashboard.html` | `pangenome_dashboard.json` |
+
 ## Key `hits.tsv` Columns
 
 | Column | Meaning |
@@ -260,6 +270,35 @@ a formal ancestry model.
 | `local_pc1`, `local_pc2` | Two local similarity coordinates for this sample in this window |
 | `local_pc1_variance`, `local_pc2_variance` | Fraction of positive embedded variance represented by each axis |
 | `n_compared_samples` | Number of other samples with usable pairwise similarity to this sample in the window |
+
+## Interactive Outputs
+
+`privy interactive` is a rendering and review command. The HTML files are
+portable, self-contained dashboards: they embed the bounded tables, charts,
+styles, and JavaScript needed to open the result without a server. They should
+be treated as shareable views over the raw analysis tables, not as replacements
+for the TSV and JSON outputs used for reproducibility.
+
+Focus-region dashboards are produced with `--focus REGION`. A region is an
+interval such as `Gm15:1-4000000`. When `--vcf` is used, Privy extracts the
+region into `focus_<contig>_<start>_<end>.sites.tsv` before rendering. That
+site table records the focal genotype states used by the browser. The
+`*.features.tsv` file records variant-supported genes, exons, introns,
+promoters, repeats, SSRs, or other GFF3-derived features ranked for review.
+
+Run-level dashboards read existing output directories:
+
+- `--scan` reads one direct scan directory or a combined directory with `vcf/`,
+  `gfa/`, and optional `compare/` children.
+- `--landscape` reads an existing `privy landscape` directory containing at
+  least `windows.tsv` and `sample_windows.tsv`.
+- `--pangenome` reads one direct pangenome directory or a combined directory
+  with source children such as `vcf/` and `gfa/`.
+
+The companion dashboard JSON files record input paths, output paths, row
+limits, full row counts, source summaries, and rendering parameters. For large
+runs, the HTML may embed only the first bounded set of table rows, while the
+JSON metadata and original output files preserve the complete analysis record.
 
 ## Annotate Outputs
 

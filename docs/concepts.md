@@ -30,6 +30,8 @@ The main design rules are:
 - Scores are decomposed into discovery, support, and penalty components.
 - Context modules such as `privy pangenome` and `privy landscape` explain the
   data around discovery; they do not replace the discovery decision itself.
+- Interactive dashboards make existing analysis outputs easier to browse and
+  share; they are an interpretive layer over auditable TSV and JSON files.
 
 ## Command Map
 
@@ -42,6 +44,7 @@ The main design rules are:
 | `privy compare` | Do two scan result sets support the same loci? | Two `hits.tsv` files | `compare.tsv`, summary table, metadata |
 | `privy report` | How should scan outputs be summarized for collaborators? | Scan and optional compare outputs | Ranked tables, summaries, Markdown/HTML report |
 | `privy plot` | What figures summarize an existing run? | Scan, landscape, or pangenome outputs | Scan diagnostics, landscape maps, and pangenome plots |
+| `privy interactive` | How can results be reviewed as a shareable browser or dashboard? | Existing scan, landscape, or pangenome outputs; or focus-region VCF/GFF3 inputs | Self-contained HTML dashboards and JSON metadata |
 | `privy annotate` | Which candidates overlap gene models? | `hits.tsv`, GFF3 | Annotated hits and annotation summary |
 | `privy export` | How can candidates move into genome browsers or downstream tools? | `hits.tsv`, `regions.tsv` | BED or GFF3 tracks |
 
@@ -68,6 +71,8 @@ These terms appear throughout the documentation and output files.
 | Local PCA coordinates | Optional two-axis embedding of each window's local similarity matrix for exploratory local-structure scans |
 | Candidate introgression block | Adjacent target-sample windows where the nearest local background is an off-target sample and configured similarity, delta, missingness, and minimum-window filters pass |
 | Sliding window | A fixed-record or fixed-base-pair interval moved along each contig to summarize local VCF patterns |
+| Focus region | A user-selected genomic interval, such as `Gm15:1-4000000`, rendered by `privy interactive --focus` as one shareable region browser |
+| Interactive dashboard | A self-contained HTML file that embeds bounded tables, summaries, JavaScript, and provenance for local review or collaborator sharing |
 
 In plain language, the `privy landscape` sentence:
 
@@ -562,6 +567,38 @@ Typical figures include:
 Plotting does not alter hit calls, scores, regions, window metrics, or
 pangenome summaries.
 
+## `privy interactive`
+
+`privy interactive` builds shareable HTML dashboards from existing Privy outputs
+or from one or more user-selected focus regions. It is designed for review,
+collaboration, and supplementary exploration, not for changing the underlying
+analysis.
+
+The command currently has four dashboard modes:
+
+- `--focus`: extract or read site-level genotype states for a genomic region
+  and render an interactive genome/gene/variant browser.
+- `--scan`: summarize existing scan outputs, including ranked hits, regions,
+  score distributions, strictness classes, QC metrics, and optional VCF/GFA
+  comparison summaries.
+- `--landscape`: summarize existing landscape outputs with window profiles,
+  sample-by-window metrics, local background assignments, candidate
+  introgression blocks, filtering provenance, and metadata.
+- `--pangenome`: summarize existing pangenome outputs with source-aware feature
+  counts, composition, coverage histograms, growth curves, target-private
+  features, and searchable feature tables.
+
+Interactive dashboards do not rerun discovery. The scan, landscape, and
+pangenome modes read existing result directories. Focus-region mode can extract
+site genotypes from an indexed VCF/BCF, and it writes the extracted
+`*.sites.tsv` table beside the dashboard so the browser state remains
+auditable.
+
+For large datasets, the HTML embeds bounded table rows while the companion JSON
+metadata records full row counts, source files, and run parameters. This keeps
+the dashboard portable enough to email or open locally while preserving the
+analysis record in the original TSV/JSON outputs.
+
 ## `privy annotate`
 
 `privy annotate` intersects scan hits with a GFF3 annotation. It classifies each
@@ -621,7 +658,9 @@ A practical review workflow is:
 7. Use `privy pangenome` to understand cohort-wide feature composition.
 8. Use `privy landscape` to inspect missingness, private ALT burden, and local
    background around chromosomes or candidate regions.
-9. Use annotation, export, and plots to prepare follow-up interpretation.
+9. Use `privy interactive` dashboards for browsable review with collaborators.
+10. Use annotation, export, reports, and plots to prepare follow-up
+    interpretation.
 
 The strongest Panex Privus results are usually not just high-scoring rows. They
 are candidates where the cohort pattern, strictness class, sample support,
