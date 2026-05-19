@@ -105,9 +105,9 @@ question being asked.
 
 ## Formal Data Model
 
-Let \(T\) denote the target sample set, \(O\) the off-target sample set, and
-\(A = T \cup O\) the active cohort after ignored samples have been removed.
-All scan outputs use 0-based half-open genomic intervals \([s,e)\).
+Let $T$ denote the target sample set, $O$ the off-target sample set, and
+$A = T \cup O$ the active cohort after ignored samples have been removed.
+All scan outputs use 0-based half-open genomic intervals $[s,e)$.
 
 The internal domain model is intentionally small.
 
@@ -120,37 +120,37 @@ The internal domain model is intentionally small.
 | `ScoredHit` | Ranked discovery output | discovery, support, penalty, final score, strictness |
 | `FeatureMatrix` | Sparse pangenome matrix | feature records, samples, feature-to-sample presence sets |
 
-For each candidate allele or graph segment \(a\), the discovery kernels compute
-support indicators \(S_{ia}\) and missing indicators \(M_{ia}\) for sample
-\(i\). The central counts are:
+For each candidate allele or graph segment $a$, the discovery kernels compute
+support indicators $S_{ia}$ and missing indicators $M_{ia}$ for sample
+$i$. The central counts are:
 
-\[
+$$
 n_T^+(a) = \sum_{i \in T} S_{ia}, \quad
 n_O^+(a) = \sum_{i \in O} S_{ia}
-\]
+$$
 
-\[
+$$
 n_T^m(a) = \sum_{i \in T} M_{ia}, \quad
 n_O^m(a) = \sum_{i \in O} M_{ia}
-\]
+$$
 
 Called-sample support fractions are then:
 
-\[
+$$
 p_T(a) = \frac{n_T^+(a)}{|T| - n_T^m(a)}, \quad
 p_O(a) = \frac{n_O^+(a)}{|O| - n_O^m(a)}
-\]
+$$
 
 when the denominators are nonzero. Missingness fractions are tracked
 separately:
 
-\[
+$$
 m_T(a) = \frac{n_T^m(a)}{|T|}, \quad
 m_O(a) = \frac{n_O^m(a)}{|O|}
-\]
+$$
 
-This separation is the core statistical safeguard in the package: \(p_O=0\)
-means no called off-target carries the signal, while \(m_O>0\) means off-target
+This separation is the core statistical safeguard in the package: $p_O=0$
+means no called off-target carries the signal, while $m_O>0$ means off-target
 absence is not fully observed.
 
 ## Discovery Algorithms
@@ -164,7 +164,7 @@ kernels yet.
 
 The VCF backend streams an indexed multisample VCF by contig or requested
 region. Each ALT allele in a record is evaluated independently. A sample
-supports ALT \(a\) if its called genotype contains the allele index for \(a\);
+supports ALT $a$ if its called genotype contains the allele index for $a$;
 the sample is missing if the genotype is missing or uninformative.
 
 <figure class="method-diagram">
@@ -190,14 +190,14 @@ alleles are accumulated only after the target-private decision so they can be
 ranked and merged into candidate regions.</figcaption>
 </figure>
 
-With thresholds \(\tau_T\) (`min_target_support`) and \(\tau_O\)
+With thresholds $\tau_T$ (`min_target_support`) and $\tau_O$
 (`max_off_target_support`), an allele can pass when:
 
-\[
+$$
 p_T(a) \ge \tau_T \quad \mathrm{and} \quad p_O(a) \le \tau_O
-\]
+$$
 
-The defaults are \(\tau_T=1.0\) and \(\tau_O=0.0\), meaning every called target
+The defaults are $\tau_T=1.0$ and $\tau_O=0.0$, meaning every called target
 must carry the allele and no called off-target may carry it. The implementation
 also requires at least one called target; when all targets are missing the
 pattern is reported but not emitted as a passing hit.
@@ -217,9 +217,9 @@ or depends on incomplete data.
 | `contradicted` | no | Off-target support exceeds the allowed threshold or target support is insufficient |
 
 The decision kernel gives contradiction priority over missingness. If a called
-off-target carries the allele above \(\tau_O\), the allele is contradicted even
+off-target carries the allele above $\tau_O$, the allele is contradicted even
 if other off-target samples are missing. If target support is below
-\(\tau_T\), the allele is not emitted as a passing hit.
+$\tau_T$, the allele is not emitted as a passing hit.
 
 <figure class="method-diagram">
 <div class="mermaid">
@@ -260,21 +260,21 @@ features. Segment coordinates come from `SN`, `SO`, and `LN` tags on GFA
 coordinates and segment coordinates are 0-based half-open, matching the
 `Locus` convention.
 
-For each segment \(g\), the scan index stores a traversal bitmask
-\(B_g\) over samples and per-sample coordinate coverage intervals
-\(\mathcal{C}_i\). At segment interval \(I_g=[s_g,e_g)\):
+For each segment $g$, the scan index stores a traversal bitmask
+$B_g$ over samples and per-sample coordinate coverage intervals
+$\mathcal{C}_i$. At segment interval $I_g=[s_g,e_g)$:
 
-\[
+$$
 S_{ig}=1 \quad \mathrm{if} \quad i \in B_g
-\]
+$$
 
-\[
+$$
 M_{ig}=1 \quad \mathrm{if} \quad i \notin B_g
 \quad \mathrm{and} \quad
 \mathcal{C}_i \cap I_g = \emptyset
-\]
+$$
 
-If a sample has coverage at \(I_g\) but does not traverse \(g\), it is counted
+If a sample has coverage at $I_g$ but does not traverse $g$, it is counted
 as absent, not missing. This distinction allows GFA scans to distinguish
 alternative graph paths from unobserved graph coverage.
 
@@ -308,16 +308,16 @@ Panex Privus uses transparent additive scoring as a ranking aid. Scores are
 not probabilities of causality and should be interpreted with the component
 columns retained.
 
-For a passing hit \(h\):
+For a passing hit $h$:
 
-\[
+$$
 F_h = D_h + S_h - P_h
-\]
+$$
 
-where \(D_h\) is the discovery score, \(S_h\) is the secondary support score,
-and \(P_h\) is the penalty score. The current VCF/GFA discovery score is:
+where $D_h$ is the discovery score, $S_h$ is the secondary support score,
+and $P_h$ is the penalty score. The current VCF/GFA discovery score is:
 
-\[
+$$
 D_h =
 w_D \min\left(
 2,\,
@@ -325,24 +325,24 @@ w_D \min\left(
 + 0.2\,\mathbf{1}_{\mathrm{strict\_complete}}
 + 0.1\min(Q/60,1)
 \right)
-\]
+$$
 
-where \(Q\) is the VCF QUAL value when available; GFA scans use \(Q=0\). The
+where $Q$ is the VCF QUAL value when available; GFA scans use $Q=0$. The
 support score is the weighted mean of normalized actionable secondary evidence:
 
-\[
+$$
 S_h = w_S \cdot \frac{1}{K}\sum_{k=1}^{K} e_k
-\]
+$$
 
-with \(S_h=0\) when no actionable secondary evidence exists. The penalty is:
+with $S_h=0$ when no actionable secondary evidence exists. The penalty is:
 
-\[
+$$
 P_h =
 \begin{cases}
 w_P, & \mathrm{if\ contradicted} \\
 w_P \min(1,\ 0.4m_T + 0.3m_O), & \mathrm{otherwise}
 \end{cases}
-\]
+$$
 
 The defaults are stored in the resolved configuration and written to
 `run.json`. The score columns in `hits.tsv` are therefore reproducible from
@@ -354,10 +354,10 @@ BAM evidence is queried only at previously discovered VCF loci. For SNPs,
 Panex Privus counts reference, alternate, and other bases in each BAM pileup.
 The ALT allele fraction is:
 
-\[
+$$
 \mathrm{AF}_{\mathrm{BAM}} = \frac{n_{\mathrm{ALT}}}{n_{\mathrm{REF}} +
 n_{\mathrm{ALT}} + n_{\mathrm{other}}}
-\]
+$$
 
 Depth below `min_depth` is `uninformative`. For target samples, sufficient ALT
 count and allele fraction are `support`; insufficient ALT evidence at adequate
@@ -371,14 +371,14 @@ with sufficient specificity.
 
 Single markers are often too granular for biological interpretation, so
 passing loci are merged into candidate regions after scoring. Loci are sorted
-by `(contig, start)`. Adjacent loci \(i\) and \(j\) are merged if they are on
+by `(contig, start)`. Adjacent loci $i$ and $j$ are merged if they are on
 the same contig and:
 
-\[
+$$
 s_j - e_i \le d
-\]
+$$
 
-where \(d\) is `merge_distance`. If `same_variant_class_only` is enabled, both
+where $d$ is `merge_distance`. If `same_variant_class_only` is enabled, both
 loci must also share the same `LocusType`. Region rows summarize the number of
 constituent loci, variant-type composition, dominant strictness class, target
 consistency, off-target exclusion, and mean final score.
@@ -388,40 +388,40 @@ consistency, off-target exclusion, and mean final score.
 `privy pangenome` converts VCF or GFA inputs into the same sparse feature
 matrix:
 
-\[
+$$
 X_{fs} =
 \begin{cases}
 1, & \mathrm{feature\ } f \mathrm{\ is\ present\ in\ sample\ } s \\
 0, & \mathrm{otherwise}
 \end{cases}
-\]
+$$
 
 GFA features are graph segments. VCF features are individual ALT alleles.
-For a group \(G \in \{A,T,O\}\), feature coverage is:
+For a group $G \in \lbrace A,T,O \rbrace$, feature coverage is:
 
-\[
+$$
 c_G(f) = \sum_{s \in G} X_{fs}
-\]
+$$
 
 Group categories are assigned as:
 
 | Category | Rule |
 |----------|------|
-| `absent` | \(c_G(f)=0\) |
-| `private` | \(c_G(f)=1\) |
-| `accessory` | \(1<c_G(f)<\lvert G \rvert\) |
-| `core` | \(c_G(f)=\lvert G \rvert\) |
+| `absent` | $c_G(f)=0$ |
+| `private` | $c_G(f)=1$ |
+| `accessory` | $1<c_G(f)<\lvert G \rvert$ |
+| `core` | $c_G(f)=\lvert G \rvert$ |
 
 The `target_private` flag is separate from the within-group `private`
-category. It is true when \(c_T(f)>0\) and \(c_O(f)=0\).
+category. It is true when $c_T(f)>0$ and $c_O(f)=0$.
 
-Pangenome growth curves permute sample order. For permutation \(\pi\), the
-observed pangenome size after \(n\) samples is:
+Pangenome growth curves permute sample order. For permutation $\pi$, the
+observed pangenome size after $n$ samples is:
 
-\[
+$$
 G_{\pi}(n) =
 \left|\left\{f: \sum_{r=1}^{n} X_{f,\pi(r)} > 0 \right\}\right|
-\]
+$$
 
 The implementation also reports base-pair-weighted growth and singleton
 features. These curves are descriptive finite-panel summaries, not model-based
@@ -438,37 +438,37 @@ Windows can be fixed-record windows or fixed-base-pair windows. Record windows
 stabilize the number of variants per window across heterogeneous variant
 density; base-pair windows are easier to interpret on chromosome-scale axes.
 
-For window \(W\) and sample \(i\), per-sample rates include:
+For window $W$ and sample $i$, per-sample rates include:
 
-\[
+$$
 \mathrm{missing\_rate}_{iW} =
 \frac{\#\{\mathrm{records\ in\ } W \mathrm{\ missing\ in\ } i\}}{|W|}
-\]
+$$
 
-\[
+$$
 \mathrm{nonref\_rate}_{iW} =
 \frac{\#\{\mathrm{called\ records\ in\ } W \mathrm{\ where\ } i
 \mathrm{\ carries\ any\ ALT}\}}
 {\#\{\mathrm{called\ records\ in\ } W \mathrm{\ for\ } i\}}
-\]
+$$
 
-For active sample pair \((i,j)\), local genotype similarity is the genotype
+For active sample pair $(i,j)$, local genotype similarity is the genotype
 match fraction over records where both samples are called:
 
-\[
+$$
 \sigma_{ijW} =
 \frac{1}{N_{ijW}}
 \sum_{r \in W}
 \mathbf{1}\{g_{ir}=g_{jr}\ \mathrm{and\ both\ are\ called}\}
-\]
+$$
 
-where \(N_{ijW}\) is the number of compared records. Genotypes are normalized
+where $N_{ijW}$ is the number of compared records. Genotypes are normalized
 before comparison, so allele ordering does not change the result. The nearest
-local background for sample \(i\) is:
+local background for sample $i$ is:
 
-\[
+$$
 b(i,W) = \arg\max_{j \in A,\ j \ne i} \sigma_{ijW}
-\]
+$$
 
 with deterministic lexical tie-breaking.
 
@@ -502,24 +502,24 @@ assigned to `unassigned`.
 Candidate introgression blocks are stricter, target-only summaries. A target
 sample window is eligible when:
 
-\[
+$$
 b(i,W) \in O
-\]
+$$
 
-\[
+$$
 \sigma_{i,b(i,W),W} \ge \tau_{\mathrm{intro}}
-\]
+$$
 
-\[
+$$
 \mathrm{missing\_rate}_{iW} \le \mu_{\max}
-\]
+$$
 
 and, when a nearest target similarity is available:
 
-\[
+$$
 \sigma_{i,b(i,W),W} - \max_{t \in T,\,t \ne i}\sigma_{itW}
 \ge \delta_{\min}
-\]
+$$
 
 Adjacent eligible windows are merged when they have the same candidate donor
 and consecutive window indices. Blocks shorter than `min_introgression_windows`
@@ -529,14 +529,14 @@ a formal local ancestry model, recombination map, or causal test.
 ### Local PCA
 
 When `--local-pca` is enabled, each window's similarity matrix is transformed
-into a distance matrix \(D_{ijW}=1-\sigma_{ijW}\). Classical metric embedding is
+into a distance matrix $D_{ijW}=1-\sigma_{ijW}$. Classical metric embedding is
 then applied using:
 
-\[
+$$
 B_W = -\frac{1}{2}J D_W^2 J
-\]
+$$
 
-where \(J=I-\frac{1}{n}\mathbf{1}\mathbf{1}^{\top}\). The leading positive
+where $J=I-\frac{1}{n}\mathbf{1}\mathbf{1}^{\top}$. The leading positive
 eigenvectors define two exploratory coordinates. Axis sign and scale should be
 interpreted locally, not as globally aligned ancestry axes.
 
@@ -547,21 +547,21 @@ VCF or GFA. Source B is indexed by canonical contig name. For each source A
 locus, candidate source B loci are selected by coordinate proximity and tested
 for overlap.
 
-For intervals \(A=[s_A,e_A)\) and \(B=[s_B,e_B)\):
+For intervals $A=[s_A,e_A)$ and $B=[s_B,e_B)$:
 
-\[
+$$
 I = \max(0,\ \min(e_A,e_B)-\max(s_A,s_B))
-\]
+$$
 
-\[
+$$
 \rho_{\mathrm{reciprocal}} =
 \frac{I}{\max(e_A,e_B)-\min(s_A,s_B)}
-\]
+$$
 
-\[
+$$
 \rho_{\mathrm{containment}} =
 \min\left(1,\ \max\left(\frac{I}{|A|}, \frac{I}{|B|}\right)\right)
-\]
+$$
 
 `overlap_mode` selects the overlap score used for matching. When no overlap
 passes, a breakpoint-tolerance fallback can classify near but non-overlapping
@@ -601,8 +601,8 @@ and command-specific options.
 
 ## Complexity and Scaling
 
-The VCF scan is \(O(R \cdot A_{\mathrm{ALT}} \cdot |A|)\) over retained VCF
-records \(R\), ALT alleles per record, and active samples. Memory use is
+The VCF scan is $O(R \cdot A_{\mathrm{ALT}} \cdot |A|)$ over retained VCF
+records $R$, ALT alleles per record, and active samples. Memory use is
 dominated by emitted hits and regions rather than input VCF size.
 
 The GFA scan-index build is linear in GFA records plus cohort path/walk segment
@@ -613,7 +613,7 @@ state.
 
 Landscape analysis is linear in retained variants for filtering and window
 construction. Pairwise similarity within each window scales as
-\(O(|A|^2)\), which is the expected cost of a full local similarity matrix. The
+$O(|A|^2)$, which is the expected cost of a full local similarity matrix. The
 record-window implementation uses rolling accumulators so overlapping windows
 do not recompute every per-variant contribution from scratch.
 
