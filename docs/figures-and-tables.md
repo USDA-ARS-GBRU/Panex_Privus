@@ -604,6 +604,13 @@ privy interactive \
   --outdir results/interactive/
 ```
 
+Example static dashboards generated from the documentation example outputs:
+
+- [Scan dashboard]({{ '/assets/examples/interactive/scan/scan_dashboard.html' | relative_url }})
+- [Landscape dashboard]({{ '/assets/examples/interactive/landscape/landscape_dashboard.html' | relative_url }})
+- [Pangenome dashboard]({{ '/assets/examples/interactive/pangenome-gfa/pangenome_dashboard.html' | relative_url }})
+- [Focus-region browser]({{ '/assets/examples/interactive/focus/focus_chr1_1_1000.html' | relative_url }})
+
 ### Dashboard: Focus Region Browser
 
 **Dashboard title.** Interactive focus-region browser for candidate

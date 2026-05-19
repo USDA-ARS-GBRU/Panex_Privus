@@ -1,0 +1,33 @@
+{
+  "title": "Privy Interactive Scan Dashboard",
+  "subtitle": "Self-contained dashboard from existing privy scan outputs.",
+  "analysis": "interactive_scan",
+  "scan_dir": "docs/assets/examples/workflow/scan",
+  "source_count": 2,
+  "hit_count": 9,
+  "region_count": 9,
+  "embedded_hit_rows": 9,
+  "embedded_region_rows": 9,
+  "max_hits_per_source": 5000,
+  "max_regions_per_source": 1000,
+  "inputs": [
+    {
+      "label": "VCF",
+      "path": "docs/assets/examples/workflow/scan/vcf",
+      "hits": "docs/assets/examples/workflow/scan/vcf/hits.tsv",
+      "regions": "docs/assets/examples/workflow/scan/vcf/regions.tsv",
+      "evidence": "docs/assets/examples/workflow/scan/vcf/evidence.tsv",
+      "qc": "docs/assets/examples/workflow/scan/vcf/qc.tsv",
+      "run_json": "docs/assets/examples/workflow/scan/vcf/run.json"
+    },
+    {
+      "label": "GFA",
+      "path": "docs/assets/examples/workflow/scan/gfa",
+      "hits": "docs/assets/examples/workflow/scan/gfa/hits.tsv",
+      "regions": "docs/assets/examples/workflow/scan/gfa/regions.tsv",
+      "evidence": "docs/assets/examples/workflow/scan/gfa/evidence.tsv",
+      "qc": "docs/assets/examples/workflow/scan/gfa/qc.tsv",
+      "run_json": "docs/assets/examples/workflow/scan/gfa/run.json"
+    }
+  ]
+}

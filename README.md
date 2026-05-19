@@ -84,7 +84,17 @@ privy --version
 For an editable developer install, use `python -m pip install -U -e ".[dev]"`
 after pulling updates.
 
-### Run a Scan
+### Cohort Inputs
+
+All cohort-aware commands accept the same cohort inputs: grouped sample flags
+such as `--targets Benning Harosoy Clark`, role-specific files such as
+`--targets-file targets.txt`, or a single YAML/TSV cohort file with
+`--cohort-file cohort.tsv`.
+
+### `privy scan`
+
+Use `privy scan` to discover target-private alleles from VCF calls, private
+graph segments from GFA pangenomes, or both sources in one run.
 
 Run a VCF scan:
 
@@ -95,23 +105,6 @@ privy scan \
   --off-targets Jack Lee Minsoy \
   --outdir results/
 ```
-
-All cohort-aware commands accept the same cohort inputs: grouped sample flags
-such as `--targets Benning Harosoy Clark`, role-specific files such as
-`--targets-file targets.txt`, or a single YAML/TSV cohort file with
-`--cohort-file cohort.tsv`.
-
-For large GFA graphs, build the reusable Privy GFA index first. This can take
-some time, but later scans auto-detect the sidecar index and skip the expensive
-GFA walk-parsing step:
-
-```bash
-privy index gfa --gfa pangenome.gfa.gz
-```
-
-If you built the index with an older development version, or after pulling a
-Privy update that changes GFA indexing, rebuild it once with
-`privy index gfa --gfa pangenome.gfa.gz --force`.
 
 Then run a GFA scan:
 
@@ -136,6 +129,29 @@ privy scan \
   --outdir results/
 ```
 
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#vcf-scan) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-scan) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#key-hitstsv-columns) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#discovery-algorithms)
+
+### `privy index gfa`
+
+For large GFA graphs, build the reusable Privy GFA index first. This can take
+some time, but later scans auto-detect the sidecar index and skip the expensive
+GFA walk-parsing step.
+
+```bash
+privy index gfa --gfa pangenome.gfa.gz
+```
+
+If you built the index with an older development version, or after pulling a
+Privy update that changes GFA indexing, rebuild it once with
+`privy index gfa --gfa pangenome.gfa.gz --force`.
+
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#gfa-scan) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-scan) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#gfa-graph-segment-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#implementation-architecture)
+
+### `privy pangenome`
+
+Use `privy pangenome` to summarize full, target, and off-target pangenomes from
+GFA graph segments or VCF alleles.
+
 Analyze the graph pangenome and target/off-target sub-pangenomes:
 
 ```bash
@@ -154,7 +170,13 @@ privy pangenome \
   --outdir results/pangenome/
 ```
 
-Explore genome-wide VCF landscapes with sliding windows:
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#analyze-the-pangenome) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-pangenome) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#pangenome-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#pangenome-feature-architecture)
+
+### `privy landscape`
+
+Use `privy landscape` to explore genome-wide VCF behavior with sliding windows,
+including missingness, private ALT burden, local similarity, local background
+blocks, and candidate donor-like intervals.
 
 ```bash
 privy landscape \
@@ -179,7 +201,12 @@ fixed-record windows. For filtered SNP-density landscapes, add filters such as
 `--min-alt-carriers`; `windows.tsv` reports density and the landscape plot set
 writes a `variant_density_profile` figure.
 
-Render figures from existing pangenome or landscape results:
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#explore-vcf-landscapes) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-landscape) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#landscape-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#landscape-algorithms)
+
+### `privy plot`
+
+Use `privy plot` to render publication-review figures from existing scan,
+pangenome, or landscape result directories.
 
 ```bash
 privy plot \
@@ -192,6 +219,13 @@ privy plot \
   --input-dir results/pangenome/ \
   --output-format pdf
 ```
+
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#plot-diagnostics) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-plot) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#pangenome-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#implementation-architecture)
+
+### `privy interactive`
+
+Use `privy interactive` to build self-contained HTML dashboards for candidate
+focus regions and for existing scan, landscape, or pangenome result directories.
 
 Build a shareable interactive dashboard for a focus region. In the current
 development implementation, `--focus` names a genomic region to render. Start
@@ -258,6 +292,13 @@ privy interactive \
 `feature_summary.tsv`, or a combined pangenome directory with `vcf/` and `gfa/`
 children.
 
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#interactive-focus-regions) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-interactive) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#interactive-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#implementation-architecture)
+
+### `privy compare`
+
+Use `privy compare` to reconcile two scan outputs, such as VCF and GFA
+candidate sets, with coordinate-aware interval matching.
+
 Compare two scan outputs:
 
 ```bash
@@ -271,6 +312,13 @@ For VCF/GFA comparisons, `privy compare` normalizes minigraph-cactus contig
 names like `Sample#0#Gm01` to `Gm01` and uses contained-overlap matching by
 default. Use `--overlap-mode reciprocal` for stricter interval matching.
 
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#compare-existing-scan-outputs) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-compare) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#compare-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#cross-source-comparison)
+
+### `privy report`
+
+Use `privy report` to package scan outputs into collaborator-friendly Markdown
+or HTML summaries.
+
 Generate a report:
 
 ```bash
@@ -281,6 +329,47 @@ privy report \
   --format both \
   --outdir results/report/
 ```
+
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#generate-a-report) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-report) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#report-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#implementation-architecture)
+
+### `privy annotate`
+
+Use `privy annotate` to intersect candidate private loci with GFF3 gene models
+or other feature annotations.
+
+```bash
+privy annotate \
+  --hits results/vcf/hits.tsv \
+  --gff annotation.gff3.gz \
+  --outdir results/annotated/
+```
+
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#annotate-hits) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-annotate) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#annotate-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#implementation-architecture)
+
+### `privy export`
+
+Use `privy export` to write BED or GFF3 intervals for genome browsers and
+downstream interval tools.
+
+```bash
+privy export \
+  --hits results/vcf/hits.tsv \
+  --regions results/vcf/regions.tsv \
+  --format gff3 \
+  --outdir results/exported/
+```
+
+More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#export-intervals) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-export) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#export-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#implementation-architecture)
+
+### Example Interactive Dashboards
+
+The documentation includes static HTML dashboard examples built from the
+checked-in example outputs:
+
+- [Scan dashboard](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/scan/scan_dashboard.html)
+- [Landscape dashboard](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/landscape/landscape_dashboard.html)
+- [Pangenome dashboard](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/pangenome-gfa/pangenome_dashboard.html)
+- [Focus-region browser](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/focus/focus_chr1_1_1000.html)
 
 See the [run guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/)
 for the full workflow, command options, BAM support, VCF/GFA comparison,
@@ -304,7 +393,7 @@ The public documentation site is:
 
 ## Current Status
 
-Panex Privus is currently `0.8.0-dev`.
+Panex Privus is currently `0.9.1`.
 
 Operational commands:
 
@@ -314,11 +403,28 @@ Operational commands:
 - `privy plot`
 - `privy annotate`
 - `privy export`
-- `privy index`
+- `privy index gfa`
 - `privy landscape`
 - `privy pangenome`
+- `privy interactive`
 
-The current test suite has 684 passing unit and integration tests.
+The current test suite has 701 passing unit and integration tests.
+
+Compact version history and roadmap:
+
+| Version | Focus | Status |
+|---------|-------|--------|
+| `v0.1` | VCF private-allele scan, missingness-aware scoring, candidate regions, reports | Complete |
+| `v0.2` | GFA private-segment scan and coordinate-aware VCF/GFA comparison | Complete |
+| `v0.3` | Plotting, annotation, BED/GFF3 export, and documentation examples | Complete |
+| `v0.4` | Reproducible configuration, cohort files, validation, and packaging hardening | Complete |
+| `v0.5` | Pangenome feature summaries, composition tables, coverage histograms, and growth curves | Complete |
+| `v0.6` | VCF landscape summaries and exploratory local-background blocks | Complete |
+| `v0.7` | Publication-oriented figure, report, and output documentation | Complete |
+| `v0.8` | GFA indexing, larger example workflows, and reviewer-facing architecture docs | Complete |
+| `v0.9` | VCF landscape summaries, local background blocks, and candidate donor-like intervals | Complete |
+| `v0.9.1` | Interactive HTML dashboards for scan, landscape, pangenome, and focus-region review | Current |
+| `v1.0` | Manuscript-ready release hardening, archive-ready examples, and expanded benchmark validation | Planned |
 
 ## Contact
 

@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privy Interactive Scan Dashboard</title>
+<style>
+:root {
+  --ink: #17231f;
+  --muted: #5a6761;
+  --line: #d5ded8;
+  --soft: #f5f7f4;
+  --paper: #ffffff;
+  --green: #28745f;
+  --blue: #2e6f9e;
+  --gold: #b7832f;
+  --red: #b64b52;
+  --violet: #6a5d9f;
+  --shadow: 0 14px 40px rgba(25, 41, 35, .08);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--soft);
+  color: var(--ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.45;
+}
+header {
+  padding: 26px clamp(18px, 3vw, 42px) 18px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+h1 { margin: 0; font-size: clamp(1.45rem, 2.2vw, 2.3rem); letter-spacing: 0; }
+.subtitle { margin: 8px 0 0; max-width: 980px; color: var(--muted); }
+main { padding: 20px clamp(14px, 2.4vw, 34px) 42px; }
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(220px, 1fr) minmax(180px, 260px);
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+label { display: block; margin: 0 0 6px; color: var(--muted); font-size: .88rem; font-weight: 650; }
+select, input[type="search"], input[type="range"] {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #c5d0c9;
+  background: var(--paper);
+  border-radius: 7px;
+  padding: 8px 10px;
+  color: var(--ink);
+  font: inherit;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.metric {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: var(--shadow);
+}
+.metric span { display: block; color: var(--muted); font-size: .82rem; }
+.metric strong { display: block; margin-top: 3px; font-size: 1.35rem; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 14px;
+}
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.panel h2 { margin: 0 0 10px; font-size: 1rem; }
+.chart { width: 100%; height: 190px; display: block; }
+.filter-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 14px;
+  margin: 16px 0;
+}
+.checkrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.checkrow label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  border: 1px solid var(--line);
+  background: #fbfcfa;
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: .86rem;
+}
+.tables {
+  display: grid;
+  grid-template-columns: minmax(360px, 2fr) minmax(300px, 1fr);
+  gap: 14px;
+  align-items: start;
+  margin-top: 14px;
+}
+.table-wrap { overflow: auto; max-height: 520px; border: 1px solid var(--line); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; min-width: 820px; }
+th, td { padding: 8px 9px; border-bottom: 1px solid #e7ece8; text-align: left; vertical-align: top; font-size: .86rem; }
+th { position: sticky; top: 0; background: #eef3ef; z-index: 1; font-weight: 750; }
+tr:hover td { background: #f8faf7; }
+.side table { min-width: 520px; }
+.pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #e9f2ee;
+  color: #1d5f4f;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.detail {
+  margin-top: 12px;
+  color: var(--muted);
+  min-height: 42px;
+}
+.muted { color: var(--muted); }
+.provenance { margin-top: 14px; }
+.provenance code { word-break: break-all; }
+@media (max-width: 980px) {
+  .toolbar, .metrics, .grid, .filter-groups, .tables { grid-template-columns: 1fr; }
+  table { min-width: 760px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title"></h1>
+  <p class="subtitle" id="subtitle"></p>
+</header>
+<main>
+  <section class="toolbar" aria-label="Dashboard controls">
+    <div>
+      <label for="sourceSelect">Source</label>
+      <select id="sourceSelect"></select>
+    </div>
+    <div>
+      <label for="searchBox">Search loci, contigs, alleles, or classes</label>
+      <input id="searchBox" type="search" placeholder="Search embedded top hits">
+    </div>
+    <div>
+      <label for="scoreSlider">Minimum final score: <span id="scoreLabel">0.00</span></label>
+      <input id="scoreSlider" type="range" min="0" max="2" step="0.01" value="0">
+    </div>
+  </section>
+  <section class="metrics" aria-label="Summary metrics">
+    <div class="metric"><span>Sources</span><strong id="metricSources"></strong></div>
+    <div class="metric"><span>Total hits</span><strong id="metricHits"></strong></div>
+    <div class="metric"><span>Total regions</span><strong id="metricRegions"></strong></div>
+    <div class="metric"><span>Embedded hit rows</span><strong id="metricEmbeddedHits"></strong></div>
+    <div class="metric"><span>Embedded region rows</span><strong id="metricEmbeddedRegions"></strong></div>
+  </section>
+  <section class="grid" aria-label="Interactive charts">
+    <article class="panel"><h2>Strictness Classes</h2><canvas class="chart" id="strictnessChart"></canvas></article>
+    <article class="panel"><h2>Variant Types</h2><canvas class="chart" id="variantChart"></canvas></article>
+    <article class="panel"><h2>Final Score Distribution</h2><canvas class="chart" id="scoreChart"></canvas></article>
+    <article class="panel"><h2>Top Contigs By Hit Count</h2><canvas class="chart" id="contigChart"></canvas></article>
+  </section>
+  <section class="filter-groups" aria-label="Hit filters">
+    <article class="panel"><h2>Strictness Filter</h2><div class="checkrow" id="strictnessFilters"></div></article>
+    <article class="panel"><h2>Variant Type Filter</h2><div class="checkrow" id="variantFilters"></div></article>
+  </section>
+  <section class="tables">
+    <article class="panel">
+      <h2>Top Hits</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Rank</th><th>Source</th><th>Locus</th><th>Position</th><th>Type</th><th>Strictness</th><th>Target</th><th>Off-target</th><th>Score</th></tr></thead>
+          <tbody id="hitRows"></tbody>
+        </table>
+      </div>
+      <div class="detail" id="hitDetail">Select a hit row for details.</div>
+    </article>
+    <div class="side">
+      <article class="panel">
+        <h2>Candidate Regions</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Rank</th><th>Source</th><th>Region</th><th>Position</th><th>Loci</th><th>Score</th></tr></thead>
+            <tbody id="regionRows"></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="panel provenance">
+        <h2>QC And Provenance</h2>
+        <div id="qcRows"></div>
+      </article>
+    </div>
+  </section>
+</main>
+<script>
+const DATA = {"summary":{"title":"Privy Interactive Scan Dashboard","subtitle":"Self-contained dashboard from existing privy scan outputs.","analysis":"interactive_scan","scan_dir":"docs/assets/examples/workflow/scan","source_count":2,"hit_count":9,"region_count":9,"embedded_hit_rows":9,"embedded_region_rows":9,"max_hits_per_source":5000,"max_regions_per_source":1000,"inputs":[{"label":"VCF","path":"docs/assets/examples/workflow/scan/vcf","hits":"docs/assets/examples/workflow/scan/vcf/hits.tsv","regions":"docs/assets/examples/workflow/scan/vcf/regions.tsv","evidence":"docs/assets/examples/workflow/scan/vcf/evidence.tsv","qc":"docs/assets/examples/workflow/scan/vcf/qc.tsv","run_json":"docs/assets/examples/workflow/scan/vcf/run.json"},{"label":"GFA","path":"docs/assets/examples/workflow/scan/gfa","hits":"docs/assets/examples/workflow/scan/gfa/hits.tsv","regions":"docs/assets/examples/workflow/scan/gfa/regions.tsv","evidence":"docs/assets/examples/workflow/scan/gfa/evidence.tsv","qc":"docs/assets/examples/workflow/scan/gfa/qc.tsv","run_json":"docs/assets/examples/workflow/scan/gfa/run.json"}]},"sources":[{"key":"vcf","label":"VCF","summary":{"hit_count":7,"region_count":7,"embedded_hit_rows":7,"embedded_region_rows":7,"min_score":0.843333,"max_score":1.283333},"strictness_counts":[{"label":"strict_complete","count":4},{"label":"strict_both_missing","count":1},{"label":"strict_offtarget_missing","count":1},{"label":"strict_target_missing","count":1}],"variant_type_counts":[{"label":"snp","count":6},{"label":"indel","count":1}],"contig_counts":[{"label":"chr1","count":7}],"score_bins":[{"label":"<0.25","count":0},{"label":"0.25-0.50","count":0},{"label":"0.50-0.75","count":0},{"label":"0.75-1.00","count":2},{"label":"1.00-1.25","count":2},{"label":"1.25-1.50","count":3},{"label":">=1.50","count":0}],"evidence_counts":[{"label":"vcf:support","count":7}],"qc":[{"metric":"records_evaluated","value":"9","description":"Total VCF records processed"},{"metric":"records_skipped_filter","value":"1","description":"Records skipped: FILTER != PASS"},{"metric":"records_skipped_qual","value":"0","description":"Records skipped: QUAL below threshold"},{"metric":"records_skipped_multiallelic","value":"0","description":"Records skipped: multiallelic (when allow_multiallelic=False)"},{"metric":"alleles_evaluated","value":"9","description":"Alternate alleles evaluated for private-allele status"},{"metric":"alleles_passed","value":"7","description":"Alleles passing discovery criteria"},{"metric":"alleles_contradicted","value":"1","description":"Evaluated alternate alleles classified as contradicted"},{"metric":"loci_emitted","value":"7","description":"Loci written to hits.tsv"},{"metric":"regions_emitted","value":"7","description":"Regions written to regions.tsv"},{"metric":"n_target_samples","value":"2","description":"Target samples found in VCF header"},{"metric":"n_offtarget_samples","value":"3","description":"Off-target samples found in VCF header"},{"metric":"n_contigs_scanned","value":"1","description":"Contigs visited during scan"},{"metric":"strictness_contradicted","value":"1","description":"Evaluated alternate alleles classified as contradicted"},{"metric":"strictness_relaxed_threshold","value":"1","description":"Evaluated alternate alleles classified as relaxed_threshold"},{"metric":"strictness_strict_both_missing","value":"1","description":"Evaluated alternate alleles classified as strict_both_missing"},{"metric":"strictness_strict_complete","value":"4","description":"Evaluated alternate alleles classified as strict_complete"},{"metric":"strictness_strict_offtarget_missing","value":"1","description":"Evaluated alternate alleles classified as strict_offtarget_missing"},{"metric":"strictness_strict_target_missing","value":"1","description":"Evaluated alternate alleles classified as strict_target_missing"}],"top_hits":[{"source":"vcf","source_label":"VCF","rank":1,"locus_id":"PPX00000001","contig":"chr1","start":99,"end":100,"variant_type":"snp","allele_key":"chr1:100:A:T","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.283333,"support_score":0.0,"penalty_score":0.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":2,"locus_id":"PPX00000006","contig":"chr1","start":799,"end":800,"variant_type":"snp","allele_key":"chr1:800:A:T","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.283333,"support_score":0.0,"penalty_score":0.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":3,"locus_id":"PPX00000007","contig":"chr1","start":899,"end":902,"variant_type":"indel","allele_key":"chr1:900:AGG:A","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.283333,"support_score":0.0,"penalty_score":0.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":4,"locus_id":"PPX00000005","contig":"chr1","start":699,"end":700,"variant_type":"snp","allele_key":"chr1:700:A:T","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.208333,"support_score":0.0,"penalty_score":0.0,"final_score":1.208333},{"source":"vcf","source_label":"VCF","rank":5,"locus_id":"PPX00000003","contig":"chr1","start":299,"end":300,"variant_type":"snp","allele_key":"chr1:300:A:T","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":1,"strictness_class":"strict_offtarget_missing","discovery_score":1.083333,"support_score":0.0,"penalty_score":0.08,"final_score":1.003333},{"source":"vcf","source_label":"VCF","rank":6,"locus_id":"PPX00000002","contig":"chr1","start":199,"end":200,"variant_type":"snp","allele_key":"chr1:200:A:T","target_support_n":1,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":1,"offtarget_missing_n":0,"strictness_class":"strict_target_missing","discovery_score":1.083333,"support_score":0.0,"penalty_score":0.16,"final_score":0.923333},{"source":"vcf","source_label":"VCF","rank":7,"locus_id":"PPX00000004","contig":"chr1","start":399,"end":400,"variant_type":"snp","allele_key":"chr1:400:A:T","target_support_n":1,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":1,"offtarget_missing_n":1,"strictness_class":"strict_both_missing","discovery_score":1.083333,"support_score":0.0,"penalty_score":0.24,"final_score":0.843333}],"top_regions":[{"source":"vcf","source_label":"VCF","rank":1,"region_id":"REGION000000","contig":"chr1","start":99,"end":100,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":2,"region_id":"REGION000001","contig":"chr1","start":199,"end":200,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_target_missing","target_consistency":0.0,"offtarget_exclusion":1.0,"final_score":0.923333},{"source":"vcf","source_label":"VCF","rank":3,"region_id":"REGION000002","contig":"chr1","start":299,"end":300,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_offtarget_missing","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.003333},{"source":"vcf","source_label":"VCF","rank":4,"region_id":"REGION000003","contig":"chr1","start":399,"end":400,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_both_missing","target_consistency":0.0,"offtarget_exclusion":1.0,"final_score":0.843333},{"source":"vcf","source_label":"VCF","rank":5,"region_id":"REGION000004","contig":"chr1","start":699,"end":700,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.208333},{"source":"vcf","source_label":"VCF","rank":6,"region_id":"REGION000005","contig":"chr1","start":799,"end":800,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":7,"region_id":"REGION000006","contig":"chr1","start":899,"end":902,"n_loci":1,"variant_types":"indel","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.283333}]},{"key":"gfa","label":"GFA","summary":{"hit_count":2,"region_count":2,"embedded_hit_rows":2,"embedded_region_rows":2,"min_score":0.84,"max_score":1.2},"strictness_counts":[{"label":"strict_complete","count":1},{"label":"strict_target_missing","count":1}],"variant_type_counts":[{"label":"graph_region","count":2}],"contig_counts":[{"label":"chr1","count":2}],"score_bins":[{"label":"<0.25","count":0},{"label":"0.25-0.50","count":0},{"label":"0.50-0.75","count":0},{"label":"0.75-1.00","count":1},{"label":"1.00-1.25","count":1},{"label":"1.25-1.50","count":0},{"label":">=1.50","count":0}],"evidence_counts":[{"label":"gfa:support","count":2}],"qc":[{"metric":"records_evaluated","value":"7","description":"GFA graph segments processed for target-private status"},{"metric":"records_skipped_filter","value":"0","description":"Records skipped: FILTER != PASS"},{"metric":"records_skipped_qual","value":"0","description":"Records skipped: QUAL below threshold"},{"metric":"records_skipped_multiallelic","value":"0","description":"Records skipped: multiallelic (when allow_multiallelic=False)"},{"metric":"alleles_evaluated","value":"7","description":"Graph segments evaluated for path-differentiating status"},{"metric":"alleles_passed","value":"2","description":"Graph segments passing discovery criteria"},{"metric":"alleles_contradicted","value":"5","description":"Evaluated graph segments classified as contradicted"},{"metric":"loci_emitted","value":"2","description":"Loci written to hits.tsv"},{"metric":"regions_emitted","value":"2","description":"Regions written to regions.tsv"},{"metric":"n_target_samples","value":"2","description":"Target samples found in GFA"},{"metric":"n_offtarget_samples","value":"3","description":"Off-target samples found in GFA"},{"metric":"n_contigs_scanned","value":"1","description":"Contigs visited during scan"},{"metric":"strictness_contradicted","value":"5","description":"Evaluated graph segments classified as contradicted"},{"metric":"strictness_strict_complete","value":"1","description":"Evaluated graph segments classified as strict_complete"},{"metric":"strictness_strict_target_missing","value":"1","description":"Evaluated graph segments classified as strict_target_missing"}],"top_hits":[{"source":"gfa","source_label":"GFA","rank":1,"locus_id":"GPX00000001","contig":"chr1","start":8,"end":18,"variant_type":"graph_region","allele_key":"chr1:9:SEG:s2_target","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.2,"support_score":0.0,"penalty_score":0.0,"final_score":1.2},{"source":"gfa","source_label":"GFA","rank":2,"locus_id":"GPX00000002","contig":"chr1","start":60,"end":67,"variant_type":"graph_region","allele_key":"chr1:61:SEG:s4_target","target_support_n":1,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":1,"offtarget_missing_n":0,"strictness_class":"strict_target_missing","discovery_score":1.0,"support_score":0.0,"penalty_score":0.16,"final_score":0.84}],"top_regions":[{"source":"gfa","source_label":"GFA","rank":1,"region_id":"GFAR000000","contig":"chr1","start":8,"end":18,"n_loci":1,"variant_types":"graph_region","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.2},{"source":"gfa","source_label":"GFA","rank":2,"region_id":"GFAR000001","contig":"chr1","start":60,"end":67,"n_loci":1,"variant_types":"graph_region","dominant_strictness_class":"strict_target_missing","target_consistency":0.0,"offtarget_exclusion":1.0,"final_score":0.84}]}],"hits":[{"source":"vcf","source_label":"VCF","rank":1,"locus_id":"PPX00000001","contig":"chr1","start":99,"end":100,"variant_type":"snp","allele_key":"chr1:100:A:T","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.283333,"support_score":0.0,"penalty_score":0.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":2,"locus_id":"PPX00000006","contig":"chr1","start":799,"end":800,"variant_type":"snp","allele_key":"chr1:800:A:T","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.283333,"support_score":0.0,"penalty_score":0.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":3,"locus_id":"PPX00000007","contig":"chr1","start":899,"end":902,"variant_type":"indel","allele_key":"chr1:900:AGG:A","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.283333,"support_score":0.0,"penalty_score":0.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":4,"locus_id":"PPX00000005","contig":"chr1","start":699,"end":700,"variant_type":"snp","allele_key":"chr1:700:A:T","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.208333,"support_score":0.0,"penalty_score":0.0,"final_score":1.208333},{"source":"vcf","source_label":"VCF","rank":5,"locus_id":"PPX00000003","contig":"chr1","start":299,"end":300,"variant_type":"snp","allele_key":"chr1:300:A:T","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":1,"strictness_class":"strict_offtarget_missing","discovery_score":1.083333,"support_score":0.0,"penalty_score":0.08,"final_score":1.003333},{"source":"vcf","source_label":"VCF","rank":6,"locus_id":"PPX00000002","contig":"chr1","start":199,"end":200,"variant_type":"snp","allele_key":"chr1:200:A:T","target_support_n":1,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":1,"offtarget_missing_n":0,"strictness_class":"strict_target_missing","discovery_score":1.083333,"support_score":0.0,"penalty_score":0.16,"final_score":0.923333},{"source":"vcf","source_label":"VCF","rank":7,"locus_id":"PPX00000004","contig":"chr1","start":399,"end":400,"variant_type":"snp","allele_key":"chr1:400:A:T","target_support_n":1,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":1,"offtarget_missing_n":1,"strictness_class":"strict_both_missing","discovery_score":1.083333,"support_score":0.0,"penalty_score":0.24,"final_score":0.843333},{"source":"gfa","source_label":"GFA","rank":1,"locus_id":"GPX00000001","contig":"chr1","start":8,"end":18,"variant_type":"graph_region","allele_key":"chr1:9:SEG:s2_target","target_support_n":2,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":0,"offtarget_missing_n":0,"strictness_class":"strict_complete","discovery_score":1.2,"support_score":0.0,"penalty_score":0.0,"final_score":1.2},{"source":"gfa","source_label":"GFA","rank":2,"locus_id":"GPX00000002","contig":"chr1","start":60,"end":67,"variant_type":"graph_region","allele_key":"chr1:61:SEG:s4_target","target_support_n":1,"target_total_n":2,"offtarget_support_n":0,"offtarget_total_n":3,"target_missing_n":1,"offtarget_missing_n":0,"strictness_class":"strict_target_missing","discovery_score":1.0,"support_score":0.0,"penalty_score":0.16,"final_score":0.84}],"regions":[{"source":"vcf","source_label":"VCF","rank":1,"region_id":"REGION000000","contig":"chr1","start":99,"end":100,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":2,"region_id":"REGION000001","contig":"chr1","start":199,"end":200,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_target_missing","target_consistency":0.0,"offtarget_exclusion":1.0,"final_score":0.923333},{"source":"vcf","source_label":"VCF","rank":3,"region_id":"REGION000002","contig":"chr1","start":299,"end":300,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_offtarget_missing","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.003333},{"source":"vcf","source_label":"VCF","rank":4,"region_id":"REGION000003","contig":"chr1","start":399,"end":400,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_both_missing","target_consistency":0.0,"offtarget_exclusion":1.0,"final_score":0.843333},{"source":"vcf","source_label":"VCF","rank":5,"region_id":"REGION000004","contig":"chr1","start":699,"end":700,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.208333},{"source":"vcf","source_label":"VCF","rank":6,"region_id":"REGION000005","contig":"chr1","start":799,"end":800,"n_loci":1,"variant_types":"snp","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.283333},{"source":"vcf","source_label":"VCF","rank":7,"region_id":"REGION000006","contig":"chr1","start":899,"end":902,"n_loci":1,"variant_types":"indel","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.283333},{"source":"gfa","source_label":"GFA","rank":1,"region_id":"GFAR000000","contig":"chr1","start":8,"end":18,"n_loci":1,"variant_types":"graph_region","dominant_strictness_class":"strict_complete","target_consistency":1.0,"offtarget_exclusion":1.0,"final_score":1.2},{"source":"gfa","source_label":"GFA","rank":2,"region_id":"GFAR000001","contig":"chr1","start":60,"end":67,"n_loci":1,"variant_types":"graph_region","dominant_strictness_class":"strict_target_missing","target_consistency":0.0,"offtarget_exclusion":1.0,"final_score":0.84}],"compare":{"summary_rows":[{"match_class":"supported","n_loci":"0","pct_total":"0.0","mean_overlap":"NA","mean_score":"NA"},{"match_class":"partially_supported","n_loci":"0","pct_total":"0.0","mean_overlap":"NA","mean_score":"NA"},{"match_class":"contradicted","n_loci":"0","pct_total":"0.0","mean_overlap":"NA","mean_score":"NA"},{"match_class":"source_specific","n_loci":"8","pct_total":"100.0","mean_overlap":"0.0000","mean_score":"0.3000"},{"match_class":"uninformative","n_loci":"0","pct_total":"0.0","mean_overlap":"NA","mean_score":"NA"},{"match_class":"missing_data","n_loci":"0","pct_total":"0.0","mean_overlap":"NA","mean_score":"NA"}],"match_counts":[{"label":"source_specific","count":8}],"compare_tsv":"docs/assets/examples/workflow/scan/compare/compare.tsv","compare_summary_tsv":"docs/assets/examples/workflow/scan/compare/compare_summary.tsv"},"aggregate":{"strictness_counts":[{"label":"strict_complete","count":5},{"label":"strict_target_missing","count":2},{"label":"strict_both_missing","count":1},{"label":"strict_offtarget_missing","count":1}],"variant_type_counts":[{"label":"snp","count":6},{"label":"graph_region","count":2},{"label":"indel","count":1}],"contig_counts":[{"label":"chr1","count":9}],"score_bins":[{"label":"<0.25","count":0},{"label":"0.25-0.50","count":0},{"label":"0.50-0.75","count":0},{"label":"0.75-1.00","count":3},{"label":"1.00-1.25","count":3},{"label":"1.25-1.50","count":3},{"label":">=1.50","count":0}]}};
+const S = DATA.summary;
+const state = { source: "all", query: "", minScore: 0, strictness: new Set(), variants: new Set() };
+const colors = ["#28745f", "#2e6f9e", "#b7832f", "#b64b52", "#6a5d9f", "#4f7f86", "#8b6f47", "#657a56"];
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+}
+function fmt(value) { return Number(value || 0).toLocaleString(); }
+function score(value) { return Number(value || 0).toFixed(3); }
+function sourcePayload() {
+  if (state.source === "all") return null;
+  return DATA.sources.find(src => src.key === state.source) || null;
+}
+function rowsFor(kind) {
+  const src = sourcePayload();
+  if (!src) return DATA.aggregate[kind] || [];
+  return src[kind] || [];
+}
+function allSourceOptions() {
+  const select = document.getElementById("sourceSelect");
+  select.innerHTML = '<option value="all">All sources</option>';
+  for (const src of DATA.sources) {
+    const opt = document.createElement("option");
+    opt.value = src.key;
+    opt.textContent = src.label;
+    select.appendChild(opt);
+  }
+}
+function setupChecks(id, rows, setName) {
+  const box = document.getElementById(id);
+  box.innerHTML = "";
+  for (const row of rows) {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = true;
+    input.value = row.label;
+    state[setName].add(row.label);
+    input.addEventListener("change", () => {
+      if (input.checked) state[setName].add(input.value);
+      else state[setName].delete(input.value);
+      update();
+    });
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(`${row.label} (${fmt(row.count)})`));
+    box.appendChild(label);
+  }
+}
+function setupFilters() {
+  setupChecks("strictnessFilters", DATA.aggregate.strictness_counts, "strictness");
+  setupChecks("variantFilters", DATA.aggregate.variant_type_counts, "variants");
+}
+function filteredHits() {
+  const q = state.query.trim().toLowerCase();
+  return DATA.hits.filter(row => {
+    if (state.source !== "all" && row.source !== state.source) return false;
+    if (Number(row.final_score || 0) < state.minScore) return false;
+    if (!state.strictness.has(row.strictness_class)) return false;
+    if (!state.variants.has(row.variant_type)) return false;
+    if (!q) return true;
+    return [row.locus_id, row.contig, row.variant_type, row.strictness_class, row.allele_key, row.source_label].join(" ").toLowerCase().includes(q);
+  });
+}
+function filteredRegions() {
+  return DATA.regions.filter(row => state.source === "all" || row.source === state.source);
+}
+function renderMetrics() {
+  const src = sourcePayload();
+  document.getElementById("metricSources").textContent = src ? src.label : fmt(S.source_count);
+  document.getElementById("metricHits").textContent = fmt(src ? src.summary.hit_count : S.hit_count);
+  document.getElementById("metricRegions").textContent = fmt(src ? src.summary.region_count : S.region_count);
+  document.getElementById("metricEmbeddedHits").textContent = fmt(src ? src.summary.embedded_hit_rows : S.embedded_hit_rows);
+  document.getElementById("metricEmbeddedRegions").textContent = fmt(src ? src.summary.embedded_region_rows : S.embedded_region_rows);
+}
+function drawBars(canvasId, rows, colorOffset = 0) {
+  const canvas = document.getElementById(canvasId);
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  const pad = {left: 42, right: 12, top: 12, bottom: 48};
+  const width = rect.width - pad.left - pad.right;
+  const height = rect.height - pad.top - pad.bottom;
+  const max = Math.max(1, ...rows.map(row => Number(row.count || 0)));
+  ctx.strokeStyle = "#d5ded8";
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, pad.top + height);
+  ctx.lineTo(pad.left + width, pad.top + height);
+  ctx.stroke();
+  const shown = rows.slice(0, 18);
+  const gap = 5;
+  const barW = shown.length ? Math.max(5, (width - gap * (shown.length - 1)) / shown.length) : width;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = "11px system-ui, sans-serif";
+  shown.forEach((row, idx) => {
+    const h = Number(row.count || 0) / max * height;
+    const x = pad.left + idx * (barW + gap);
+    const y = pad.top + height - h;
+    ctx.fillStyle = colors[(idx + colorOffset) % colors.length];
+    ctx.fillRect(x, y, barW, h);
+    ctx.save();
+    ctx.translate(x + barW / 2, pad.top + height + 8);
+    ctx.rotate(-Math.PI / 5);
+    ctx.fillStyle = "#5a6761";
+    ctx.fillText(String(row.label).slice(0, 18), 0, 0);
+    ctx.restore();
+  });
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#5a6761";
+  ctx.fillText(fmt(max), pad.left - 6, pad.top + 4);
+}
+function renderHits() {
+  const tbody = document.getElementById("hitRows");
+  const rows = filteredHits().slice(0, 500);
+  tbody.innerHTML = "";
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="muted">No embedded hits match the current filters.</td></tr>';
+    return;
+  }
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${fmt(row.rank)}</td><td>${esc(row.source_label)}</td><td>${esc(row.locus_id)}</td><td>${esc(row.contig)}:${fmt(row.start)}-${fmt(row.end)}</td><td><span class="pill">${esc(row.variant_type)}</span></td><td>${esc(row.strictness_class)}</td><td>${fmt(row.target_support_n)}/${fmt(row.target_total_n)} miss ${fmt(row.target_missing_n)}</td><td>${fmt(row.offtarget_support_n)}/${fmt(row.offtarget_total_n)} miss ${fmt(row.offtarget_missing_n)}</td><td>${score(row.final_score)}</td>`;
+    tr.addEventListener("click", () => {
+      document.getElementById("hitDetail").innerHTML = `<strong>${esc(row.locus_id)}</strong> ${esc(row.allele_key)}; discovery=${score(row.discovery_score)}, support=${score(row.support_score)}, penalty=${score(row.penalty_score)}.`;
+    });
+    tbody.appendChild(tr);
+  }
+}
+function renderRegions() {
+  const tbody = document.getElementById("regionRows");
+  const rows = filteredRegions().slice(0, 250);
+  tbody.innerHTML = "";
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="muted">No embedded regions for the selected source.</td></tr>';
+    return;
+  }
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${fmt(row.rank)}</td><td>${esc(row.source_label)}</td><td>${esc(row.region_id)}</td><td>${esc(row.contig)}:${fmt(row.start)}-${fmt(row.end)}</td><td>${fmt(row.n_loci)}</td><td>${score(row.final_score)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+function renderQc() {
+  const box = document.getElementById("qcRows");
+  const src = sourcePayload();
+  const sources = src ? [src] : DATA.sources;
+  let html = "";
+  for (const item of sources) {
+    html += `<p><strong>${esc(item.label)}</strong><br><code>${esc(S.inputs.find(x => x.label === item.label)?.path || "")}</code></p>`;
+    const rows = item.qc.slice(0, 10);
+    if (rows.length) {
+      html += '<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>';
+      for (const row of rows) html += `<tr><td>${esc(row.metric)}</td><td>${esc(row.value)}</td></tr>`;
+      html += '</tbody></table>';
+    }
+  }
+  if (DATA.compare.match_counts.length) {
+    html += '<p><strong>Compare match classes</strong></p><table><tbody>';
+    for (const row of DATA.compare.match_counts) html += `<tr><td>${esc(row.label)}</td><td>${fmt(row.count)}</td></tr>`;
+    html += '</tbody></table>';
+  }
+  box.innerHTML = html;
+}
+function updateCharts() {
+  drawBars("strictnessChart", rowsFor("strictness_counts"), 0);
+  drawBars("variantChart", rowsFor("variant_type_counts"), 1);
+  drawBars("scoreChart", rowsFor("score_bins"), 2);
+  drawBars("contigChart", rowsFor("contig_counts"), 3);
+}
+function update() {
+  renderMetrics();
+  updateCharts();
+  renderHits();
+  renderRegions();
+  renderQc();
+}
+document.getElementById("title").textContent = S.title;
+document.getElementById("subtitle").textContent = S.subtitle;
+allSourceOptions();
+setupFilters();
+const maxScore = Math.max(1, ...DATA.sources.map(src => Number(src.summary.max_score || 0)));
+const slider = document.getElementById("scoreSlider");
+slider.max = String(Math.ceil(maxScore * 100) / 100);
+slider.addEventListener("input", () => {
+  state.minScore = Number(slider.value || 0);
+  document.getElementById("scoreLabel").textContent = state.minScore.toFixed(2);
+  update();
+});
+document.getElementById("sourceSelect").addEventListener("change", event => {
+  state.source = event.target.value;
+  update();
+});
+document.getElementById("searchBox").addEventListener("input", event => {
+  state.query = event.target.value;
+  renderHits();
+});
+window.addEventListener("resize", updateCharts);
+update();
+</script>
+</body>
+</html>

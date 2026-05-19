@@ -1,0 +1,18 @@
+{
+  "analysis": "interactive_focus",
+  "inputs": {
+    "sites_tsv": "",
+    "vcf": "tests/data/small_cohort.vcf",
+    "gff3": "tests/data/small_cohort.gff3",
+    "track_gff": []
+  },
+  "outputs": [
+    {
+      "region": "chr1:1-1000",
+      "html": "docs/assets/examples/interactive/focus/focus_chr1_1_1000.html",
+      "features_tsv": "docs/assets/examples/interactive/focus/focus_chr1_1_1000.features.tsv",
+      "metadata_json": "docs/assets/examples/interactive/focus/focus_chr1_1_1000.json",
+      "sites_tsv": "docs/assets/examples/interactive/focus/focus_chr1_1_1000.sites.tsv"
+    }
+  ]
+}

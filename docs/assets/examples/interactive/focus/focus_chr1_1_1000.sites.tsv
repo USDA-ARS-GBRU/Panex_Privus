@@ -1,0 +1,7 @@
+contig	pos	ref	alt	variant_type	qual	filter	O1_gt	O1_alleles	O1_state	O1_carries_alt	T1_gt	T1_alleles	T1_state	T1_carries_alt	T2_gt	T2_alleles	T2_state	T2_carries_alt	called_n	alt_carrier_n	derived_matches_donor_gt	derived_matches_offtarget_gt	donor_alt_absent_offtarget	target_private_alt_pattern	target_private_alt_indices	target_private_alt_alleles	overlapping_gene_ids	overlapping_gene_names	nearest_gene_id	nearest_gene_name	nearest_gene_distance_bp
+chr1	100	A	T	snp	50.0	PASS	0/0	A/A	hom_ref	false	0/1	A/T	het	true	0/1	A/T	het	true	3	2	true	false	true	true	1	T	GeneA	GeneA	GeneA	GeneA	0
+chr1	300	A	T	snp	50.0	PASS	0/0	A/A	hom_ref	false	0/1	A/T	het	true	0/1	A/T	het	true	3	2	true	false	true	true	1	T	GeneA	GeneA	GeneA	GeneA	0
+chr1	500	A	T	snp	50.0	PASS	0/1	A/T	het	true	0/1	A/T	het	true	0/1	A/T	het	true	3	3	true	true	false	false	NA	NA	GeneB	GeneB	GeneB	GeneB	0
+chr1	700	A	T	snp	5.0	PASS	0/0	A/A	hom_ref	false	0/1	A/T	het	true	0/1	A/T	het	true	3	2	true	false	true	true	1	T	NA	NA	GeneB	GeneB	150
+chr1	800	A	T,G	snp	50.0	PASS	0/0	A/A	hom_ref	false	0/1	A/T	het	true	0/1	A/T	het	true	3	2	true	false	true	true	1	T	NA	NA	GeneB	GeneB	250
+chr1	900	AGG	A	indel	50.0	PASS	0/0	AGG/AGG	hom_ref	false	0/1	AGG/A	het	true	0/1	AGG/A	het	true	3	2	true	false	true	true	1	A	NA	NA	GeneB	GeneB	350

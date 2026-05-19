@@ -1,0 +1,66 @@
+{
+  "title": "Privy Interactive Landscape Dashboard",
+  "subtitle": "Self-contained dashboard from existing privy landscape outputs.",
+  "analysis": "interactive_landscape",
+  "landscape_dir": "docs/assets/examples/landscape",
+  "window_count": 7,
+  "sample_window_count": 42,
+  "candidate_block_count": 2,
+  "background_block_count": 26,
+  "embedded_windows": 7,
+  "embedded_sample_windows": 42,
+  "embedded_candidate_blocks": 2,
+  "max_windows": 20000,
+  "max_sample_windows": 80000,
+  "max_blocks": 5000,
+  "contigs": [
+    "chr1",
+    "chr2"
+  ],
+  "samples": [
+    "O1",
+    "O2",
+    "O3",
+    "O4",
+    "T1",
+    "T2"
+  ],
+  "cohort_roles": {
+    "T1": "target",
+    "T2": "target",
+    "O1": "off_target",
+    "O2": "off_target",
+    "O3": "off_target",
+    "O4": "off_target"
+  },
+  "parameters": {
+    "max_introgression_missing_rate": 0.5,
+    "min_background_similarity": 0.5,
+    "min_called_for_freq": 0,
+    "min_freq_values": 0,
+    "min_introgression_delta": 0.5,
+    "min_introgression_similarity": 0.9,
+    "min_introgression_windows": 2,
+    "min_qual": null,
+    "pass_only": true,
+    "plot_format": "png",
+    "plot_scope": "chromosome",
+    "rare_max_count": 1,
+    "rare_max_freq": 0.05,
+    "step_bp": null,
+    "step_records": 4,
+    "window_bp": null,
+    "window_mode": "records",
+    "window_records": 4,
+    "write_plots": true
+  },
+  "inputs": {
+    "windows": "docs/assets/examples/landscape/windows.tsv",
+    "sample_windows": "docs/assets/examples/landscape/sample_windows.tsv",
+    "candidate_blocks": "docs/assets/examples/landscape/candidate_introgression_blocks.tsv",
+    "background_blocks": "docs/assets/examples/landscape/background_blocks.tsv",
+    "filter_summary": "",
+    "similarity": "docs/assets/examples/landscape/similarity.tsv",
+    "landscape_json": "docs/assets/examples/landscape/landscape.json"
+  }
+}

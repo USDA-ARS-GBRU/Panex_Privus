@@ -37,6 +37,7 @@ The current test suite has 701 passing unit and integration tests.
 | v0.7 | `privy annotate` |
 | v0.8 | `privy export` to BED/GFF3 |
 | v0.9 | `privy landscape` VCF sliding-window summaries, local background maps, and candidate donor-like blocks |
+| v0.9.1 | `privy interactive` focus, scan, landscape, and pangenome HTML dashboards |
 | v1.0 | Polished docs, example datasets, manuscript-ready outputs, release hardening |
 
 ## Helpful Contributions

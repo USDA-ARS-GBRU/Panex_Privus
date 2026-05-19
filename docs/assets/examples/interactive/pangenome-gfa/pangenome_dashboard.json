@@ -1,0 +1,25 @@
+{
+  "title": "Privy Interactive Pangenome Dashboard",
+  "subtitle": "Self-contained dashboard from existing privy pangenome outputs.",
+  "analysis": "interactive_pangenome",
+  "pangenome_dir": "docs/assets/examples/pangenome-gfa",
+  "source_count": 1,
+  "feature_count": 7,
+  "target_private_count": 2,
+  "offtarget_private_count": 2,
+  "embedded_features": 7,
+  "embedded_target_private_features": 2,
+  "max_features_per_source": 10000,
+  "max_private_features_per_source": 5000,
+  "inputs": [
+    {
+      "label": "pangenome-gfa",
+      "path": "docs/assets/examples/pangenome-gfa",
+      "feature_summary": "docs/assets/examples/pangenome-gfa/feature_summary.tsv",
+      "composition": "docs/assets/examples/pangenome-gfa/composition.tsv",
+      "coverage": "docs/assets/examples/pangenome-gfa/coverage_histogram.tsv",
+      "growth": "docs/assets/examples/pangenome-gfa/growth_curves.tsv",
+      "pangenome_json": "docs/assets/examples/pangenome-gfa/pangenome.json"
+    }
+  ]
+}
