@@ -293,6 +293,9 @@ def test_interactive_focus_writes_one_html_per_region(tmp_path: Path) -> None:
     assert "Panex Privus Interactive Focus Region Report" in text
     assert "Generated with <a href=\"https://github.com/USDA-ARS-GBRU/Panex_Privus\"" in text
     assert "This self-contained HTML report was generated with" in text
+    assert "Export current view" in text
+    assert "downloadCanvasPng" in text
+    assert "window.print()" in text
     assert "RepeatOne" in text
     assert "GeneA" in features.read_text(encoding="utf-8")
 

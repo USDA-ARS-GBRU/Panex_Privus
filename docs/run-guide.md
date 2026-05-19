@@ -879,6 +879,10 @@ repeat annotations or SSR markers. Candidate feature lists are variant-supported
 functional annotation can help rank or group features, but features without
 compatible focal variation are not elevated.
 
+The focus browser also includes `PNG` and `Print/PDF` controls for the current
+zoom window. Use them after selecting the visible tracks and coordinates you
+want to freeze for a manuscript figure, slide, or collaborator handoff.
+
 ### Functional Annotation TSV
 
 `--functional-tsv` is optional, but useful when you want the browser to display

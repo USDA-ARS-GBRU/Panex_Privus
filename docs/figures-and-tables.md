@@ -620,7 +620,9 @@ show focal genotype states, PASS SNPs and other variant classes, gene models,
 exons, introns, promoter windows, and optional GFF3 tracks such as repeats or
 SSR markers. Candidate feature lists are variant-supported: annotation and
 phenotype keywords help organize features, but features without compatible
-focal variation are not elevated.
+focal variation are not elevated. The browser can export the current zoomed
+view as PNG or use browser print/save-PDF for static manuscript and slide
+figures.
 
 ### Dashboard: Scan Summary
 

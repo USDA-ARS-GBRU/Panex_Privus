@@ -67,7 +67,7 @@ main { max-width: 1440px; margin: 0 auto; padding: 24px clamp(14px, 3vw, 34px) 5
 .section-head p { margin: 4px 0 0; color: var(--muted); max-width: 980px; }
 .controls {
   display: grid;
-  grid-template-columns: minmax(260px, 1.2fr) minmax(240px, 1fr) minmax(240px, 1fr);
+  grid-template-columns: minmax(260px, 1.2fr) minmax(240px, 1fr) minmax(240px, 1fr) minmax(220px, .9fr);
   gap: 12px;
   align-items: stretch;
   margin: 14px 0;
@@ -90,6 +90,7 @@ button {
   cursor: pointer;
 }
 button:hover { border-color: var(--teal); color: #064e46; }
+.export-note { margin: 7px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.35; }
 select, input {
   width: 100%;
   border: 1px solid #c9d2cc;
@@ -180,6 +181,19 @@ select, input {
   .summary-grid { grid-template-columns: 1fr; }
   .coord-inputs, .search-row { grid-template-columns: 1fr; }
 }
+@media print {
+  body { background: #fff; }
+  .site-header { padding: 14px 0 10px; background: #fff; border-bottom: 1px solid #d7ddd8; }
+  main { padding: 14px 0 0; }
+  .summary-grid, .controls, .candidate-panel, .notes { display: none !important; }
+  .section { border: 0; box-shadow: none; padding: 0; margin: 0; }
+  .section-head p { display: none; }
+  .browser-wrap { border: 1px solid #bfc9c3; break-inside: avoid; }
+  .browser-detail { grid-template-columns: 1fr; break-inside: avoid; }
+  #genomeCanvas { min-height: 0; page-break-inside: avoid; }
+  .site-footer { padding: 14px 0 0; }
+  button, input, select { display: none !important; }
+}
 </style>
 </head>
 <body>
@@ -227,6 +241,14 @@ select, input {
           <button type="button" id="geneGo">Go</button>
         </div>
         <datalist id="geneList"></datalist>
+      </div>
+      <div class="control-group">
+        <label>Export current view</label>
+        <div class="button-row">
+          <button type="button" id="exportPng">PNG</button>
+          <button type="button" id="printPdf">Print/PDF</button>
+        </div>
+        <p class="export-note">Uses the current zoom window and visible tracks.</p>
       </div>
     </div>
     <div class="control-group">
@@ -493,6 +515,68 @@ function draw() {
   if (state.toggles.genes) { drawGenes(cssWidth, y); y += 70; }
   if (state.toggles.gff) drawAnnotationTracks(cssWidth, y);
 }
+function visibleTrackLabels() {
+  const labels = [];
+  if (state.toggles.density) labels.push("density");
+  if (state.toggles.snp) labels.push("PASS SNPs");
+  if (state.toggles.indel) labels.push("INDEL/complex");
+  if (state.toggles.sv) labels.push("SV-like");
+  if (state.toggles.genes) labels.push("genes/exons/CDS");
+  if (state.toggles.promoters) labels.push("promoters");
+  if (state.toggles.gff && DATA.tracks.length) labels.push("extra GFF3 tracks");
+  return labels.join(", ");
+}
+function downloadCanvasPng() {
+  draw();
+  const rect = canvas.getBoundingClientRect();
+  const scale = canvas.width / Math.max(1, rect.width);
+  const cssWidth = canvas.width / scale;
+  const cssHeight = canvas.height / scale;
+  const headerHeight = 96;
+  const footerHeight = 92;
+  const out = document.createElement("canvas");
+  out.width = Math.round(cssWidth * scale);
+  out.height = Math.round((headerHeight + cssHeight + footerHeight) * scale);
+  const outCtx = out.getContext("2d");
+  outCtx.scale(scale, scale);
+  outCtx.fillStyle = "#ffffff";
+  outCtx.fillRect(0, 0, cssWidth, headerHeight + cssHeight + footerHeight);
+  outCtx.fillStyle = COLORS.text;
+  outCtx.font = "700 20px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  outCtx.fillText(S.title, 24, 30);
+  outCtx.fillStyle = COLORS.muted;
+  outCtx.font = "13px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  outCtx.fillText(`${S.contig}:${fmt(state.start)}-${fmt(state.end)}; visible tracks: ${visibleTrackLabels() || "none"}`, 24, 55);
+  outCtx.fillText("Generated with Panex Privus (privy): https://github.com/USDA-ARS-GBRU/Panex_Privus", 24, 76);
+  outCtx.strokeStyle = COLORS.line;
+  outCtx.beginPath();
+  outCtx.moveTo(24, headerHeight - 10);
+  outCtx.lineTo(cssWidth - 24, headerHeight - 10);
+  outCtx.stroke();
+  outCtx.drawImage(canvas, 0, headerHeight, cssWidth, cssHeight);
+  const footerY = headerHeight + cssHeight + 24;
+  outCtx.strokeStyle = COLORS.line;
+  outCtx.beginPath();
+  outCtx.moveTo(24, footerY - 13);
+  outCtx.lineTo(cssWidth - 24, footerY - 13);
+  outCtx.stroke();
+  outCtx.fillStyle = COLORS.muted;
+  outCtx.font = "12px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+  outCtx.fillText("This static image was exported from a self-contained Panex Privus interactive focus-region report.", 24, footerY + 8);
+  outCtx.fillText(`Source interval: ${S.contig}:${fmt(S.start)}-${fmt(S.end)}; current window: ${fmt(state.start)}-${fmt(state.end)}.`, 24, footerY + 29);
+  out.toBlob(blob => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const stem = `${S.contig}_${Math.round(state.start)}_${Math.round(state.end)}`.replace(/[^A-Za-z0-9_.-]+/g, "_");
+    link.href = url;
+    link.download = `panex_privus_focus_${stem}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, "image/png");
+}
 function setupToggles() {
   const labels = [["density", "Density"], ["snp", "PASS SNPs"], ["indel", "INDEL/complex"], ["sv", "SV-like"], ["genes", "Genes"], ["promoters", "Promoters"], ["gff", "Extra GFF3 tracks"]];
   const box = document.getElementById("trackToggles");
@@ -519,6 +603,8 @@ function setupControls() {
     const gene = DATA.genes.find(g => g.gene.toLowerCase() === q || g.id.toLowerCase() === q || g.gene.toLowerCase().includes(q));
     if (gene) zoomFeature(gene.start, gene.end);
   });
+  document.getElementById("exportPng").addEventListener("click", downloadCanvasPng);
+  document.getElementById("printPdf").addEventListener("click", () => window.print());
   setView(S.start, S.end);
 }
 function setupPointer() {
