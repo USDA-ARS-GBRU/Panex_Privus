@@ -12,6 +12,7 @@ from privy.cli.context import get_state
 from privy.interactive.focus import RECOMMENDED_FOCUS_BP, run_focus_dashboards
 from privy.interactive.genotypes import VariantFilter
 from privy.interactive.models import FocusRegion, parse_focus_region
+from privy.interactive.scan import run_scan_dashboard
 
 log = logging.getLogger("privy.cli.interactive")
 
@@ -19,8 +20,8 @@ app = typer.Typer(
     name="interactive",
     help=(
         "Build self-contained interactive HTML dashboards.\n\n"
-        "The first supported mode is one static dashboard per --focus region. "
-        "Start with regions around 4 Mbp or smaller for responsive review."
+        "Supported modes include one static dashboard per --focus region and "
+        "summary dashboards from existing --scan output directories."
     ),
     rich_markup_mode="rich",
     no_args_is_help=True,
@@ -36,6 +37,16 @@ def interactive(
         help=(
             "Focus region to render as CONTIG:START-END. Repeat for multiple "
             "regions; one HTML file is written per region."
+        ),
+    ),
+    scan_dir: Path | None = typer.Option(
+        None,
+        "--scan",
+        "--scan-dir",
+        metavar="PATH",
+        help=(
+            "Existing privy scan output directory. Accepts a direct directory "
+            "with hits.tsv or a combined run with vcf/, gfa/, and compare/ children."
         ),
     ),
     sites_tsv: Path | None = typer.Option(
@@ -113,6 +124,20 @@ def interactive(
         min=1,
         help="Maximum variant-supported feature rows to rank per focus region.",
     ),
+    max_hits: int = typer.Option(
+        5000,
+        "--max-hits",
+        metavar="INTEGER",
+        min=1,
+        help="For --scan, maximum top hit rows to embed per source.",
+    ),
+    max_regions: int = typer.Option(
+        1000,
+        "--max-regions",
+        metavar="INTEGER",
+        min=1,
+        help="For --scan, maximum candidate region rows to embed per source.",
+    ),
     pass_only: bool = typer.Option(
         True,
         "--pass-only/--no-pass-only",
@@ -153,9 +178,32 @@ def interactive(
         help="Output directory. Overrides global --outdir.",
     ),
 ) -> None:
-    """Build one self-contained interactive HTML file per focus region."""
+    """Build self-contained interactive HTML dashboards."""
     state = get_state()
     effective_outdir = outdir or state.outdir
+
+    mode_count = int(bool(focus)) + int(scan_dir is not None)
+    if mode_count != 1:
+        typer.echo("[error] Provide exactly one dashboard mode: --focus or --scan.", err=True)
+        raise typer.Exit(code=2)
+
+    if scan_dir is not None:
+        try:
+            generated = run_scan_dashboard(
+                scan_dir=scan_dir,
+                outdir=effective_outdir,
+                title=title,
+                subtitle=subtitle,
+                max_hits=max_hits,
+                max_regions=max_regions,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            typer.echo(f"[error] {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not state.quiet:
+            for path in generated:
+                typer.echo(f"  {path}")
+        return
 
     try:
         focus_regions = _parse_focuses(focus)

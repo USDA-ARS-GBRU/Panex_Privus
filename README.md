@@ -215,6 +215,20 @@ Add `--functional-tsv` to join gene-level annotation and `--keyword-group`
 to create phenotype-oriented feature lists; the run guide defines the TSV
 schema and keyword matching behavior.
 
+Build an interactive dashboard from existing `privy scan` outputs:
+
+```bash
+privy interactive \
+  --scan results/scan/ \
+  --max-hits 5000 \
+  --max-regions 1000 \
+  --outdir results/interactive/
+```
+
+`--scan` accepts either a direct scan source directory containing `hits.tsv`,
+or a combined scan directory with `vcf/`, `gfa/`, and optional `compare/`
+children.
+
 Compare two scan outputs:
 
 ```bash

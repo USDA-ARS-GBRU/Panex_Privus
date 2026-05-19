@@ -927,6 +927,40 @@ privy interactive \
   --outdir results/interactive/
 ```
 
+### Interactive Scan Dashboards
+
+Use `privy interactive --scan` to build a self-contained dashboard from
+existing `privy scan` outputs. This is a review dashboard for ranked private
+loci, candidate regions, strictness classes, score distributions, QC metrics,
+and optional VCF/GFA comparison summaries.
+
+```bash
+privy interactive \
+  --scan results/scan/ \
+  --max-hits 5000 \
+  --max-regions 1000 \
+  --outdir results/interactive/
+```
+
+`--scan` accepts either:
+
+- a direct scan source directory containing `hits.tsv`, such as
+  `results/scan/vcf/` or `results/scan/gfa/`
+- a combined scan run directory containing source subdirectories such as
+  `vcf/`, `gfa/`, and optional `compare/`
+
+The dashboard aggregates the full `hits.tsv` files for charts and summary
+counts, but embeds only the first `--max-hits` hit rows and `--max-regions`
+region rows per source. This keeps the HTML shareable for very large scans
+while preserving run-level counts in the dashboard metadata. Increase those
+limits when you need deeper table browsing, or keep them modest when the HTML
+will be emailed or opened on a laptop.
+
+Scan dashboard outputs:
+
+- `scan_dashboard.html`: shareable interactive scan dashboard
+- `scan_dashboard.json`: reproducibility metadata and source summaries
+
 ## Annotate Hits
 
 Use `privy annotate` when you want to connect candidate private loci to gene

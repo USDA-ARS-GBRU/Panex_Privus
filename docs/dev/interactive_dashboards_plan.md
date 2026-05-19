@@ -26,10 +26,14 @@ Started in development:
   browser slice.
 - Functional TSV joins and user-defined phenotype keyword groups are
   implemented for variant-supported feature lists.
+- `privy interactive --scan PATH` is implemented as an MVP scan review
+  dashboard. It reads direct scan source directories or combined scan roots
+  with `vcf/`, `gfa/`, and optional `compare/` children.
 
 Next implementation step: add more of the original Gm15 dashboard polish to the
-package path, especially optional landscape or scan overlays and browser-side
-refinements. Curated preset keyword packs may become a later convenience layer.
+package path, especially landscape overlays, standalone landscape dashboards,
+and browser-side refinements. Curated preset keyword packs may become a later
+convenience layer.
 
 ## Proposed CLI Namespace
 
@@ -338,6 +342,12 @@ Inputs:
 
 Purpose: inspect target-private hits and candidate regions from VCF/GFA/BAM/XMFA
 scan outputs.
+
+MVP status: implemented for `hits.tsv`, `regions.tsv`, `qc.tsv`, optional
+`evidence.tsv`, and optional `compare/compare.tsv` or
+`compare/compare_summary.tsv`. The dashboard aggregates the full hit tables for
+counts and charts, but embeds bounded top-hit and top-region tables controlled
+by `--max-hits` and `--max-regions`.
 
 Potential views:
 

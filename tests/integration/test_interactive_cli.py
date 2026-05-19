@@ -85,6 +85,39 @@ def _write_vcf(path: Path) -> Path:
     return path
 
 
+def _write_scan_source(path: Path, prefix: str) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    path.joinpath("hits.tsv").write_text(
+        "locus_id\tcontig\tstart\tend\tvariant_type\tallele_key\t"
+        "target_support_n\ttarget_total_n\tofftarget_support_n\tofftarget_total_n\t"
+        "target_missing_n\tofftarget_missing_n\tstrictness_class\t"
+        "discovery_score\tsupport_score\tpenalty_score\tfinal_score\n"
+        f"{prefix}001\tchr1\t99\t100\tsnp\tchr1:100:A:G\t2\t2\t0\t3\t0\t0\t"
+        "strict_complete\t1.0\t0.2\t0.0\t1.2\n"
+        f"{prefix}002\tchr2\t199\t205\tindel\tchr2:200:AT:A\t1\t2\t0\t3\t1\t0\t"
+        "strict_target_missing\t0.8\t0.0\t0.1\t0.7\n",
+        encoding="utf-8",
+    )
+    path.joinpath("regions.tsv").write_text(
+        "region_id\tcontig\tstart\tend\tn_loci\tvariant_types\t"
+        "dominant_strictness_class\ttarget_consistency\tofftarget_exclusion\tfinal_score\n"
+        f"{prefix}R1\tchr1\t90\t120\t2\tsnp\tstrict_complete\t1.0\t1.0\t1.2\n",
+        encoding="utf-8",
+    )
+    path.joinpath("qc.tsv").write_text(
+        "metric\tvalue\tdescription\n"
+        "records_evaluated\t20\tTotal records processed\n"
+        "loci_emitted\t2\tLoci written to hits.tsv\n",
+        encoding="utf-8",
+    )
+    path.joinpath("evidence.tsv").write_text(
+        "locus_id\tsource_type\tsample_id\tevidence_class\tmetric_name\tmetric_value\tdetails\n"
+        f"{prefix}001\tvcf\t\tsupport\tallele_pattern\t1.0\tpasses\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def test_interactive_focus_writes_one_html_per_region(tmp_path: Path) -> None:
     sites = _write_sites(tmp_path / "sites.tsv")
     gff3 = _write_gff3(tmp_path / "genes.gff3")
@@ -226,8 +259,68 @@ def test_interactive_keyword_group_adds_candidate_dropdown_group(tmp_path: Path)
     assert "Auxin-responsive trichome regulator" in html
 
 
+def test_interactive_scan_writes_dashboard_from_combined_scan_dir(tmp_path: Path) -> None:
+    scan = tmp_path / "scan"
+    _write_scan_source(scan / "vcf", "V")
+    _write_scan_source(scan / "gfa", "G")
+    compare = scan / "compare"
+    compare.mkdir()
+    compare.joinpath("compare.tsv").write_text(
+        "a_locus_id\tb_locus_id\tmatch_class\n"
+        "V001\tG001\tsupported\n"
+        "V002\t\tmissing_data\n",
+        encoding="utf-8",
+    )
+    outdir = tmp_path / "interactive"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "interactive",
+            "--scan",
+            str(scan),
+            "--max-hits",
+            "1",
+            "--max-regions",
+            "1",
+            "--outdir",
+            str(outdir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    html = outdir / "scan_dashboard.html"
+    metadata = outdir / "scan_dashboard.json"
+    assert html.exists()
+    assert metadata.exists()
+    text = html.read_text(encoding="utf-8")
+    assert "Privy Interactive Scan Dashboard" in text
+    assert "Strictness Classes" in text
+    assert "V001" in text
+    assert "G001" in text
+    assert "supported" in text
+
+
 def test_interactive_requires_sites_tsv_or_vcf() -> None:
     result = CliRunner().invoke(app, ["interactive", "--focus", "chr1:1-1000"])
 
     assert result.exit_code == 1
     assert "Provide either --sites-tsv or --vcf" in result.output
+
+
+def test_interactive_requires_one_dashboard_mode(tmp_path: Path) -> None:
+    scan = _write_scan_source(tmp_path / "scan", "S")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "interactive",
+            "--focus",
+            "chr1:1-1000",
+            "--scan",
+            str(scan),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "Provide exactly one dashboard mode" in result.output

@@ -5,7 +5,7 @@ description: Current Panex Privus command status, roadmap, and contribution area
 
 # Current Status and Roadmap
 
-Panex Privus is under active development. Current version: `0.8.0-dev`.
+Panex Privus is under active development. Current version: `0.8.1-dev`.
 
 ## What Works Now
 
@@ -21,7 +21,7 @@ Panex Privus is under active development. Current version: `0.8.0-dev`.
 - `privy pangenome` with GFA or VCF input
 - `privy landscape` with VCF input
 
-The current test suite has 684 passing unit and integration tests.
+The current test suite has 699 passing unit and integration tests.
 
 ## Roadmap
 
