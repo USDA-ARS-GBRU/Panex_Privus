@@ -5,7 +5,7 @@ description: Current Panex Privus command status, roadmap, and contribution area
 
 # Current Status and Roadmap
 
-Panex Privus is under active development. Current version: `0.8.1-dev`.
+Panex Privus is under active development. Current version: `0.9.1`.
 
 ## What Works Now
 

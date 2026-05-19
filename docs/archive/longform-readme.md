@@ -937,7 +937,7 @@ privy export \
 
 ## Current Status
 
-Panex Privus is under active development. Version 0.8.1-dev.
+Panex Privus is under active development. Version 0.9.1.
 
 ### What works now
 
