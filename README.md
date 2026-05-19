@@ -91,6 +91,10 @@ such as `--targets Benning Harosoy Clark`, role-specific files such as
 `--targets-file targets.txt`, or a single YAML/TSV cohort file with
 `--cohort-file cohort.tsv`.
 
+See the [run guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/)
+for the full workflow, command options, BAM support, VCF/GFA comparison,
+reports, plots, annotation, and export.
+
 ### `privy scan`
 
 Use `privy scan` to discover target-private alleles from VCF calls, private
@@ -292,6 +296,13 @@ privy interactive \
 `feature_summary.tsv`, or a combined pangenome directory with `vcf/` and `gfa/`
 children.
 
+Example interactive dashboards generated from the checked-in example outputs:
+
+- [Scan dashboard](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/scan/scan_dashboard.html)
+- [Landscape dashboard](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/landscape/landscape_dashboard.html)
+- [Pangenome dashboard](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/pangenome-gfa/pangenome_dashboard.html)
+- [Focus-region browser](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/focus/focus_chr1_1_1000.html)
+
 More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#interactive-focus-regions) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-interactive) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#interactive-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#implementation-architecture)
 
 ### `privy compare`
@@ -360,20 +371,6 @@ privy export \
 ```
 
 More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#export-intervals) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-export) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#export-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#implementation-architecture)
-
-### Example Interactive Dashboards
-
-The documentation includes static HTML dashboard examples built from the
-checked-in example outputs:
-
-- [Scan dashboard](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/scan/scan_dashboard.html)
-- [Landscape dashboard](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/landscape/landscape_dashboard.html)
-- [Pangenome dashboard](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/pangenome-gfa/pangenome_dashboard.html)
-- [Focus-region browser](https://usda-ars-gbru.github.io/Panex_Privus/assets/examples/interactive/focus/focus_chr1_1_1000.html)
-
-See the [run guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/)
-for the full workflow, command options, BAM support, VCF/GFA comparison,
-reports, plots, annotation, and export.
 
 ## Documentation
 
