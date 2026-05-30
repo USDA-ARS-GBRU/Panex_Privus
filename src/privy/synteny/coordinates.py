@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import logging
 from bisect import bisect_right
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 from privy.io.gfa import GfaGraph
@@ -55,6 +56,17 @@ class SegmentOccurrence:
     start: int          # path-local, inclusive
     end: int            # path-local, exclusive
     orientation: str    # "+" or "-"
+
+
+@dataclass(frozen=True)
+class PathSegment:
+    """A single step on a path: a segment with its path-local span and orientation."""
+
+    segment: str
+    orientation: str    # "+" or "-"
+    step_index: int
+    start: int          # path-local, inclusive
+    end: int            # path-local, exclusive
 
 
 @dataclass(frozen=True)
@@ -97,8 +109,9 @@ class PathCoordinateModel:
     with an ``@k`` suffix on collision) for walks.
     """
 
-    def __init__(self, indices: dict[str, _PathIndex]) -> None:
+    def __init__(self, indices: dict[str, _PathIndex], seg_len: dict[str, int]) -> None:
         self._paths = indices
+        self._seg_len = seg_len
 
     # -- construction ------------------------------------------------------
 
@@ -135,7 +148,7 @@ class PathCoordinateModel:
             if built is not None:
                 indices[walk_id] = built
 
-        return cls(indices)
+        return cls(indices, seg_len)
 
     @staticmethod
     def _build_index(
@@ -181,6 +194,30 @@ class PathCoordinateModel:
     def path_ids(self) -> list[str]:
         """Return all path ids in deterministic (insertion) order."""
         return list(self._paths)
+
+    def segment_length(self, segment: str) -> int | None:
+        """Global length (bp) of *segment*, or None if unknown to the graph."""
+        return self._seg_len.get(segment)
+
+    def iter_steps(self, path_id: str) -> Iterator[PathSegment]:
+        """Yield every step of *path_id* in order, with its path-local span."""
+        index = self._require(path_id)
+        n = len(index.starts)
+        for step_idx in range(n):
+            start = index.starts[step_idx]
+            end = index.starts[step_idx + 1] if step_idx + 1 < n else index.total_length
+            segment, orient = index.steps[step_idx]
+            yield PathSegment(
+                segment=segment, orientation=orient, step_index=step_idx,
+                start=start, end=end,
+            )
+
+    def segments_in_range(self, path_id: str, start: int, end: int) -> list[PathSegment]:
+        """All steps of *path_id* whose path-local span overlaps ``[start, end)``."""
+        return [
+            step for step in self.iter_steps(path_id)
+            if step.start < end and start < step.end
+        ]
 
     def _require(self, path_id: str) -> _PathIndex:
         index = self._paths.get(path_id)
