@@ -35,6 +35,7 @@ from privy.cli import (
     project,
     report,
     scan,
+    synteny,
 )
 from privy.cli.context import get_state
 from privy.utils.logging import configure_logging
@@ -78,6 +79,7 @@ app.add_typer(interactive.app, name="interactive")
 app.add_typer(annotate.app, name="annotate")
 app.add_typer(export.app, name="export")
 app.add_typer(project.app, name="project")
+app.add_typer(synteny.app, name="synteny")
 app.add_typer(index.app, name="index")
 
 
