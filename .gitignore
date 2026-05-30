@@ -86,6 +86,9 @@ run.json
 # Temporary local data (large files, not for version control)
 temp_data/
 
+# Scratch: cloned third-party repos + research notes (not for version control)
+scratch/
+
 # macOS
 .DS_Store
 .AppleDouble
