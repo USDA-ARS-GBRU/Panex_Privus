@@ -48,6 +48,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Tier 1 optional extras for the comparative-pangenome layer.  The core (Tier 0)
+# runs without these; features that need them degrade gracefully via
+# privy.utils.optional.require().  External CLI tools (Tier 2: odgi, vg, minimap2,
+# OrthoFinder, ...) are never required — Privy ingests their output.
+full = [
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+    "gfapy>=1.2",
+    "pyranges>=0.0.120",
+    "scikit-allel>=1.3",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
