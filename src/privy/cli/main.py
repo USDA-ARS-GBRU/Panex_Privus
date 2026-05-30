@@ -32,6 +32,7 @@ from privy.cli import (
     landscape,
     pangenome,
     plot,
+    project,
     report,
     scan,
 )
@@ -76,6 +77,7 @@ app.add_typer(plot.app, name="plot")
 app.add_typer(interactive.app, name="interactive")
 app.add_typer(annotate.app, name="annotate")
 app.add_typer(export.app, name="export")
+app.add_typer(project.app, name="project")
 app.add_typer(index.app, name="index")
 
 
