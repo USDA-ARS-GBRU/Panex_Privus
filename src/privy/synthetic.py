@@ -261,6 +261,27 @@ def translocation_pangenome(seg_len: int = 10, *, contig: str = "chr1") -> Synth
     return pg
 
 
+def presence_absence_pangenome(seg_len: int = 10, *, contig: str = "chr1") -> SyntheticPangenome:
+    """Target genomes carry a block (s2,s3) that off-target genomes have deleted.
+
+    Reference + targets traverse s1,s2,s3,s4; off-targets traverse only s1,s4.
+    The s2,s3 region is therefore *target-private* structure — present in the
+    target cohort and absent from the off-target cohort.
+    """
+    pg = SyntheticPangenome()
+    seg_ids = [f"s{i}" for i in range(1, 5)]
+    for seg_id in seg_ids:
+        pg.add_segment(seg_id, seg_len)
+    full = [(s, "+") for s in seg_ids]
+    deleted = [("s1", "+"), ("s4", "+")]
+    pg.add_genome(f"sample0#0#{contig}", full, cohort="target")     # reference + target
+    pg.add_genome(f"sample1#0#{contig}", full, cohort="target")
+    pg.add_genome(f"sample2#0#{contig}", deleted, cohort="offtarget")
+    pg.add_genome(f"sample3#0#{contig}", deleted, cohort="offtarget")
+    pg.tag_reference(f"sample0#0#{contig}")
+    return pg
+
+
 def allopolyploid_pangenome(seg_len: int = 10) -> SyntheticPangenome:
     """An AADD-style allotetraploid: two subgenomes (chrA, chrD) per sample.
 
