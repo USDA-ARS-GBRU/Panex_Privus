@@ -12,6 +12,7 @@ from privy.synteny.model import GenomeInterval
 from privy.synteny.projection import (
     CoordinateProjection,
     ProjectionStatus,
+    lift_intervals,
     project_coordinate,
     project_node_set,
     project_region,
@@ -146,3 +147,56 @@ class TestProjectNodeSet:
         m = _model(collinear_pangenome(), tmp_path)
         proj = project_coordinate(m, "sample0#0#chr1", 0, "sample1#0#chr1")
         assert isinstance(proj, CoordinateProjection)
+
+
+# ---------------------------------------------------------------------------
+# Annotation-track liftover
+# ---------------------------------------------------------------------------
+
+
+class TestLiftIntervals:
+    def test_collinear_lift_identity(self, tmp_path):
+        m = _model(collinear_pangenome(n_genomes=3, n_segments=6, seg_len=10), tmp_path)
+        feats = [
+            GenomeInterval("sample0", "chr1", 5, 25),    # a "gene" on s1-s3
+            GenomeInterval("sample0", "chr1", 40, 50),   # on s5
+        ]
+        lifted = lift_intervals(m, feats, "sample0#0#chr1", "sample1#0#chr1")
+        assert lifted[0] == GenomeInterval("sample1", "chr1", 0, 30)   # spans s1,s2,s3
+        assert lifted[1] == GenomeInterval("sample1", "chr1", 40, 50)  # s5
+
+    def test_lift_through_inversion(self, tmp_path):
+        m = _model(inversion_pangenome(seg_len=10), tmp_path)
+        # a feature on s3 (chr1:20-30 on the reference) lifts onto the inverted genome
+        feats = [GenomeInterval("sample0", "chr1", 20, 30)]
+        lifted = lift_intervals(m, feats, "sample0#0#chr1", "sample3#0#chr1")
+        # s3 sits at path-local [30,40) on sample3 -> stable chr1:30-40
+        assert lifted[0] == GenomeInterval("sample3", "chr1", 30, 40)
+
+    def test_lift_absent_returns_none(self, tmp_path):
+        from privy.synthetic import SyntheticPangenome
+
+        pg = SyntheticPangenome()
+        pg.add_segment("a1", 10).add_segment("a2", 10).add_segment("b1", 10)
+        pg.add_genome("g0#0#chr1", [("a1", "+"), ("a2", "+")])
+        pg.add_genome("g1#0#chr1", [("b1", "+")])
+        m = _model(pg, tmp_path)
+        lifted = lift_intervals(m, [GenomeInterval("g0", "chr1", 0, 20)], "g0#0#chr1", "g1#0#chr1")
+        assert lifted == [None]
+
+    def test_lift_out_of_range_returns_none(self, tmp_path):
+        m = _model(collinear_pangenome(), tmp_path)
+        feats = [GenomeInterval("sample0", "chr1", 5_000, 5_010)]
+        lifted = lift_intervals(m, feats, "sample0#0#chr1", "sample1#0#chr1")
+        assert lifted == [None]
+
+
+class TestToPathLocal:
+    def test_inverse_of_to_stable_pline(self, tmp_path):
+        m = _model(collinear_pangenome(), tmp_path)
+        assert m.to_path_local("sample0#0#chr1", 25) == 25
+
+    def test_out_of_range(self, tmp_path):
+        m = _model(collinear_pangenome(), tmp_path)
+        with pytest.raises(IndexError):
+            m.to_path_local("sample0#0#chr1", 10_000)

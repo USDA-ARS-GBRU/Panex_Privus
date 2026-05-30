@@ -301,6 +301,24 @@ class PathCoordinateModel:
             )
         return index.contig, index.base_offset + position
 
+    def to_path_local(self, path_id: str, stable_coord: int) -> int:
+        """Inverse of :meth:`to_stable`: map a stable coordinate to path-local.
+
+        Assumes *stable_coord* is on *path_id*'s stable contig (the caller is
+        responsible for matching contigs).
+
+        Raises:
+            IndexError: If the resulting path-local position is out of range.
+        """
+        index = self._require(path_id)
+        local = stable_coord - index.base_offset
+        if local < 0 or local >= index.total_length:
+            raise IndexError(
+                f"stable coordinate {stable_coord} maps to path-local {local}, "
+                f"out of range [0, {index.total_length}) for path {path_id!r}."
+            )
+        return local
+
 
 # ---------------------------------------------------------------------------
 # Helpers

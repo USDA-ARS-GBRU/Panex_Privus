@@ -211,3 +211,39 @@ def project_region(
         source=f"{source_path}:{start}-{end}",
         projections=projections,
     )
+
+
+# ---------------------------------------------------------------------------
+# Annotation-track liftover
+# ---------------------------------------------------------------------------
+
+
+def lift_intervals(
+    model: PathCoordinateModel,
+    intervals: Iterable[GenomeInterval],
+    source_path: str,
+    target_path: str,
+) -> list[GenomeInterval | None]:
+    """Lift annotation intervals from *source_path* onto *target_path*.
+
+    Each input interval is given in *source_path*'s stable contig coordinates
+    (e.g. parsed from a GFF/BED on that genome).  Returns one projected
+    :class:`~privy.synteny.model.GenomeInterval` per input — or ``None`` where the
+    feature does not project (out of range on the source, or absent on the
+    target).  This is the engine behind pairing projected regions with gene-model
+    / annotation tracks.
+    """
+    results: list[GenomeInterval | None] = []
+    for iv in intervals:
+        if iv.end <= iv.start:
+            results.append(None)
+            continue
+        try:
+            local_start = model.to_path_local(source_path, iv.start)
+            local_end = model.to_path_local(source_path, iv.end - 1) + 1
+        except (IndexError, KeyError):
+            results.append(None)
+            continue
+        pm = project_region(model, source_path, local_start, local_end, targets=[target_path])
+        results.append(pm.projections[target_path])
+    return results
