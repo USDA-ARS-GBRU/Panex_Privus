@@ -1,0 +1,20 @@
+{
+  "name": "privy-synteny-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Panex Privus interactive synteny dashboard (Model C single-file bundle).",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "d3": "^7.9.0",
+    "htm": "^3.1.1",
+    "preact": "^10.24.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vite-plugin-singlefile": "^2.0.0"
+  }
+}

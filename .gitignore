@@ -94,3 +94,7 @@ scratch/
 .AppleDouble
 .LSOverride
 Thumbs.db
+
+# Node / web dashboard build (source committed, build artifacts not)
+web/node_modules/
+web/dist/

@@ -26,6 +26,7 @@ from privy import __version__
 from privy.cli import (
     annotate,
     compare,
+    dashboard,
     export,
     index,
     interactive,
@@ -82,6 +83,7 @@ app.add_typer(export.app, name="export")
 app.add_typer(project.app, name="project")
 app.add_typer(synteny.app, name="synteny")
 app.add_typer(microhap.app, name="microhap")
+app.add_typer(dashboard.app, name="dashboard")
 app.add_typer(index.app, name="index")
 
 
