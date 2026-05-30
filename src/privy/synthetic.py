@@ -282,6 +282,27 @@ def presence_absence_pangenome(seg_len: int = 10, *, contig: str = "chr1") -> Sy
     return pg
 
 
+def microhaplotype_pangenome(seg_len: int = 10, *, contig: str = "chr1") -> SyntheticPangenome:
+    """A multi-allelic bubble between shared flanks, with a target-private allele.
+
+    All genomes share flanks s1 and s5.  Between them, targets traverse ``sT`` and
+    off-targets traverse ``sR`` — a 2-allele microhaplotype whose ``sT`` allele is
+    present only in the target cohort (a private microhaplotype).  sample0 is the
+    reference (and a target).
+    """
+    pg = SyntheticPangenome()
+    for seg_id in ("s1", "s5", "sR", "sT"):
+        pg.add_segment(seg_id, seg_len)
+    t_allele = [("s1", "+"), ("sT", "+"), ("s5", "+")]
+    r_allele = [("s1", "+"), ("sR", "+"), ("s5", "+")]
+    pg.add_genome(f"sample0#0#{contig}", t_allele, cohort="target")   # reference + target
+    pg.add_genome(f"sample1#0#{contig}", t_allele, cohort="target")
+    pg.add_genome(f"sample2#0#{contig}", r_allele, cohort="offtarget")
+    pg.add_genome(f"sample3#0#{contig}", r_allele, cohort="offtarget")
+    pg.tag_reference(f"sample0#0#{contig}")
+    return pg
+
+
 def allopolyploid_pangenome(seg_len: int = 10) -> SyntheticPangenome:
     """An AADD-style allotetraploid: two subgenomes (chrA, chrD) per sample.
 
