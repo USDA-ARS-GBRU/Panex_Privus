@@ -30,6 +30,7 @@ from privy.cli import (
     index,
     interactive,
     landscape,
+    microhap,
     pangenome,
     plot,
     project,
@@ -80,6 +81,7 @@ app.add_typer(annotate.app, name="annotate")
 app.add_typer(export.app, name="export")
 app.add_typer(project.app, name="project")
 app.add_typer(synteny.app, name="synteny")
+app.add_typer(microhap.app, name="microhap")
 app.add_typer(index.app, name="index")
 
 
