@@ -242,6 +242,25 @@ def duplication_pangenome(seg_len: int = 10, *, contig: str = "chr1") -> Synthet
     return pg
 
 
+def translocation_pangenome(seg_len: int = 10, *, contig: str = "chr1") -> SyntheticPangenome:
+    """3 collinear genomes; one target genome has a translocated block (s2,s3 moved).
+
+    Reference order s1..s5; the target genome reorders to s1,s4,s5,s2,s3 so the
+    (s2,s3) block sits out of place relative to the collinear backbone.
+    """
+    pg = SyntheticPangenome()
+    seg_ids = [f"s{i}" for i in range(1, 6)]
+    for seg_id in seg_ids:
+        pg.add_segment(seg_id, seg_len)
+    forward = [(s, "+") for s in seg_ids]
+    moved = [("s1", "+"), ("s4", "+"), ("s5", "+"), ("s2", "+"), ("s3", "+")]
+    pg.add_genome(f"sample0#0#{contig}", forward, cohort="offtarget")
+    pg.add_genome(f"sample1#0#{contig}", forward, cohort="offtarget")
+    pg.add_genome(f"sample2#0#{contig}", moved, cohort="target")
+    pg.tag_reference(f"sample0#0#{contig}")
+    return pg
+
+
 def allopolyploid_pangenome(seg_len: int = 10) -> SyntheticPangenome:
     """An AADD-style allotetraploid: two subgenomes (chrA, chrD) per sample.
 
