@@ -60,25 +60,33 @@ def build_synteny(
     blocks: list[SyntenyBlock] = []
     for query in queries:
         blocks.extend(build_pairwise_blocks(model, query, ref_path))
-    regions = group_regions(blocks, ref_path)
+    regions = group_regions(blocks, ref_genome=split_pansn(ref_path)[0])
     return SyntenyResult(reference=ref_path, blocks=tuple(blocks), regions=tuple(regions))
 
 
-def group_regions(blocks: Sequence[SyntenyBlock], ref_path: str) -> list[SyntenyRegion]:
+def group_regions(
+    blocks: Sequence[SyntenyBlock],
+    *,
+    ref_genome: str | None = None,
+) -> list[SyntenyRegion]:
     """Merge blocks whose reference (target) intervals overlap into regions.
 
     Blocks are grouped per reference contig; overlapping reference spans become one
-    region carrying all contributing blocks.
+    region carrying all contributing blocks.  The region's reference genome label is
+    *ref_genome* when given, else taken from the blocks on that contig (so PAF-mode
+    blocks, which have no single reference path, still group correctly).
     """
     by_contig: dict[str, list[SyntenyBlock]] = {}
     for block in blocks:
         by_contig.setdefault(block.target.contig, []).append(block)
 
-    ref_genome = split_pansn(ref_path)[0]
     regions: list[SyntenyRegion] = []
     region_idx = 0
     for contig in sorted(by_contig):
         ordered = sorted(by_contig[contig], key=lambda b: (b.target.start, b.target.end))
+        contig_genome: str = (
+            ref_genome if ref_genome is not None else ordered[0].target.genome
+        )
         cur: list[SyntenyBlock] = []
         cur_start = cur_end = 0
         for block in ordered:
@@ -91,14 +99,14 @@ def group_regions(blocks: Sequence[SyntenyBlock], ref_path: str) -> list[Synteny
                 cur_end = max(cur_end, block.target.end)
             else:
                 regions.append(
-                    _make_region(ref_genome, contig, cur_start, cur_end, cur, region_idx)
+                    _make_region(contig_genome, contig, cur_start, cur_end, cur, region_idx)
                 )
                 region_idx += 1
                 cur = [block]
                 cur_start, cur_end = block.target.start, block.target.end
         if cur:
             regions.append(
-                _make_region(ref_genome, contig, cur_start, cur_end, cur, region_idx)
+                _make_region(contig_genome, contig, cur_start, cur_end, cur, region_idx)
             )
             region_idx += 1
     return regions

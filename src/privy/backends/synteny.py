@@ -19,8 +19,10 @@ from privy.synteny.build import (
     RegionPrivacy,
     SyntenyResult,
     build_synteny,
+    group_regions,
     tag_region_privacy,
 )
+from privy.synteny.chain import ChainParams, chain_paf
 from privy.synteny.coordinates import PathCoordinateModel
 from privy.synteny.model import SyntenyBlock, SyntenyRegion, split_pansn
 
@@ -87,6 +89,40 @@ def run_synteny(
     log.info(
         "Synteny complete | blocks=%d regions=%d private=%d",
         len(kept), len(result.regions), n_private,
+    )
+    return [blocks_path, regions_path, meta_path]
+
+
+def run_synteny_paf(
+    paf_path: Path,
+    *,
+    min_block_anchors: int = 1,
+    suppress_repeats: bool = False,
+    outdir: Path,
+) -> list[Path]:
+    """Alignment-anchored synteny: chain a PAF into typed blocks and write tables.
+
+    PAF mode has no graph, so private-region tagging is not available (regions are
+    written with ``target_private = NA``).
+    """
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    params = ChainParams(min_anchors=max(1, min_block_anchors))
+    blocks = chain_paf(Path(paf_path), params, suppress_repeats=suppress_repeats)
+    regions = group_regions(blocks)
+    result = SyntenyResult(
+        reference=f"PAF:{Path(paf_path).name}",
+        blocks=tuple(blocks),
+        regions=tuple(regions),
+    )
+
+    kept = {b.block_id for b in blocks}
+    blocks_path = _write_blocks(result.blocks, kept, outdir)
+    regions_path = _write_regions(result.regions, {}, outdir)
+    meta_path = _write_metadata(result, {}, Path(paf_path), outdir)
+    log.info(
+        "Synteny (PAF) complete | blocks=%d regions=%d", len(blocks), len(regions)
     )
     return [blocks_path, regions_path, meta_path]
 
