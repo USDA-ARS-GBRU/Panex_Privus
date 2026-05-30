@@ -48,6 +48,26 @@ PANGENOME_CATEGORY_COLOURS: dict[str, str] = {
     "absent": "#bdbdbd",
 }
 
+# Synteny block types (graph-native + chained synteny visualizations)
+SYNTENY_BLOCK_COLOURS: dict[str, str] = {
+    "collinear": "#4393c3",
+    "inversion": "#d6604d",
+    "translocation": "#9970ab",
+    "duplication": "#1b7837",
+    "unaligned": "#bdbdbd",
+}
+
+SYNTENY_BLOCK_ORDER: list[str] = [
+    "collinear",
+    "inversion",
+    "translocation",
+    "duplication",
+    "unaligned",
+]
+
+# Highlight colour for target-private structure / alleles across all views
+TARGET_PRIVATE_COLOUR: str = "#e7298a"
+
 # ---------------------------------------------------------------------------
 # Canonical ordering for consistent plot axes
 # ---------------------------------------------------------------------------

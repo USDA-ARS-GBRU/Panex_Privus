@@ -211,3 +211,33 @@ def _block_type_counts(blocks: Sequence[SyntenyBlock]) -> dict[str, int]:
     for b in blocks:
         counts[b.block_type.value] = counts.get(b.block_type.value, 0) + 1
     return counts
+
+
+def run_synteny_plots(
+    input_dir: Path,
+    *,
+    plot_format: str = "png",
+    outdir: Path | None = None,
+) -> list[Path]:
+    """Render static riparian + dotplot figures from a ``privy synteny`` directory.
+
+    Reads ``synteny_blocks.tsv`` from *input_dir* and writes figures there (or to
+    *outdir*).
+
+    Raises:
+        FileNotFoundError: If ``synteny_blocks.tsv`` is missing.
+    """
+    from privy.plot.synteny import plot_dotplot, plot_riparian  # noqa: PLC0415
+
+    input_dir = Path(input_dir)
+    blocks_tsv = input_dir / "synteny_blocks.tsv"
+    if not blocks_tsv.exists():
+        raise FileNotFoundError(f"synteny_blocks.tsv not found in {input_dir}")
+    with open(blocks_tsv, encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle, delimiter="\t"))
+
+    fig_dir = Path(outdir) if outdir is not None else input_dir
+    return [
+        plot_riparian(rows, fig_dir, output_format=plot_format),
+        plot_dotplot(rows, fig_dir, output_format=plot_format),
+    ]

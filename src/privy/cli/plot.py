@@ -16,7 +16,7 @@ from privy.core.config import PrivyConfig, load_config
 
 log = logging.getLogger("privy.cli.plot")
 
-PLOT_SETS = {"scan", "landscape", "pangenome"}
+PLOT_SETS = {"scan", "landscape", "pangenome", "synteny"}
 
 app = typer.Typer(
     name="plot",
@@ -122,7 +122,7 @@ def plot(
 
     if normalized_plot_set not in PLOT_SETS:
         typer.echo(
-            "[error] --plot-set must be one of: scan, landscape, pangenome.",
+            "[error] --plot-set must be one of: scan, landscape, pangenome, synteny.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -184,9 +184,30 @@ def plot(
                 typer.echo(f"  {path}")
         return
 
+    if normalized_plot_set == "synteny":
+        source_dir = input_dir or effective_outdir
+        plot_outdir = outdir if input_dir is not None and outdir is not None else None
+        try:
+            from privy.backends.synteny import run_synteny_plots  # noqa: PLC0415
+
+            generated = run_synteny_plots(
+                input_dir=source_dir,
+                plot_format=output_format,
+                outdir=plot_outdir,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            typer.echo(f"[error] {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not state.quiet:
+            for path in generated:
+                typer.echo(f"  {path}")
+        return
+
     if input_dir is not None:
-        typer.echo("[error] --input-dir is only used for landscape or pangenome plots.",
-                   err=True)
+        typer.echo(
+            "[error] --input-dir is only used for landscape, pangenome, or synteny plots.",
+            err=True,
+        )
         raise typer.Exit(code=1)
     if hits is None:
         typer.echo("[error] --hits is required for --plot-set scan.", err=True)
