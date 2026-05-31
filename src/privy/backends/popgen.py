@@ -26,6 +26,7 @@ from privy.popgen.diversity import (
 )
 from privy.popgen.private import private_allele_counts, rarefied_private_allelic_richness
 from privy.popgen.relationship import DosageMatrix, build_dosage_matrix, vanraden_grm
+from privy.popgen.structure import pca
 from privy.synteny.coordinates import PathCoordinateModel
 from privy.synteny.model import split_pansn
 
@@ -84,6 +85,8 @@ def run_popgen(
         dm = build_dosage_matrix(loci, samples_to_paths)
         written.append(_write_dosage_matrix(dm, outdir))
         written.append(_write_grm(dm, outdir))
+        if len(loci) >= 2:   # PCA needs >1 informative locus to be meaningful
+            written.append(_write_pca(dm, outdir))
 
     meta_path = _write_metadata(
         loci, fst, n_diagnostic, private_counts, private_richness,
@@ -154,6 +157,19 @@ def _write_dosage_matrix(dm: DosageMatrix, outdir: Path) -> Path:
         writer.writerow(["sample", *dm.locus_ids])
         for sample, row in zip(dm.samples, dm.matrix, strict=True):
             writer.writerow([sample, *["." if v is None else v for v in row]])
+    return path
+
+
+def _write_pca(dm: DosageMatrix, outdir: Path) -> Path:
+    """Write Patterson-scaled PCA coordinates per sample (structure analysis)."""
+    path = outdir / "pca.tsv"
+    result = pca(dm, n_components=min(5, len(dm.samples) - 1 if len(dm.samples) > 1 else 1))
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, delimiter="\t")
+        k = result.n_components
+        writer.writerow(["sample", *[f"PC{i + 1}" for i in range(k)]])
+        for sample, row in zip(result.samples, result.coords, strict=True):
+            writer.writerow([sample, *row])
     return path
 
 

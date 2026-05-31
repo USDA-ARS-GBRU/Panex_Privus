@@ -33,19 +33,31 @@ from privy.popgen.relationship import (
     build_dosage_matrix,
     vanraden_grm,
 )
+from privy.popgen.structure import (
+    DapcResult,
+    PcaResult,
+    dapc,
+    labels_from_cohorts,
+    pca,
+)
 
 __all__ = [
+    "DapcResult",
     "DosageMatrix",
     "LocusDifferentiation",
     "LocusDiversity",
+    "PcaResult",
     "allele_frequencies",
     "build_dosage_matrix",
+    "dapc",
     "effective_n_alleles",
     "genome_wide_fst",
     "inbreeding_fis",
+    "labels_from_cohorts",
     "locus_differentiation",
     "locus_diversity",
     "nei_gene_diversity",
+    "pca",
     "private_allele_counts",
     "rarefied_private_allelic_richness",
     "vanraden_grm",
