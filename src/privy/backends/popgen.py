@@ -10,7 +10,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from privy.io.gfa import parse_gfa
@@ -20,9 +20,11 @@ from privy.polyploid.dosage import group_paths_by_sample
 from privy.popgen.differentiation import genome_wide_fst, locus_differentiation
 from privy.popgen.diversity import (
     allele_frequencies,
+    inbreeding_fis,
     locus_diversity,
     nei_gene_diversity,
 )
+from privy.popgen.private import private_allele_counts, rarefied_private_allelic_richness
 from privy.popgen.relationship import DosageMatrix, build_dosage_matrix, vanraden_grm
 from privy.synteny.coordinates import PathCoordinateModel
 from privy.synteny.model import split_pansn
@@ -31,7 +33,7 @@ log = logging.getLogger("privy.backends.popgen")
 
 POPGEN_COLUMNS = [
     "locus_id", "contig", "start", "end", "n_genomes", "n_alleles",
-    "gene_diversity", "effective_alleles", "aaf",
+    "gene_diversity", "effective_alleles", "aaf", "fis",
     "target_he", "offtarget_he", "gst", "jost_d", "is_diagnostic",
 ]
 
@@ -64,16 +66,19 @@ def run_popgen(
         raise ValueError("both --targets and --off-targets must resolve to genomes in the graph")
 
     loci = detect_microhaplotypes(graph, model, reference, min_core_fraction=min_core_fraction)
+    samples_to_paths = group_paths_by_sample(model.path_ids())
 
-    loci_path = _write_loci(loci, target_paths, offtarget_paths, outdir)
+    loci_path = _write_loci(loci, target_paths, offtarget_paths, samples_to_paths, outdir)
     fst = genome_wide_fst(loci, target_paths, offtarget_paths)
     n_diagnostic = sum(
         1 for mh in loci
         if (d := locus_differentiation(mh, target_paths, offtarget_paths)) and d.is_diagnostic
     )
+    cohorts = {"target": target_paths, "offtarget": offtarget_paths}
+    private_counts = private_allele_counts(loci, cohorts)
+    private_richness = rarefied_private_allelic_richness(loci, cohorts)
 
     # GP-ready exports: per-sample dosage matrix + VanRaden genomic relationship matrix.
-    samples_to_paths = group_paths_by_sample(model.path_ids())
     written = [loci_path]
     if loci and samples_to_paths:
         dm = build_dosage_matrix(loci, samples_to_paths)
@@ -81,7 +86,8 @@ def run_popgen(
         written.append(_write_grm(dm, outdir))
 
     meta_path = _write_metadata(
-        loci, fst, n_diagnostic, target_paths, offtarget_paths, Path(gfa_path), reference, outdir
+        loci, fst, n_diagnostic, private_counts, private_richness,
+        target_paths, offtarget_paths, Path(gfa_path), reference, outdir,
     )
     written.append(meta_path)
 
@@ -111,6 +117,7 @@ def _write_loci(
     loci: Sequence[Microhaplotype],
     targets: Sequence[str],
     off_targets: Sequence[str],
+    samples_to_paths: Mapping[str, Sequence[str]],
     outdir: Path,
 ) -> Path:
     path = outdir / "popgen_loci.tsv"
@@ -119,6 +126,7 @@ def _write_loci(
         writer.writerow(POPGEN_COLUMNS)
         for mh in loci:
             div = locus_diversity(mh)
+            fis = inbreeding_fis(mh, samples_to_paths)
             diff = locus_differentiation(mh, targets, off_targets)
             if diff is None:
                 t_he = o_he = gst = jd = ""
@@ -132,6 +140,7 @@ def _write_loci(
             writer.writerow([
                 div.locus_id, mh.contig, mh.start, mh.end, div.n_genomes, div.n_alleles,
                 f"{div.gene_diversity:.4f}", f"{div.effective_alleles:.4f}", f"{div.aaf:.4f}",
+                "" if fis is None else f"{fis:.4f}",
                 t_he, o_he, gst, jd, diag,
             ])
     return path
@@ -164,6 +173,8 @@ def _write_metadata(
     loci: Sequence[Microhaplotype],
     fst: float,
     n_diagnostic: int,
+    private_counts: Mapping[str, int],
+    private_richness: Mapping[str, float],
     targets: Sequence[str],
     off_targets: Sequence[str],
     gfa_path: Path,
@@ -180,6 +191,8 @@ def _write_metadata(
         "n_diagnostic_loci": n_diagnostic,
         "n_targets": len(targets),
         "n_off_targets": len(off_targets),
+        "private_allele_counts": dict(private_counts),
+        "private_allelic_richness": {k: round(v, 4) for k, v in private_richness.items()},
     }
     path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     return path

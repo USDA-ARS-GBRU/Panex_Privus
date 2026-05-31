@@ -38,9 +38,13 @@ class TestPopgenCli:
         assert row["n_alleles"] == "2"
         assert row["gst"] == "1.0000"          # fully diagnostic target-private locus
         assert row["is_diagnostic"] == "True"
+        assert "fis" in row   # F_IS column present
         meta = json.loads((out / "popgen.json").read_text())
         assert meta["genome_wide_fst"] == 1.0
         assert meta["n_diagnostic_loci"] == 1
+        # private-allele metrics
+        assert meta["private_allele_counts"] == {"target": 1, "offtarget": 1}
+        assert meta["private_allelic_richness"]["target"] >= 0.0
         # GP-ready exports also written
         assert (out / "dosage_matrix.tsv").exists()
         assert (out / "grm.tsv").exists()

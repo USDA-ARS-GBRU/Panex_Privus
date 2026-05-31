@@ -16,6 +16,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from privy.microhap.model import Microhaplotype
+from privy.polyploid.dosage import observed_heterozygosity
 
 
 def allele_frequencies(
@@ -90,3 +91,21 @@ def locus_diversity(
         effective_alleles=effective_n_alleles(freqs),
         aaf=aaf,
     )
+
+
+def inbreeding_fis(
+    mh: Microhaplotype,
+    samples_to_paths: Mapping[str, Sequence[str]],
+) -> float | None:
+    """Inbreeding coefficient F_IS = 1 − H_o / H_e at a locus.
+
+    H_o is the observed heterozygosity across per-sample genotypes (a sample is
+    heterozygous when its haplotype paths carry >1 distinct allele); H_e is the
+    expected heterozygosity (Nei gene diversity) from allele frequencies over all
+    gene copies.  Returns None when H_e is 0 (monomorphic — F_IS undefined).
+    """
+    he = nei_gene_diversity(allele_frequencies(mh.alleles))
+    if he <= 0:
+        return None
+    ho = observed_heterozygosity(mh, samples_to_paths)
+    return 1.0 - ho / he
