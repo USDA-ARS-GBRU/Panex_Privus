@@ -34,6 +34,7 @@ from privy.cli import (
     microhap,
     pangenome,
     plot,
+    popgen,
     project,
     report,
     scan,
@@ -83,6 +84,7 @@ app.add_typer(export.app, name="export")
 app.add_typer(project.app, name="project")
 app.add_typer(synteny.app, name="synteny")
 app.add_typer(microhap.app, name="microhap")
+app.add_typer(popgen.app, name="popgen")
 app.add_typer(dashboard.app, name="dashboard")
 app.add_typer(index.app, name="index")
 
