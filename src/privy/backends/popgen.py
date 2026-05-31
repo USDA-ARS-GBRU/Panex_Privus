@@ -16,12 +16,14 @@ from pathlib import Path
 from privy.io.gfa import parse_gfa
 from privy.microhap.detect import detect_microhaplotypes
 from privy.microhap.model import Microhaplotype
+from privy.polyploid.dosage import group_paths_by_sample
 from privy.popgen.differentiation import genome_wide_fst, locus_differentiation
 from privy.popgen.diversity import (
     allele_frequencies,
     locus_diversity,
     nei_gene_diversity,
 )
+from privy.popgen.relationship import DosageMatrix, build_dosage_matrix, vanraden_grm
 from privy.synteny.coordinates import PathCoordinateModel
 from privy.synteny.model import split_pansn
 
@@ -69,15 +71,25 @@ def run_popgen(
         1 for mh in loci
         if (d := locus_differentiation(mh, target_paths, offtarget_paths)) and d.is_diagnostic
     )
+
+    # GP-ready exports: per-sample dosage matrix + VanRaden genomic relationship matrix.
+    samples_to_paths = group_paths_by_sample(model.path_ids())
+    written = [loci_path]
+    if loci and samples_to_paths:
+        dm = build_dosage_matrix(loci, samples_to_paths)
+        written.append(_write_dosage_matrix(dm, outdir))
+        written.append(_write_grm(dm, outdir))
+
     meta_path = _write_metadata(
         loci, fst, n_diagnostic, target_paths, offtarget_paths, Path(gfa_path), reference, outdir
     )
+    written.append(meta_path)
 
     log.info(
         "Popgen complete | loci=%d genome_wide_fst=%.3f diagnostic=%d",
         len(loci), fst, n_diagnostic,
     )
-    return [loci_path, meta_path]
+    return written
 
 
 def _resolve_paths(model: PathCoordinateModel, names: Sequence[str] | None) -> list[str]:
@@ -122,6 +134,29 @@ def _write_loci(
                 f"{div.gene_diversity:.4f}", f"{div.effective_alleles:.4f}", f"{div.aaf:.4f}",
                 t_he, o_he, gst, jd, diag,
             ])
+    return path
+
+
+def _write_dosage_matrix(dm: DosageMatrix, outdir: Path) -> Path:
+    """Write the samples × loci alt-allele dosage matrix (GP input)."""
+    path = outdir / "dosage_matrix.tsv"
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, delimiter="\t")
+        writer.writerow(["sample", *dm.locus_ids])
+        for sample, row in zip(dm.samples, dm.matrix, strict=True):
+            writer.writerow([sample, *["." if v is None else v for v in row]])
+    return path
+
+
+def _write_grm(dm: DosageMatrix, outdir: Path) -> Path:
+    """Write the VanRaden genomic relationship matrix (labelled square matrix)."""
+    path = outdir / "grm.tsv"
+    samples, grm = vanraden_grm(dm)
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, delimiter="\t")
+        writer.writerow(["sample", *samples])
+        for sample, row in zip(samples, grm, strict=True):
+            writer.writerow([sample, *row])
     return path
 
 

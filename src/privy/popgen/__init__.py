@@ -23,14 +23,22 @@ from privy.popgen.diversity import (
     locus_diversity,
     nei_gene_diversity,
 )
+from privy.popgen.relationship import (
+    DosageMatrix,
+    build_dosage_matrix,
+    vanraden_grm,
+)
 
 __all__ = [
+    "DosageMatrix",
     "LocusDifferentiation",
     "LocusDiversity",
     "allele_frequencies",
+    "build_dosage_matrix",
     "effective_n_alleles",
     "genome_wide_fst",
     "locus_differentiation",
     "locus_diversity",
     "nei_gene_diversity",
+    "vanraden_grm",
 ]

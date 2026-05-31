@@ -41,6 +41,11 @@ class TestPopgenCli:
         meta = json.loads((out / "popgen.json").read_text())
         assert meta["genome_wide_fst"] == 1.0
         assert meta["n_diagnostic_loci"] == 1
+        # GP-ready exports also written
+        assert (out / "dosage_matrix.tsv").exists()
+        assert (out / "grm.tsv").exists()
+        grm = _read_tsv(out / "grm.tsv")
+        assert grm[0]["sample"]   # labelled square matrix with a sample column
 
     def test_requires_both_cohorts_present_in_graph(self, tmp_path):
         gfa = microhaplotype_pangenome().write(tmp_path / "g.gfa")
