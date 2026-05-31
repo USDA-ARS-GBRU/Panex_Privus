@@ -26,6 +26,7 @@ _PLACEHOLDER = '{"__privy_placeholder__": true}'
 def build_synteny_dashboard(
     input_dir: Path,
     *,
+    microhap_dir: Path | None = None,
     outdir: Path | None = None,
     output_name: str = "synteny_dashboard.html",
 ) -> Path:
@@ -34,6 +35,8 @@ def build_synteny_dashboard(
     Args:
         input_dir: A ``privy synteny`` output directory (must contain
             ``synteny_blocks.tsv``).
+        microhap_dir: Optional ``privy microhap`` output directory; when given, its
+            ``microhaplotypes.tsv`` is added as an allele panel in the dashboard.
         outdir: Where to write the dashboard (default: *input_dir*).
         output_name: Output file name.
 
@@ -54,6 +57,11 @@ def build_synteny_dashboard(
         )
 
     data = _build_data_model(input_dir)
+    if microhap_dir is not None:
+        mh_tsv = Path(microhap_dir) / "microhaplotypes.tsv"
+        if not mh_tsv.exists():
+            raise FileNotFoundError(f"microhaplotypes.tsv not found in {microhap_dir}")
+        data["microhaplotypes"] = _read_microhaplotypes(mh_tsv)
     template = _ASSET.read_text(encoding="utf-8")
     if _PLACEHOLDER not in template:
         raise RuntimeError(
@@ -118,6 +126,24 @@ def _read_blocks(path: Path) -> list[dict[str, Any]]:
         }
         for r in rows
     ]
+
+
+def _read_microhaplotypes(path: Path) -> list[dict[str, Any]]:
+    """Read microhaplotypes.tsv into the dashboard's allele-panel records."""
+    with open(path, encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle, delimiter="\t"))
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        out.append({
+            "locus_id": r["locus_id"],
+            "contig": r["contig"],
+            "start": int(r["start"]),
+            "end": int(r["end"]),
+            "n_alleles": int(r["n_alleles"]),
+            "aaf": float(r["aaf"]) if r.get("aaf") not in (None, "") else 0.0,
+            "target_private": str(r.get("target_private", "")).lower() == "true",
+        })
+    return out
 
 
 def _read_regions(path: Path) -> list[dict[str, Any]]:

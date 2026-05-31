@@ -54,3 +54,26 @@ class TestBuildDashboard:
         empty.mkdir()
         with pytest.raises(FileNotFoundError, match="synteny_blocks.tsv"):
             build_synteny_dashboard(empty)
+
+    def test_bundle_has_export_and_microhap_panel(self, tmp_path):
+        out = build_synteny_dashboard(_synteny_dir(tmp_path))
+        text = out.read_text(encoding="utf-8")
+        assert "Export SVG" in text          # static SVG export control
+        assert "Microhaplotypes" in text     # allele panel present in bundle
+
+    def test_microhap_data_injected(self, tmp_path):
+        from privy.backends.microhap import run_microhap
+        from privy.synthetic import microhaplotype_pangenome
+
+        gfa = microhaplotype_pangenome(seg_len=10).write(tmp_path / "mh.gfa")
+        mh_dir = tmp_path / "mh"
+        run_microhap(gfa, reference="sample0#0#chr1", outdir=mh_dir)
+        out = build_synteny_dashboard(_synteny_dir(tmp_path), microhap_dir=mh_dir)
+        text = out.read_text(encoding="utf-8")
+        assert '"microhaplotypes"' in text   # injected into the data model
+
+    def test_missing_microhap_tsv_raises(self, tmp_path):
+        empty = tmp_path / "no_mh"
+        empty.mkdir()
+        with pytest.raises(FileNotFoundError, match="microhaplotypes.tsv"):
+            build_synteny_dashboard(_synteny_dir(tmp_path), microhap_dir=empty)

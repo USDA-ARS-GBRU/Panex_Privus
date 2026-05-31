@@ -32,6 +32,10 @@ def dashboard(
         ..., "--synteny", metavar="PATH",
         help="A `privy synteny` output directory (contains synteny_blocks.tsv).",
     ),
+    microhap: Path | None = typer.Option(
+        None, "--microhap", metavar="PATH",
+        help="Optional `privy microhap` output directory to add an allele panel.",
+    ),
     outdir: Path | None = typer.Option(
         None, "--outdir", metavar="PATH",
         help="Output directory (default: the --synteny directory).",
@@ -44,9 +48,12 @@ def dashboard(
     if not synteny.exists():
         typer.echo(f"[error] --synteny directory not found: {synteny}", err=True)
         raise typer.Exit(code=1)
+    if microhap is not None and not microhap.exists():
+        typer.echo(f"[error] --microhap directory not found: {microhap}", err=True)
+        raise typer.Exit(code=1)
 
     try:
-        out_path = build_synteny_dashboard(synteny, outdir=outdir)
+        out_path = build_synteny_dashboard(synteny, microhap_dir=microhap, outdir=outdir)
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         typer.echo(f"[error] {exc}", err=True)
         raise typer.Exit(code=1) from exc
