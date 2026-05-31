@@ -13,6 +13,7 @@ All functions follow the Privy plot convention: row dicts in, a saved figure
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -178,6 +179,85 @@ def plot_dotplot(
     if legend:
         ax.legend(handles=legend, loc="best", title="block type")
     return _save(fig, plt, outdir, "dotplot", output_format, dpi)
+
+
+def plot_block_density(
+    block_rows: list[dict[str, Any]],
+    outdir: Path,
+    *,
+    window: int | None = None,
+    step: int | None = None,
+    width: float = 11.0,
+    height: float = 3.6,
+    dpi: int = 150,
+    output_format: str = "png",
+) -> Path:
+    """Stacked-area density of synteny block types along the reference.
+
+    Windows the primary reference contig and renders the per-window proportion of
+    each block type (collinear/inversion/translocation/duplication) + uncovered
+    ("missing"), via hierarchical base assignment — showing where rearrangements
+    and private structure concentrate.
+    """
+    import matplotlib  # noqa: PLC0415
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt  # noqa: PLC0415
+
+    from privy.core.intervals import (  # noqa: PLC0415
+        class_proportions,
+        hierarchical_base_assignment,
+    )
+    from privy.plot.themes import (  # noqa: PLC0415
+        SYNTENY_BLOCK_COLOURS,
+        SYNTENY_BLOCK_ORDER,
+        apply_privy_theme,
+    )
+
+    apply_privy_theme()
+    outdir.mkdir(parents=True, exist_ok=True)
+    rows = _block_rows_to_floats(block_rows)
+
+    fig, ax = plt.subplots(figsize=(width, height))
+    if not rows:
+        ax.text(0.5, 0.5, "No synteny blocks", ha="center", va="center",
+                transform=ax.transAxes, fontsize=12, color="#888888")
+        return _save(fig, plt, outdir, "block_density", output_format, dpi)
+
+    # Primary reference contig (the one with the most blocks).
+    contig = Counter(r["ref_contig"] for r in rows).most_common(1)[0][0]
+    crows = [r for r in rows if r["ref_contig"] == contig]
+    lo = min(r["ref_start"] for r in crows)
+    hi = max(r["ref_end"] for r in crows)
+    span = max(1, hi - lo)
+    w = window or max(1, span // 40)
+    st = step or w
+
+    classes = [*SYNTENY_BLOCK_ORDER, "missing"]
+    feats = [(r["ref_start"], r["ref_end"], r["block_type"]) for r in crows]
+    xs: list[float] = []
+    series: dict[str, list[float]] = {c: [] for c in classes}
+    pos = lo
+    while pos < hi:
+        seg_end = min(pos + w, hi)
+        props = class_proportions(
+            hierarchical_base_assignment(pos, seg_end, feats, SYNTENY_BLOCK_ORDER)
+        )
+        xs.append((pos + seg_end) / 2)
+        for c in classes:
+            series[c].append(props.get(c, 0.0))
+        pos += st
+
+    colours = [
+        "#eeeeee" if c == "missing" else SYNTENY_BLOCK_COLOURS.get(c, "#cccccc")
+        for c in classes
+    ]
+    ax.stackplot(xs, [series[c] for c in classes], labels=classes, colors=colours, alpha=0.85)
+    ax.set_xlabel(f"Reference {contig} position")
+    ax.set_ylabel("block-type proportion")
+    ax.set_ylim(0, 1)
+    ax.set_title("Synteny block-type density")
+    ax.legend(loc="upper right", fontsize=7, ncol=2)
+    return _save(fig, plt, outdir, "block_density", output_format, dpi)
 
 
 def _save(fig: Any, plt: Any, outdir: Path, name: str, output_format: str, dpi: int) -> Path:

@@ -32,6 +32,7 @@ class TestPlotSyntenyCli:
         assert result.exit_code == 0, result.output
         assert (syn / "riparian.png").exists()
         assert (syn / "dotplot.png").exists()
+        assert (syn / "block_density.png").exists()
 
     def test_pdf_to_separate_outdir(self, tmp_path):
         syn = _synteny_dir(tmp_path)

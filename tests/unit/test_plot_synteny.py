@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from privy.io.gfa import parse_gfa
-from privy.plot.synteny import plot_dotplot, plot_riparian
+from privy.plot.synteny import plot_block_density, plot_dotplot, plot_riparian
 from privy.synteny.build import build_synteny
 from privy.synteny.coordinates import PathCoordinateModel
 from privy.synthetic import inversion_pangenome
@@ -62,6 +62,19 @@ class TestDotplot:
 
     def test_empty_rows_placeholder(self, tmp_path):
         out = plot_dotplot([], tmp_path / "fig")
+        assert out.exists()
+
+
+class TestBlockDensity:
+    def test_writes_nonempty(self, tmp_path):
+        rows = _block_rows(tmp_path)
+        out = plot_block_density(rows, tmp_path / "fig")
+        assert out.exists()
+        assert out.name == "block_density.png"
+        assert out.stat().st_size > 0
+
+    def test_empty_rows_placeholder(self, tmp_path):
+        out = plot_block_density([], tmp_path / "fig")
         assert out.exists()
 
 

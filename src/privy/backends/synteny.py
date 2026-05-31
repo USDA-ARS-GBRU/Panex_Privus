@@ -227,7 +227,11 @@ def run_synteny_plots(
     Raises:
         FileNotFoundError: If ``synteny_blocks.tsv`` is missing.
     """
-    from privy.plot.synteny import plot_dotplot, plot_riparian  # noqa: PLC0415
+    from privy.plot.synteny import (  # noqa: PLC0415
+        plot_block_density,
+        plot_dotplot,
+        plot_riparian,
+    )
 
     input_dir = Path(input_dir)
     blocks_tsv = input_dir / "synteny_blocks.tsv"
@@ -240,4 +244,5 @@ def run_synteny_plots(
     return [
         plot_riparian(rows, fig_dir, output_format=plot_format),
         plot_dotplot(rows, fig_dir, output_format=plot_format),
+        plot_block_density(rows, fig_dir, output_format=plot_format),
     ]

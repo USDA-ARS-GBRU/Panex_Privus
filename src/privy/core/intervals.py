@@ -170,3 +170,121 @@ def iter_contig_chunks(
 
     if chunk:
         yield chunk
+
+
+# ---------------------------------------------------------------------------
+# Hierarchical base-assignment-by-class + run-length smoothing
+# ---------------------------------------------------------------------------
+#
+# Adapted from geeViz's count_overlapsByGroup: assign every base in a window to
+# at most one class by priority (no base counted twice), with the uncovered
+# remainder collected as "missing".  This is the data behind stacked-area density
+# / proportion tracks and presence/absence-by-class summaries.
+
+
+def hierarchical_base_assignment(
+    start: int,
+    end: int,
+    features: Iterable[tuple[int, int, str]],
+    priority: list[str],
+) -> dict[str, int]:
+    """Assign each base in ``[start, end)`` to the highest-priority class covering it.
+
+    Bases covered by several classes go to the earliest class in *priority*; bases
+    covered by none accumulate in the ``"missing"`` bucket.  Returns base counts
+    per class (every class in *priority* is present, even if 0) plus ``"missing"``;
+    the counts sum to ``end - start``.
+
+    Coordinate convention: 0-based half-open.  Exact (interval breakpoints, not
+    per-base), so it scales to large windows.
+
+    Args:
+        features: ``(feature_start, feature_end, class)`` tuples (any coordinates;
+            clipped to the window). Classes not in *priority* are ignored.
+    """
+    rank = {c: i for i, c in enumerate(priority)}
+    clipped: list[tuple[int, int, str]] = []
+    breakpoints = {start, end}
+    for f_start, f_end, cls in features:
+        if cls not in rank:
+            continue
+        lo = max(start, f_start)
+        hi = min(end, f_end)
+        if hi <= lo:
+            continue
+        clipped.append((lo, hi, cls))
+        breakpoints.add(lo)
+        breakpoints.add(hi)
+
+    counts = {c: 0 for c in priority}
+    counts["missing"] = 0
+    points = sorted(p for p in breakpoints if start <= p <= end)
+    for seg_start, seg_end in zip(points, points[1:], strict=False):
+        if seg_end <= seg_start:
+            continue
+        best: str | None = None
+        best_rank: int | None = None
+        for lo, hi, cls in clipped:
+            if lo <= seg_start and seg_end <= hi and (best_rank is None or rank[cls] < best_rank):
+                best_rank = rank[cls]
+                best = cls
+        width = seg_end - seg_start
+        if best is None:
+            counts["missing"] += width
+        else:
+            counts[best] += width
+    return counts
+
+
+def class_proportions(counts: dict[str, int]) -> dict[str, float]:
+    """Normalise per-class base counts to proportions summing to 1 (0 if empty)."""
+    total = sum(counts.values())
+    if total == 0:
+        return {c: 0.0 for c in counts}
+    return {c: n / total for c, n in counts.items()}
+
+
+def run_length_smooth(labels: list[str], min_run: int) -> list[str]:
+    """Relabel runs shorter than *min_run* to a neighbouring run's label.
+
+    Removes salt-and-pepper noise from per-window classifications (geeViz's
+    run-length filter): a short run adopts the previous surviving run's label, or
+    the next run's label if it is the leading run.  Returns a new list; a no-op
+    when *min_run* <= 1 or every run is short.
+    """
+    if min_run <= 1 or not labels:
+        return list(labels)
+
+    # Identify maximal runs as (label, start_index, length).
+    runs: list[tuple[str, int, int]] = []
+    i = 0
+    n = len(labels)
+    while i < n:
+        j = i
+        while j < n and labels[j] == labels[i]:
+            j += 1
+        runs.append((labels[i], i, j - i))
+        i = j
+    if all(length < min_run for _label, _start, length in runs):
+        return list(labels)
+
+    out = list(labels)
+    for idx, (_label, start_i, length) in enumerate(runs):
+        if length >= min_run:
+            continue
+        # Find the nearest long run: prefer previous, else next.
+        replacement: str | None = None
+        for j in range(idx - 1, -1, -1):
+            if runs[j][2] >= min_run:
+                replacement = runs[j][0]
+                break
+        if replacement is None:
+            for j in range(idx + 1, len(runs)):
+                if runs[j][2] >= min_run:
+                    replacement = runs[j][0]
+                    break
+        if replacement is None:
+            continue
+        for k in range(start_i, start_i + length):
+            out[k] = replacement
+    return out
