@@ -153,6 +153,23 @@ nav:
         url: /figures-and-tables/#privy-export
       - title: Caveats
         url: /figures-and-tables/#general-interpretation-caveats
+  - title: Comparative Pangenome
+    url: /comparative-pangenome/
+    children:
+      - title: Quick start (synthetic)
+        url: /comparative-pangenome/#try-it-locally-with-synthetic-data
+      - title: Typical workflow
+        url: /comparative-pangenome/#a-typical-workflow
+      - title: Interpreting output
+        url: /comparative-pangenome/#interpreting-the-breeder-output
+      - title: Team tutorial
+        url: /team-guide/
+      - title: Testing guide
+        url: /testing-guide/
+      - title: Sapelo2 live runs
+        url: /sapelo2-runs/
+      - title: Validation & benchmarking
+        url: /benchmarking/
   - title: Configuration
     url: /configuration/
     children:

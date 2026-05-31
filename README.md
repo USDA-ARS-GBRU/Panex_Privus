@@ -230,6 +230,11 @@ More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#plot-d
 
 Use `privy interactive` to build self-contained HTML dashboards for candidate
 focus regions and for existing scan, landscape, or pangenome result directories.
+For collaborator sharing, a trusted HTTPS page is best. If you share through
+OneDrive, SharePoint, Outlook, or Teams, send a zip and ask recipients to
+download and open the `.html` file directly in Edge, Chrome, or Firefox rather
+than using the cloud preview pane. Privy writes `SHARING_NOTES.txt` beside each
+dashboard with this guidance for recipients and IT support.
 
 Build a shareable interactive dashboard for a focus region. In the current
 development implementation, `--focus` names a genomic region to render. Start
@@ -372,6 +377,82 @@ privy export \
 
 More: [Run Guide](https://usda-ars-gbru.github.io/Panex_Privus/run-guide/#export-intervals) | [Figures](https://usda-ars-gbru.github.io/Panex_Privus/figures-and-tables/#privy-export) | [Outputs](https://usda-ars-gbru.github.io/Panex_Privus/outputs/#export-outputs) | [Architecture](https://usda-ars-gbru.github.io/Panex_Privus/architecture/#implementation-architecture)
 
+## Comparative Pangenome Layer (new — under active development)
+
+> [!NOTE]
+> The comparative-pangenome commands below are new and currently
+> **synthetic-data-validated**: they pass an extensive unit + integration test
+> suite on built-in synthetic graphs, but have **not yet been validated on real
+> crop pangenomes or benchmarked against established tools** (that work is planned
+> on the UGA Sapelo2 cluster — see the [validation plan](docs/benchmarking.md)).
+> Treat results as candidate signal pending that validation.
+
+This layer consumes an existing pangenome graph (GFA from minigraph-cactus or
+PGGB) and adds a comparative + breeder-facing layer on top of the target-private
+core: derive syntenic regions, project any coordinate to any reference, resolve
+multi-allelic microhaplotypes, compute breeder population genetics, and render
+interactive visualizations. Full guide:
+[Comparative pangenome workflows](docs/comparative-pangenome.md).
+
+### `privy synteny`
+
+Graph-native (or PAF-anchored) synteny with typed rearrangements
+(collinear / inversion / translocation / duplication) and **target-private
+structural regions**.
+
+```bash
+privy synteny --gfa pangenome.gfa --reference Wm82#0#Gm01 \
+  --targets Benning,Harosoy --off-targets Jack,Lee --outdir results/synteny/
+# also: --paf untangle.paf   (anchors from odgi untangle / minimap2 / wfmash)
+```
+
+### `privy project`
+
+Project a region — or a raw set of graph segments — onto **any** reference
+genome in the graph (and lift annotation tracks across genomes).
+
+```bash
+privy project --gfa pangenome.gfa --region Wm82#0#Gm01:1000000-1500000 --outdir results/project/
+privy project --gfa pangenome.gfa --node-set s120,s121,s122 --outdir results/project/
+```
+
+### `privy microhap`
+
+Detect local **multi-allelic microhaplotypes** and flag **target-private
+alleles**; writes per-locus and allele-matrix tables.
+
+```bash
+privy microhap --gfa pangenome.gfa --reference Wm82#0#Gm01 \
+  --targets Benning,Harosoy --off-targets Jack,Lee --outdir results/microhap/
+```
+
+### `privy popgen`
+
+Breeder population genetics: allelic diversity, target-vs-off-target
+differentiation (F_ST / Jost's D, **diagnostic markers**), PCA, F_IS, private
+allelic richness, plus **GP-ready dosage matrix + VanRaden GRM**.
+
+```bash
+privy popgen --gfa pangenome.gfa --reference Wm82#0#Gm01 \
+  --targets Benning,Harosoy --off-targets Jack,Lee --outdir results/popgen/
+```
+
+### `privy dashboard`
+
+Build a self-contained, offline, interactive HTML dashboard (linked
+riparian ↔ dotplot, target-private highlighting, SVG export, allele panel) from
+synteny (and optional microhap) outputs.
+
+```bash
+privy dashboard --synteny results/synteny/ --microhap results/microhap/
+```
+
+More: [Comparative pangenome guide](docs/comparative-pangenome.md) |
+[Team tutorial](docs/team-guide.md) |
+[Testing guide](docs/testing-guide.md) |
+[Sapelo2 live runs](docs/sapelo2-runs.md) |
+[Validation plan](docs/benchmarking.md)
+
 ## Documentation
 
 The public documentation site is:
@@ -392,7 +473,7 @@ The public documentation site is:
 
 Panex Privus is currently `0.9.1`.
 
-Operational commands:
+Operational commands (released line):
 
 - `privy scan`
 - `privy compare`
@@ -405,7 +486,18 @@ Operational commands:
 - `privy pangenome`
 - `privy interactive`
 
-The current test suite has 701 passing unit and integration tests.
+Comparative-pangenome layer (new; synthetic-validated, on the
+`feature/comparative-pangenome-p0` branch, pending real-data validation):
+
+- `privy synteny`
+- `privy project`
+- `privy microhap`
+- `privy popgen`
+- `privy dashboard`
+
+The released test suite has 701 passing tests; with the comparative-pangenome
+layer the branch suite has **944 passing** unit + integration tests (1 skipped
+when the optional `scikit-learn` extra is absent).
 
 Compact version history and roadmap:
 
@@ -420,8 +512,24 @@ Compact version history and roadmap:
 | `v0.7` | Publication-oriented figure, report, and output documentation | Complete |
 | `v0.8` | GFA indexing, larger example workflows, and reviewer-facing architecture docs | Complete |
 | `v0.9` | VCF landscape summaries, local background blocks, and candidate donor-like intervals | Complete |
-| `v0.9.1` | Interactive HTML dashboards for scan, landscape, pangenome, and focus-region review | Current |
+| `v0.9.1` | Interactive HTML dashboards for scan, landscape, pangenome, and focus-region review | Current (released line) |
 | `v1.0` | Manuscript-ready release hardening, archive-ready examples, and expanded benchmark validation | Planned |
+
+Comparative-pangenome layer (branch `feature/comparative-pangenome-p0`; ✅ Built =
+implemented + synthetic-data-validated in CI; real-data validation pending):
+
+| Version | Focus | Status |
+|---------|-------|--------|
+| `v1.1` | PAF/GFA path-coordinate model; dependency tiers; synthetic fixtures | ✅ Built |
+| `v1.2` | Coordinate projection engine (`privy project`) | ✅ Built |
+| `v1.3` | Graph-native typed synteny (`privy synteny`, GFA + PAF) | ✅ Built |
+| `v1.4` | Alignment- and gene-anchored synteny chainer | ✅ Built |
+| `v1.4.5` | Microhaplotype / allele-space layer (`privy microhap`); MADC + PHG hVCF I/O | ✅ Built |
+| `v1.5` | Static riparian / dotplot / density figures (`privy plot --plot-set synteny`) | ✅ Built |
+| `v1.6` | Interactive comparative dashboard (`privy dashboard`) | ✅ Built (GenomeSpy track-browser deferred) |
+| `v1.7` | Polyploid dosage + GP matrices; chromosome-structure binning | ✅ Built |
+| `v1.7.5` | Breeder population genetics (`privy popgen`) | ✅ Built |
+| `v2.0` | vg-deconstruct ingest; Sapelo2 real-data validation + benchmarks + manuscript | ◐ In progress |
 
 ## Contact
 

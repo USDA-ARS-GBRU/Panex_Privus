@@ -29,6 +29,19 @@ README.
 - [Figures and tables]({{ '/figures-and-tables/' | relative_url }})
 - [Troubleshooting]({{ '/troubleshooting/' | relative_url }})
 
+## Comparative Pangenome (new — under active development)
+
+A new layer that consumes a pangenome graph (GFA) and adds synteny, coordinate
+projection, microhaplotypes, breeder population genetics, and interactive
+visualization on top of the target-private core. Synthetic-data-validated in CI;
+real-data validation pending (see the validation plan).
+
+- [Comparative pangenome workflows]({{ '/comparative-pangenome/' | relative_url }}) — the command guide
+- [Team tutorial]({{ '/team-guide/' | relative_url }}) — hands-on, concepts + worked examples
+- [Testing guide]({{ '/testing-guide/' | relative_url }}) — how to run and read the tests
+- [Sapelo2 live runs]({{ '/sapelo2-runs/' | relative_url }}) — per-crop real-data recipes
+- [Validation & benchmarking plan]({{ '/benchmarking/' | relative_url }})
+
 ## Project Information
 
 - [Current status and roadmap]({{ '/status/' | relative_url }})
