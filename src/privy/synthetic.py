@@ -303,6 +303,34 @@ def microhaplotype_pangenome(seg_len: int = 10, *, contig: str = "chr1") -> Synt
     return pg
 
 
+def autopolyploid_pangenome(
+    ploidy: int = 2,
+    seg_len: int = 10,
+    *,
+    contig: str = "chr1",
+) -> SyntheticPangenome:
+    """A genotype dosage gradient: each sample has *ploidy* haplotype paths.
+
+    All haplotypes share flanks s1 and s5; between them they carry allele ``sA`` or
+    ``sB``.  Sample ``k`` (for k in 0..ploidy) carries exactly ``k`` copies of sB,
+    so the per-sample alt-allele dosage runs 0..ploidy (homozygous-A, ...,
+    heterozygous, ..., homozygous-B).  Each sample is one polyploid genotype made
+    of its ``ploidy`` PanSN haplotype paths ``sample{k}#{h}#{contig}``.
+    """
+    if ploidy < 1:
+        raise ValueError("ploidy must be >= 1")
+    pg = SyntheticPangenome()
+    for seg_id in ("s1", "s5", "sA", "sB"):
+        pg.add_segment(seg_id, seg_len)
+    for k in range(ploidy + 1):
+        for h in range(ploidy):
+            allele = "sB" if h < k else "sA"
+            steps = [("s1", "+"), (allele, "+"), ("s5", "+")]
+            pg.add_genome(f"sample{k}#{h}#{contig}", steps, cohort="offtarget")
+    pg.tag_reference(f"sample0#0#{contig}")
+    return pg
+
+
 def allopolyploid_pangenome(seg_len: int = 10) -> SyntheticPangenome:
     """An AADD-style allotetraploid: two subgenomes (chrA, chrD) per sample.
 
